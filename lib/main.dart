@@ -152,7 +152,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFCCCCCC), // 픽셀아트 스타일의 배경색
+      backgroundColor: const Color.fromARGB(255, 91, 151, 133), // 패딩 뒤쪽 배경색
+      // backgroundColor: const Color(0xFFCCCCCC),
       appBar: AppBar(
         title: Text(
           'Calender v250512',
@@ -164,7 +165,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
         children: [
           // 메인 콘텐츠
           Padding(
-            padding: const EdgeInsets.all(0.0),
+            padding: const EdgeInsets.all(22.0),
             child: Container(
               height: double.infinity, // 무한으로 설정
               decoration: BoxDecoration(
@@ -619,7 +620,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
                                           height: 12,
                                         ), // 이미지와 텍스트 사이 간격
                                         Text(
-                                          '이벤트가 없습니다',
+                                          '할 일이 없어. 아직은..',
                                           style: GoogleFonts.pressStart2p(
                                             fontSize: 10,
                                             color: Colors.grey,
