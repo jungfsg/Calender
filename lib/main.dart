@@ -597,7 +597,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
                       Container(
                         width: 700, // 기본 너비 지정 -> _showEventPopup에서도 수정해야 함
                         constraints: const BoxConstraints(
-                          maxHeight: 300, // 최대 높이 제한
+                          maxHeight:
+                              300, // 최대 높이 제한 -> 빈 이벤트에 최대치가 그대로 반영되는 문제 있음
                           maxWidth: 700,
                         ),
                         child:
@@ -606,13 +607,26 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
                                 ? Padding(
                                   padding: const EdgeInsets.all(16.0),
                                   child: Center(
-                                    child: Text(
-                                      '이벤트가 없습니다',
-                                      style: GoogleFonts.pressStart2p(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                      ),
-                                      textAlign: TextAlign.center,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Image.asset(
+                                          'assets/images/cat1.png', // 이미지 경로
+                                          width: 100, // 원하는 크기로 조정
+                                          height: 100, // 원하는 크기로 조정
+                                        ),
+                                        const SizedBox(
+                                          height: 12,
+                                        ), // 이미지와 텍스트 사이 간격
+                                        Text(
+                                          '이벤트가 없습니다',
+                                          style: GoogleFonts.pressStart2p(
+                                            fontSize: 10,
+                                            color: Colors.grey,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 )
