@@ -63,7 +63,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
       backgroundColor: const Color(0xFFCCCCCC), // 픽셀아트 스타일의 배경색
       appBar: AppBar(
         title: Text(
-          '픽셀아트 캘린더',
+          'Calender v250512',
           style: GoogleFonts.pressStart2p(fontSize: 14, color: Colors.white),
         ),
         backgroundColor: Colors.black,
@@ -72,13 +72,15 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 픽셀아트 스타일 캘린더
+            // 캘린더 Container
             Container(
+              height: 1000,
               decoration: BoxDecoration(
                 color: const Color(0xFFFFFFFF),
                 border: Border.all(color: Colors.black, width: 4),
               ),
               child: TableCalendar(
+                // 구현할 시간 범위 산정
                 firstDay: DateTime.utc(2020, 1, 1),
                 lastDay: DateTime.utc(2030, 12, 31),
                 focusedDay: _focusedDay,
@@ -110,8 +112,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
                 // 이벤트 로더
                 eventLoader: _getEventsForDay,
 
-                // 시작 요일 (월요일)
-                startingDayOfWeek: StartingDayOfWeek.monday,
+                // 시작 요일 (월요일) -> 일요일
+                startingDayOfWeek: StartingDayOfWeek.sunday,
 
                 // 헤더 스타일
                 headerStyle: HeaderStyle(
@@ -364,8 +366,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
               ),
             ),
 
-            const SizedBox(height: 16),
-
+            const SizedBox(height: 16), // 달력과 이벤트 표시 사이 간격
             // 선택된 날짜의 이벤트 표시
             Expanded(
               child: Container(
