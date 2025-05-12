@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '픽셀아트 캘린더',
+      title: 'Calender 250512',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const PixelArtCalendarScreen(),
     );
