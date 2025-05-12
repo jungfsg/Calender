@@ -537,7 +537,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
               height: double.infinity,
               child: Center(
                 child: Container(
-                  width: 700, // 팝업 리스트의 너비 부분
+                  width: 300, // 팝업 리스트의 너비 부분
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: Colors.black, width: 4),
@@ -597,7 +597,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
                       Container(
                         width: 700, // 기본 너비 지정 -> _showEventPopup에서도 수정해야 함
                         constraints: const BoxConstraints(
-                          maxHeight: 700, // 최대 높이 제한
+                          maxHeight: 300, // 최대 높이 제한
                           maxWidth: 700,
                         ),
                         child:
