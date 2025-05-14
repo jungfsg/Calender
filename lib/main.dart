@@ -4,10 +4,188 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:math';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/empty_page.dart';
 
 void main() {
   runApp(const MyApp());
+}
+
+// 일정 저장/로드를 위한 서비스 클래스
+class EventStorageService {
+  static const String ALL_EVENTS_KEY = 'all_events';
+  static const String ALL_TIMESLOTS_KEY = 'all_timeslots';
+
+  // 모든 이벤트 저장
+  static Future<void> saveAllEvents(Map<String, List<String>> allEvents) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonData = jsonEncode(allEvents);
+    await prefs.setString(ALL_EVENTS_KEY, jsonData);
+  }
+
+  // 모든 이벤트 로드
+  static Future<Map<String, List<String>>> getAllEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonData = prefs.getString(ALL_EVENTS_KEY);
+
+    if (jsonData == null || jsonData.isEmpty) {
+      return {};
+    }
+
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(jsonData);
+      final Map<String, List<String>> result = {};
+
+      decoded.forEach((key, value) {
+        if (value is List) {
+          result[key] = List<String>.from(value);
+        }
+      });
+
+      return result;
+    } catch (e) {
+      print('이벤트 데이터 파싱 오류: $e');
+      return {};
+    }
+  }
+
+  // 특정 날짜의 이벤트 저장
+  static Future<void> saveEvents(DateTime date, List<String> events) async {
+    final dateKey = _getKey(date);
+    final allEvents = await getAllEvents();
+    allEvents[dateKey] = events;
+    await saveAllEvents(allEvents);
+  }
+
+  // 특정 날짜의 이벤트 로드
+  static Future<List<String>> getEvents(DateTime date) async {
+    final dateKey = _getKey(date);
+    final allEvents = await getAllEvents();
+    return allEvents[dateKey] ?? [];
+  }
+
+  // 이벤트 추가
+  static Future<void> addEvent(DateTime date, String event) async {
+    print('이벤트 저장 시작: $date, 내용: $event');
+    final events = await getEvents(date);
+    // print('기존 이벤트: $events');
+    events.add(event);
+    await saveEvents(date, events);
+  }
+
+  // 이벤트 삭제
+  static Future<void> removeEvent(DateTime date, String event) async {
+    final events = await getEvents(date);
+    events.remove(event);
+    await saveEvents(date, events);
+  }
+
+  // 타임슬롯 관련 메서드는 이전과 유사하게 유지하되 저장 방식 수정
+  // 모든 타임슬롯 저장
+  static Future<void> saveAllTimeSlots(
+    Map<String, List<Map<String, dynamic>>> allTimeSlots,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonData = jsonEncode(allTimeSlots);
+    await prefs.setString(ALL_TIMESLOTS_KEY, jsonData);
+  }
+
+  // 모든 타임슬롯 로드
+  static Future<Map<String, List<Map<String, dynamic>>>>
+  getAllTimeSlots() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonData = prefs.getString(ALL_TIMESLOTS_KEY);
+
+    if (jsonData == null || jsonData.isEmpty) {
+      return {};
+    }
+
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(jsonData);
+      final Map<String, List<Map<String, dynamic>>> result = {};
+
+      decoded.forEach((key, value) {
+        if (value is List) {
+          result[key] = List<Map<String, dynamic>>.from(
+            value.map((item) => Map<String, dynamic>.from(item)),
+          );
+        }
+      });
+
+      return result;
+    } catch (e) {
+      print('타임슬롯 데이터 파싱 오류: $e');
+      return {};
+    }
+  }
+
+  // 특정 날짜의 타임슬롯 저장
+  static Future<void> saveTimeSlots(
+    DateTime date,
+    List<TimeSlot> timeSlots,
+  ) async {
+    final dateKey = _getKey(date);
+    final allTimeSlots = await getAllTimeSlots();
+
+    // TimeSlot 객체를 JSON으로 변환
+    final List<Map<String, dynamic>> timeSlotMaps =
+        timeSlots
+            .map(
+              (slot) => {
+                'title': slot.title,
+                'startTime': slot.startTime,
+                'endTime': slot.endTime,
+                'colorValue': slot.color.value,
+              },
+            )
+            .toList();
+
+    allTimeSlots[dateKey] = timeSlotMaps;
+    await saveAllTimeSlots(allTimeSlots);
+  }
+
+  // 특정 날짜의 타임슬롯 로드
+  static Future<List<TimeSlot>> getTimeSlots(DateTime date) async {
+    final dateKey = _getKey(date);
+    final allTimeSlots = await getAllTimeSlots();
+    final timeSlotMaps = allTimeSlots[dateKey] ?? [];
+
+    // JSON을 TimeSlot 객체로 변환
+    return timeSlotMaps
+        .map(
+          (map) => TimeSlot(
+            map['title'],
+            map['startTime'],
+            map['endTime'],
+            Color(map['colorValue']),
+          ),
+        )
+        .toList();
+  }
+
+  // 타임슬롯 추가
+  static Future<void> addTimeSlot(DateTime date, TimeSlot timeSlot) async {
+    final timeSlots = await getTimeSlots(date);
+    timeSlots.add(timeSlot);
+    await saveTimeSlots(date, timeSlots);
+  }
+
+  // 날짜 키 생성 (YYYY-MM-DD 형식)
+  static String _getKey(DateTime date) {
+    return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+  }
+
+  // 저장된 모든 키 목록 출력 (디버그용)
+  static Future<void> printAllKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+    print('저장된 키 목록: $keys');
+
+    if (keys.contains(ALL_EVENTS_KEY)) {
+      print('이벤트 저장 확인: ALL_EVENTS_KEY 존재');
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -60,11 +238,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   bool _isMovingHorizontally = true;
   final Random _random = Random();
 
-  // 샘플 이벤트 데이터
-  final Map<DateTime, List<String>> _events = {};
-
-  // 샘플 타임 테이블 데이터
-  final Map<DateTime, List<TimeSlot>> _timeSlots = {};
+  // 현재 날짜별 로드된 이벤트 캐시 - 키를 String으로 변경
+  final Map<String, List<String>> _events = {};
+  // 현재 날짜별 로드된 타임 테이블 캐시 - 키를 String으로 변경
+  final Map<String, List<TimeSlot>> _timeSlots = {};
 
   // 이벤트 색상 매핑
   final Map<String, Color> _eventColors = {};
@@ -79,7 +256,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     Colors.indigo,
     Colors.teal,
   ];
-  // test
+
+  // 현재 로드 중인 날짜를 추적하기 위한 세트
+  final Set<String> _loadingDates = {};
+  // 현재 타임슬롯 로드 중인 날짜를 추적하기 위한 세트
+  final Set<String> _loadingTimeSlots = {};
+
   @override
   void initState() {
     super.initState();
@@ -87,44 +269,135 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     _selectedDay = DateTime.now();
     _calendarFormat = CalendarFormat.month; // 항상 월 형식으로 고정
 
-    // 샘플 이벤트 추가
-    final today = DateTime.now();
-    _events[DateTime(today.year, today.month, today.day + 2)] = [
-      '이벤트 1',
-      '이벤트 2',
-    ];
-    _events[DateTime(today.year, today.month, today.day + 5)] = ['이벤트 3'];
-    _events[DateTime(today.year, today.month, today.day)] = [
-      '오늘의 이벤트',
-      '중요한 미팅',
-      '저녁 약속',
-    ];
+    // 저장된 모든 키 확인
+    EventStorageService.printAllKeys();
 
-    // 샘플 타임 테이블 추가
-    _timeSlots[DateTime(today.year, today.month, today.day)] = [
-      TimeSlot('아침 운동', '06:00', '07:00', Colors.green),
-      TimeSlot('미팅', '09:00', '10:30', Colors.blue),
-      TimeSlot('점심', '12:00', '13:00', Colors.orange),
-      TimeSlot('프로젝트 작업', '14:00', '17:00', Colors.purple),
-    ];
-    _timeSlots[DateTime(today.year, today.month, today.day + 2)] = [
-      TimeSlot('병원 예약', '10:00', '11:00', Colors.red),
-      TimeSlot('영화 관람', '19:00', '21:30', Colors.indigo),
-    ];
-
-    // 이벤트별 색상 할당 - 일관된 색상을 위해
-    int colorIndex = 0;
-    for (var dayEvents in _events.values) {
-      for (var event in dayEvents) {
-        if (!_eventColors.containsKey(event)) {
-          _eventColors[event] = _colors[colorIndex % _colors.length];
-          colorIndex++;
-        }
-      }
-    }
+    // 초기 데이터 로드
+    _loadInitialData();
 
     // 움직이는 버튼 초기 위치 설정
     _startButtonMovement();
+  }
+
+  // 애플리케이션 시작 시 초기 데이터 로드
+  Future<void> _loadInitialData() async {
+    // 현재 날짜의 이벤트 로드
+    await _loadEventsForDay(_selectedDay);
+    await _loadTimeSlotsForDay(_selectedDay);
+
+    // 화면 갱신
+    setState(() {});
+  }
+
+  // 날짜별 이벤트 로드 및 캐시
+  Future<void> _loadEventsForDay(DateTime day) async {
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+    final dateKey = _getKey(normalizedDay);
+    // print('날짜별 이벤트 로드 요청: $normalizedDay, 키: $dateKey');
+
+    // 캐시에 없으면 로드
+    if (!_events.containsKey(dateKey)) {
+      final events = await EventStorageService.getEvents(normalizedDay);
+      _events[dateKey] = events;
+      // print('이벤트 로드 완료: $events, 키: $dateKey');
+
+      // 이벤트 색상 할당
+      _assignColorsToEvents(events);
+    } else {
+      // print('캐시에서 이벤트 반환: ${_events[dateKey]}, 키: $dateKey');
+    }
+  }
+
+  // 날짜별 타임슬롯 로드 및 캐시
+  Future<void> _loadTimeSlotsForDay(DateTime day) async {
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+    final dateKey = _getKey(normalizedDay);
+
+    // 캐시에 없으면 로드
+    if (!_timeSlots.containsKey(dateKey)) {
+      final timeSlots = await EventStorageService.getTimeSlots(normalizedDay);
+      _timeSlots[dateKey] = timeSlots;
+    }
+  }
+
+  // 이벤트에 색상 할당
+  void _assignColorsToEvents(List<String> events) {
+    int colorIndex = 0;
+    for (var event in events) {
+      if (!_eventColors.containsKey(event)) {
+        _eventColors[event] = _colors[colorIndex % _colors.length];
+        colorIndex++;
+      }
+    }
+  }
+
+  // 이벤트 추가
+  Future<void> _addEvent(String title) async {
+    print('이벤트 추가: $title, 날짜: $_selectedDay');
+    final normalizedDay = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+    final dateKey = _getKey(normalizedDay);
+
+    // 이벤트 저장
+    await EventStorageService.addEvent(normalizedDay, title);
+
+    // 캐시 업데이트
+    await _loadEventsForDay(normalizedDay);
+
+    // UI 갱신 - 상태 업데이트를 통해 전체 캘린더 새로고침
+    setState(() {
+      print('이벤트 추가 완료: $title');
+      // 현재 선택된 날짜를 다시 설정하여 날짜 이벤트 정보 새로고침
+      _focusedDay = normalizedDay;
+      _selectedDay = normalizedDay;
+    });
+  }
+
+  // 이벤트 삭제
+  Future<void> _removeEvent(String event) async {
+    final normalizedDay = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+    final dateKey = _getKey(normalizedDay);
+
+    // 이벤트 삭제
+    await EventStorageService.removeEvent(normalizedDay, event);
+
+    // 캐시 업데이트
+    await _loadEventsForDay(normalizedDay);
+
+    // UI 갱신
+    setState(() {});
+  }
+
+  // 타임슬롯 추가
+  Future<void> _addTimeSlot(
+    String title,
+    String startTime,
+    String endTime,
+    Color color,
+  ) async {
+    final normalizedDay = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+    );
+    final dateKey = _getKey(normalizedDay);
+    final timeSlot = TimeSlot(title, startTime, endTime, color);
+
+    // 타임슬롯 저장
+    await EventStorageService.addTimeSlot(normalizedDay, timeSlot);
+
+    // 캐시 업데이트
+    await _loadTimeSlotsForDay(normalizedDay);
+
+    // UI 갱신
+    setState(() {});
   }
 
   @override
@@ -211,13 +484,40 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   // 날짜별 이벤트 가져오기
   List<String> _getEventsForDay(DateTime day) {
     final normalizedDay = DateTime(day.year, day.month, day.day);
-    return _events[normalizedDay] ?? [];
+    final dateKey = _getKey(normalizedDay);
+
+    // 캐시에 없는 경우에만 로드하고 로그 출력 (이미 로드 요청 중인지 확인)
+    if (!_events.containsKey(dateKey) && !_loadingDates.contains(dateKey)) {
+      _loadingDates.add(dateKey); // 로드 중인 날짜 추가
+      _loadEventsForDay(normalizedDay).then((_) {
+        setState(() {
+          _loadingDates.remove(dateKey); // 로드 완료 후 제거
+        });
+      });
+      return [];
+    }
+
+    return _events[dateKey] ?? [];
   }
 
   // 날짜별 타임 테이블 가져오기
   List<TimeSlot> _getTimeSlotsForDay(DateTime day) {
     final normalizedDay = DateTime(day.year, day.month, day.day);
-    return _timeSlots[normalizedDay] ?? [];
+    final dateKey = _getKey(normalizedDay);
+
+    // 캐시에 없고 아직 로드 중이지 않은 경우에만 로드 요청
+    if (!_timeSlots.containsKey(dateKey) &&
+        !_loadingTimeSlots.contains(dateKey)) {
+      _loadingTimeSlots.add(dateKey);
+      _loadTimeSlotsForDay(normalizedDay).then((_) {
+        setState(() {
+          _loadingTimeSlots.remove(dateKey);
+        });
+      });
+      return [];
+    }
+
+    return _timeSlots[dateKey] ?? [];
   }
 
   // 이벤트 팝업 표시/숨김
@@ -246,6 +546,154 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     setState(() {
       _showTimeTablePopup = false;
     });
+  }
+
+  // 이벤트 추가 다이얼로그 표시
+  void _showAddEventDialog() {
+    final TextEditingController _textController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              '새 일정 추가',
+              style: GoogleFonts.pressStart2p(fontSize: 14),
+            ),
+            content: TextField(
+              controller: _textController,
+              decoration: InputDecoration(hintText: '일정을 입력하세요'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  '취소',
+                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  if (_textController.text.isNotEmpty) {
+                    await _addEvent(_textController.text);
+                    Navigator.pop(context);
+
+                    // 저장 후 상태 확인만 출력
+                    EventStorageService.printAllKeys();
+                  }
+                },
+                child: Text(
+                  '추가',
+                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // 타임슬롯 추가 다이얼로그 표시
+  void _showAddTimeSlotDialog() {
+    final titleController = TextEditingController();
+    final startTimeController = TextEditingController();
+    final endTimeController = TextEditingController();
+    Color selectedColor = _colors[_random.nextInt(_colors.length)];
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              '새 일정 추가',
+              style: GoogleFonts.pressStart2p(fontSize: 14),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(hintText: '일정 제목'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: startTimeController,
+                    decoration: InputDecoration(hintText: '시작 시간 (HH:MM)'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: endTimeController,
+                    decoration: InputDecoration(hintText: '종료 시간 (HH:MM)'),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children:
+                        _colors
+                            .map(
+                              (color) => GestureDetector(
+                                onTap: () {
+                                  selectedColor = color;
+                                  Navigator.pop(context);
+                                  _showAddTimeSlotDialog(); // 색상 선택 후 다이얼로그 다시 표시
+                                },
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    border: Border.all(
+                                      color:
+                                          selectedColor == color
+                                              ? Colors.black
+                                              : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  '취소',
+                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (titleController.text.isNotEmpty &&
+                      startTimeController.text.isNotEmpty &&
+                      endTimeController.text.isNotEmpty) {
+                    _addTimeSlot(
+                      titleController.text,
+                      startTimeController.text,
+                      endTimeController.text,
+                      selectedColor,
+                    );
+                    Navigator.pop(context);
+                  }
+                },
+                child: Text(
+                  '추가',
+                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // 캐시 키를 생성하기 위한 헬퍼 메서드
+  String _getKey(DateTime date) {
+    return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
   @override
@@ -665,27 +1113,54 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                                 color: Colors.white,
                               ),
                             ),
-                            GestureDetector(
-                              onTap: _hideEventDialog,
-                              child: Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1,
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: _showAddEventDialog,
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '+',
+                                      style: GoogleFonts.pressStart2p(
+                                        fontSize: 8,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'X',
-                                  style: GoogleFonts.pressStart2p(
-                                    fontSize: 8,
-                                    color: Colors.white,
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _hideEventDialog,
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      'X',
+                                      style: GoogleFonts.pressStart2p(
+                                        fontSize: 8,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
@@ -809,27 +1284,54 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                                 color: Colors.white,
                               ),
                             ),
-                            GestureDetector(
-                              onTap: _hideTimeTableDialog,
-                              child: Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1,
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: _showAddTimeSlotDialog,
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '+',
+                                      style: GoogleFonts.pressStart2p(
+                                        fontSize: 8,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'X',
-                                  style: GoogleFonts.pressStart2p(
-                                    fontSize: 8,
-                                    color: Colors.white,
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _hideTimeTableDialog,
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      'X',
+                                      style: GoogleFonts.pressStart2p(
+                                        fontSize: 8,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
