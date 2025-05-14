@@ -11,7 +11,7 @@ class EmptyPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           '빈 페이지',
-          style: GoogleFonts.pressStart2p(fontSize: 14, color: Colors.white),
+          style: GoogleFonts.pressStart2p(fontSize: 24, color: Colors.white),
         ),
         backgroundColor: Colors.black,
       ),
