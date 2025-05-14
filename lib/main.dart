@@ -711,12 +711,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Image.asset(
-                                          'assets/images/cat1.png', // 이미지 경로
-                                          width: 100, // 원하는 크기로 조정
-                                          height: 100, // 원하는 크기로 조정
+                                          'assets/images/balloon (1).gif', // 이미지 경로
+                                          width: 150, // 원하는 크기로 조정
+                                          height: 150, // 원하는 크기로 조정
                                         ),
                                         const SizedBox(
-                                          height: 12,
+                                          height: 24,
                                         ), // 이미지와 텍스트 사이 간격
                                         Text(
                                           '할 일이 없어. 아직은..',
