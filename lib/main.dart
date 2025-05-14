@@ -152,7 +152,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 226, 169, 132), // 패딩 뒤쪽 배경색
+      backgroundColor: const Color.fromARGB(255, 162, 222, 141), // 패딩 뒤쪽 배경색
       // backgroundColor: const Color(0xFFCCCCCC),
       appBar: AppBar(
         title: Text(
