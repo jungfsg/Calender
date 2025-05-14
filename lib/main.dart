@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
+import 'dart:math';
+import 'pages/empty_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -37,13 +40,25 @@ class TimeSlot {
   TimeSlot(this.title, this.startTime, this.endTime, this.color);
 }
 
-class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
+class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
+    with TickerProviderStateMixin {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
   late CalendarFormat _calendarFormat;
 
   bool _showEventPopup = false; // 이벤트 팝업 표시 여부
   bool _showTimeTablePopup = false; // 타임테이블 팝업 표시 여부
+
+  // 움직이는 버튼 관련 변수
+  double _buttonLeft = 0;
+  double _buttonTop = 0;
+  double _buttonRight = 0;
+  double _buttonBottom = 0;
+  int _currentEdge = 0; // 0: 상단, 1: 오른쪽, 2: 하단, 3: 왼쪽
+  Timer? _timer;
+  final double _buttonSize = 80;
+  bool _isMovingHorizontally = true;
+  final Random _random = Random();
 
   // 샘플 이벤트 데이터
   final Map<DateTime, List<String>> _events = {};
@@ -107,6 +122,90 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
         }
       }
     }
+
+    // 움직이는 버튼 초기 위치 설정
+    _startButtonMovement();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // 버튼 움직임 시작
+  void _startButtonMovement() {
+    // 타이머 간격을 변경하여 업데이트 빈도 조정 (밀리초 단위)
+    // 값이 작을수록 더 부드럽게 움직이고, 클수록 덜 부드럽게 움직입니다
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      setState(() {
+        _moveButton();
+      });
+    });
+  }
+
+  // 버튼 움직임 로직
+  void _moveButton() {
+    final size = MediaQuery.of(context).size;
+    final speed = 4.0 + _random.nextDouble() * 4.0; // 지정값 사이의 랜덤 속도
+
+    // 앱바와 화면 패딩을 고려한 실제 가용 영역 계산
+    final appBarHeight = AppBar().preferredSize.height;
+    final safeAreaTop = MediaQuery.of(context).padding.top;
+    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+
+    // 화면 패딩 고려 (main.dart에서 사용하는 패딩 값)
+    final screenPadding = 22.0;
+
+    // 실제 가용 화면 영역
+    final effectiveHeight = size.height - appBarHeight - safeAreaTop;
+    final effectiveWidth = size.width;
+
+    switch (_currentEdge) {
+      case 0: // 상단
+        _buttonLeft += speed;
+        _buttonTop = screenPadding;
+        if (_buttonLeft + _buttonSize >= effectiveWidth - screenPadding) {
+          _buttonLeft = effectiveWidth - _buttonSize - screenPadding;
+          _currentEdge = 1; // 오른쪽으로 전환
+        }
+        break;
+      case 1: // 오른쪽
+        _buttonTop += speed;
+        _buttonLeft = effectiveWidth - _buttonSize - screenPadding;
+        if (_buttonTop + _buttonSize >=
+            effectiveHeight - screenPadding - safeAreaBottom) {
+          _buttonTop =
+              effectiveHeight - _buttonSize - screenPadding - safeAreaBottom;
+          _currentEdge = 2; // 하단으로 전환
+        }
+        break;
+      case 2: // 하단
+        _buttonLeft -= speed;
+        _buttonTop =
+            effectiveHeight - _buttonSize - screenPadding - safeAreaBottom;
+        if (_buttonLeft <= screenPadding) {
+          _buttonLeft = screenPadding;
+          _currentEdge = 3; // 왼쪽으로 전환
+        }
+        break;
+      case 3: // 왼쪽
+        _buttonTop -= speed;
+        _buttonLeft = screenPadding;
+        if (_buttonTop <= screenPadding) {
+          _buttonTop = screenPadding;
+          _currentEdge = 0; // 상단으로 전환
+        }
+        break;
+    }
+  }
+
+  // 빈 페이지로 이동
+  void _navigateToEmptyPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EmptyPage()),
+    );
   }
 
   // 날짜별 이벤트 가져오기
@@ -823,6 +922,23 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen> {
                 ),
               ),
             ),
+
+          // 움직이는 GIF 버튼
+          Positioned(
+            left: _buttonLeft,
+            top: _buttonTop,
+            child: GestureDetector(
+              onTap: _navigateToEmptyPage,
+              child: Container(
+                width: _buttonSize,
+                height: _buttonSize,
+                child: Image.asset(
+                  'assets/images/original (2).gif',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
