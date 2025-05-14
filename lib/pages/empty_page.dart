@@ -10,7 +10,7 @@ class EmptyPage extends StatelessWidget {
       backgroundColor: const Color.fromARGB(255, 162, 222, 141), // 패딩 뒤쪽 배경색
       appBar: AppBar(
         title: Text(
-          '빈 페이지',
+          'Empty Page',
           style: GoogleFonts.pressStart2p(fontSize: 24, color: Colors.white),
         ),
         backgroundColor: Colors.black,
@@ -23,7 +23,7 @@ class EmptyPage extends StatelessWidget {
           decoration: const BoxDecoration(color: Colors.white),
           child: Center(
             child: Text(
-              '빈 페이지입니다',
+              'Empty Page',
               style: GoogleFonts.pressStart2p(
                 fontSize: 12,
                 color: Colors.black,
