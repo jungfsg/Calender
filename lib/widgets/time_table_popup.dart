@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/time_slot.dart';
+import '../utils/font_utils.dart';
 
 class TimeTablePopup extends StatelessWidget {
   final DateTime selectedDay;
@@ -48,9 +48,11 @@ class TimeTablePopup extends StatelessWidget {
                   children: [
                     Text(
                       '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 시간표',
-                      style: GoogleFonts.pressStart2p(
+                      style: getCustomTextStyle(
                         fontSize: 8,
                         color: Colors.white,
+                        text:
+                            '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 시간표',
                       ),
                     ),
                     Row(
@@ -67,9 +69,10 @@ class TimeTablePopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               '+',
-                              style: GoogleFonts.pressStart2p(
+                              style: getCustomTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
+                                text: '+',
                               ),
                             ),
                           ),
@@ -87,9 +90,10 @@ class TimeTablePopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               'X',
-                              style: GoogleFonts.pressStart2p(
+                              style: getCustomTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
+                                text: 'X',
                               ),
                             ),
                           ),
@@ -110,9 +114,10 @@ class TimeTablePopup extends StatelessWidget {
                           child: Center(
                             child: Text(
                               '일정이 없습니다',
-                              style: GoogleFonts.pressStart2p(
+                              style: getCustomTextStyle(
                                 fontSize: 10,
                                 color: Colors.grey,
+                                text: '일정이 없습니다',
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -145,17 +150,20 @@ class TimeTablePopup extends StatelessWidget {
                                       children: [
                                         Text(
                                           slot.title,
-                                          style: GoogleFonts.pressStart2p(
+                                          style: getCustomTextStyle(
                                             fontSize: 10,
                                             color: Colors.black,
+                                            text: slot.title,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           '${slot.startTime} - ${slot.endTime}',
-                                          style: GoogleFonts.pressStart2p(
+                                          style: getCustomTextStyle(
                                             fontSize: 8,
-                                            color: Colors.grey[800],
+                                            color: Colors.grey[800]!,
+                                            text:
+                                                '${slot.startTime} - ${slot.endTime}',
                                           ),
                                         ),
                                       ],

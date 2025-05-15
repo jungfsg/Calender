@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../utils/font_utils.dart';
 
 class EmptyPage extends StatelessWidget {
   const EmptyPage({Key? key}) : super(key: key);
@@ -10,7 +10,11 @@ class EmptyPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           '빈 페이지',
-          style: GoogleFonts.pressStart2p(fontSize: 14, color: Colors.white),
+          style: getCustomTextStyle(
+            fontSize: 14,
+            color: Colors.white,
+            text: '빈 페이지',
+          ),
         ),
         backgroundColor: Colors.black,
       ),
@@ -26,7 +30,7 @@ class EmptyPage extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               '아직 준비 중인 페이지입니다',
-              style: GoogleFonts.pressStart2p(fontSize: 12),
+              style: getCustomTextStyle(fontSize: 12, text: '아직 준비 중인 페이지입니다'),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -34,7 +38,7 @@ class EmptyPage extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 '돌아가기',
-                style: GoogleFonts.pressStart2p(fontSize: 10),
+                style: getCustomTextStyle(fontSize: 10, text: '돌아가기'),
               ),
             ),
           ],

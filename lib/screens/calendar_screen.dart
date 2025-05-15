@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:math';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'empty_page.dart';
+import '../utils/font_utils.dart';
 
 import '../models/time_slot.dart';
 import '../services/event_storage_service.dart';
 import '../widgets/event_popup.dart';
 import '../widgets/time_table_popup.dart';
 import '../widgets/moving_button.dart';
-import 'empty_page.dart';
+import '../utils/font_utils.dart';
 
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
@@ -322,13 +326,14 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   // 이벤트 추가 다이얼로그 표시
   void _showAddEventDialog() {
     final TextEditingController _textController = TextEditingController();
+
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             title: Text(
               '새 일정 추가',
-              style: GoogleFonts.pressStart2p(fontSize: 14),
+              style: getCustomTextStyle(fontSize: 14, text: '새 일정 추가'),
             ),
             content: TextField(
               controller: _textController,
@@ -339,7 +344,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 onPressed: () => Navigator.pop(context),
                 child: Text(
                   '취소',
-                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                  style: getCustomTextStyle(fontSize: 10, text: '취소'),
                 ),
               ),
               TextButton(
@@ -347,13 +352,14 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   if (_textController.text.isNotEmpty) {
                     await _addEvent(_textController.text);
                     Navigator.pop(context);
+
                     // 저장 후 상태 확인만 출력
                     EventStorageService.printAllKeys();
                   }
                 },
                 child: Text(
                   '추가',
-                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                  style: getCustomTextStyle(fontSize: 10, text: '추가'),
                 ),
               ),
             ],
@@ -374,7 +380,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
           (context) => AlertDialog(
             title: Text(
               '새 일정 추가',
-              style: GoogleFonts.pressStart2p(fontSize: 14),
+              style: getCustomTextStyle(fontSize: 14, text: '새 일정 추가'),
             ),
             content: SingleChildScrollView(
               child: Column(
@@ -433,7 +439,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 onPressed: () => Navigator.pop(context),
                 child: Text(
                   '취소',
-                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                  style: getCustomTextStyle(fontSize: 10, text: '취소'),
                 ),
               ),
               TextButton(
@@ -452,7 +458,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 },
                 child: Text(
                   '추가',
-                  style: GoogleFonts.pressStart2p(fontSize: 10),
+                  style: getCustomTextStyle(fontSize: 10, text: '추가'),
                 ),
               ),
             ],
@@ -472,7 +478,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       appBar: AppBar(
         title: Text(
           'Calender v250514',
-          style: GoogleFonts.pressStart2p(fontSize: 14, color: Colors.white),
+          style: getCustomTextStyle(
+            fontSize: 14,
+            color: Colors.white,
+            text: 'Calender v250514',
+          ),
         ),
         backgroundColor: Colors.black,
       ),
@@ -511,7 +521,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 eventLoader: _getEventsForDay,
                 startingDayOfWeek: StartingDayOfWeek.sunday,
                 headerStyle: HeaderStyle(
-                  titleTextStyle: GoogleFonts.pressStart2p(
+                  titleTextStyle: getCustomTextStyle(
                     fontSize: 12,
                     color: Colors.black,
                   ),
@@ -531,11 +541,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   titleCentered: true,
                 ),
                 daysOfWeekStyle: DaysOfWeekStyle(
-                  weekdayStyle: GoogleFonts.pressStart2p(
+                  weekdayStyle: getCustomTextStyle(
                     fontSize: 8,
                     color: Colors.black,
                   ),
-                  weekendStyle: GoogleFonts.pressStart2p(
+                  weekendStyle: getCustomTextStyle(
                     fontSize: 8,
                     color: Colors.red,
                   ),
@@ -545,23 +555,23 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   ),
                 ),
                 calendarStyle: CalendarStyle(
-                  defaultTextStyle: GoogleFonts.pressStart2p(
+                  defaultTextStyle: getCustomTextStyle(
                     fontSize: 8,
                     color: Colors.black,
                   ),
-                  weekendTextStyle: GoogleFonts.pressStart2p(
+                  weekendTextStyle: getCustomTextStyle(
                     fontSize: 8,
                     color: Colors.red,
                   ),
-                  selectedTextStyle: GoogleFonts.pressStart2p(
+                  selectedTextStyle: getCustomTextStyle(
                     fontSize: 8,
                     color: Colors.white,
                   ),
-                  todayTextStyle: GoogleFonts.pressStart2p(
+                  todayTextStyle: getCustomTextStyle(
                     fontSize: 8,
                     color: Colors.black,
                   ),
-                  outsideTextStyle: GoogleFonts.pressStart2p(
+                  outsideTextStyle: getCustomTextStyle(
                     fontSize: 8,
                     color: const Color(0xFF888888),
                   ),
@@ -616,7 +626,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           padding: const EdgeInsets.only(top: 5.0),
                           child: Text(
                             '${day.day}',
-                            style: GoogleFonts.pressStart2p(
+                            style: getCustomTextStyle(
                               fontSize: 8,
                               color: Colors.black,
                             ),
@@ -645,7 +655,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           padding: const EdgeInsets.only(top: 5.0),
                           child: Text(
                             '${day.day}',
-                            style: GoogleFonts.pressStart2p(
+                            style: getCustomTextStyle(
                               fontSize: 8,
                               color: Colors.white,
                             ),
@@ -682,7 +692,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           padding: const EdgeInsets.only(top: 5.0),
                           child: Text(
                             '${day.day}',
-                            style: GoogleFonts.pressStart2p(
+                            style: getCustomTextStyle(
                               fontSize: 8,
                               color: Colors.black,
                             ),
@@ -714,7 +724,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                       alignment: Alignment.center,
                       child: Text(
                         weekdayNames[weekdayIndex],
-                        style: GoogleFonts.pressStart2p(
+                        style: getCustomTextStyle(
                           fontSize: 8,
                           color: isWeekend ? Colors.red : Colors.black,
                         ),
@@ -751,7 +761,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                       ),
                       child: Text(
                         '${month.year}년 ${monthNames[month.month - 1]}',
-                        style: GoogleFonts.pressStart2p(
+                        style: getCustomTextStyle(
                           fontSize: 10,
                           color: Colors.white,
                         ),
@@ -793,7 +803,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                                 ),
                                 child: Text(
                                   eventString,
-                                  style: GoogleFonts.pressStart2p(
+                                  style: getCustomTextStyle(
                                     fontSize: 10,
                                     color: Colors.white,
                                   ),

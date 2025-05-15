@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../utils/font_utils.dart';
 
 class EventPopup extends StatelessWidget {
   final DateTime selectedDay;
@@ -49,9 +49,11 @@ class EventPopup extends StatelessWidget {
                   children: [
                     Text(
                       '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 이벤트',
-                      style: GoogleFonts.pressStart2p(
+                      style: getCustomTextStyle(
                         fontSize: 8,
                         color: Colors.white,
+                        text:
+                            '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 이벤트',
                       ),
                     ),
                     Row(
@@ -68,9 +70,10 @@ class EventPopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               '+',
-                              style: GoogleFonts.pressStart2p(
+                              style: getCustomTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
+                                text: '+',
                               ),
                             ),
                           ),
@@ -88,9 +91,10 @@ class EventPopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               'X',
-                              style: GoogleFonts.pressStart2p(
+                              style: getCustomTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
+                                text: 'X',
                               ),
                             ),
                           ),
@@ -124,9 +128,10 @@ class EventPopup extends StatelessWidget {
                                 const SizedBox(height: 24),
                                 Text(
                                   '할 일이 없어. 아직은..',
-                                  style: GoogleFonts.pressStart2p(
+                                  style: getCustomTextStyle(
                                     fontSize: 10,
                                     color: Colors.grey,
+                                    text: '할 일이 없어. 아직은..',
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -152,9 +157,10 @@ class EventPopup extends StatelessWidget {
                               ),
                               child: Text(
                                 eventString,
-                                style: GoogleFonts.pressStart2p(
+                                style: getCustomTextStyle(
                                   fontSize: 10,
                                   color: Colors.black,
+                                  text: eventString,
                                 ),
                               ),
                             );
