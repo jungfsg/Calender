@@ -24,6 +24,7 @@ class EventStorageService {
     await prefs.setString(ALL_EVENTS_KEY, jsonData);
   }
 
+  //
   // 모든 이벤트 로드
   static Future<Map<String, List<String>>> getAllEvents() async {
     final prefs = await SharedPreferences.getInstance();
