@@ -10,11 +10,7 @@ class EmptyPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           '빈 페이지',
-          style: getCustomTextStyle(
-            fontSize: 14,
-            color: Colors.white,
-            text: '빈 페이지',
-          ),
+          style: getTextStyle(fontSize: 14, color: Colors.white, text: '빈 페이지'),
         ),
         backgroundColor: Colors.black,
       ),
@@ -30,7 +26,7 @@ class EmptyPage extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               '아직 준비 중인 페이지입니다',
-              style: getCustomTextStyle(fontSize: 12, text: '아직 준비 중인 페이지입니다'),
+              style: getTextStyle(fontSize: 12, text: '아직 준비 중인 페이지입니다'),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -38,7 +34,7 @@ class EmptyPage extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 '돌아가기',
-                style: getCustomTextStyle(fontSize: 10, text: '돌아가기'),
+                style: getTextStyle(fontSize: 10, text: '돌아가기'),
               ),
             ),
           ],

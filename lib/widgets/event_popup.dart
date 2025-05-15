@@ -49,7 +49,7 @@ class EventPopup extends StatelessWidget {
                   children: [
                     Text(
                       '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 이벤트',
-                      style: getCustomTextStyle(
+                      style: getTextStyle(
                         fontSize: 8,
                         color: Colors.white,
                         text:
@@ -70,7 +70,7 @@ class EventPopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               '+',
-                              style: getCustomTextStyle(
+                              style: getTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
                                 text: '+',
@@ -91,7 +91,7 @@ class EventPopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               'X',
-                              style: getCustomTextStyle(
+                              style: getTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
                                 text: 'X',
@@ -128,7 +128,7 @@ class EventPopup extends StatelessWidget {
                                 const SizedBox(height: 24),
                                 Text(
                                   '할 일이 없어. 아직은..',
-                                  style: getCustomTextStyle(
+                                  style: getTextStyle(
                                     fontSize: 10,
                                     color: Colors.grey,
                                     text: '할 일이 없어. 아직은..',
@@ -157,7 +157,7 @@ class EventPopup extends StatelessWidget {
                               ),
                               child: Text(
                                 eventString,
-                                style: getCustomTextStyle(
+                                style: getTextStyle(
                                   fontSize: 10,
                                   color: Colors.black,
                                   text: eventString,

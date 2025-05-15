@@ -13,7 +13,6 @@ import '../services/event_storage_service.dart';
 import '../widgets/event_popup.dart';
 import '../widgets/time_table_popup.dart';
 import '../widgets/moving_button.dart';
-import '../utils/font_utils.dart';
 
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
@@ -333,7 +332,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
           (context) => AlertDialog(
             title: Text(
               '새 일정 추가',
-              style: getCustomTextStyle(fontSize: 14, text: '새 일정 추가'),
+              style: TextStyle(
+                fontFamily: 'CustomFont',
+                fontSize: 14,
+                color: Colors.black,
+              ),
             ),
             content: TextField(
               controller: _textController,
@@ -344,7 +347,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 onPressed: () => Navigator.pop(context),
                 child: Text(
                   '취소',
-                  style: getCustomTextStyle(fontSize: 10, text: '취소'),
+                  style: TextStyle(
+                    fontFamily: 'CustomFont',
+                    fontSize: 10,
+                    color: Colors.black,
+                  ),
                 ),
               ),
               TextButton(
@@ -359,7 +366,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 },
                 child: Text(
                   '추가',
-                  style: getCustomTextStyle(fontSize: 10, text: '추가'),
+                  style: TextStyle(
+                    fontFamily: 'CustomFont',
+                    fontSize: 10,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ],
@@ -380,7 +391,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
           (context) => AlertDialog(
             title: Text(
               '새 일정 추가',
-              style: getCustomTextStyle(fontSize: 14, text: '새 일정 추가'),
+              style: TextStyle(
+                fontFamily: 'CustomFont',
+                fontSize: 14,
+                color: Colors.black,
+              ),
             ),
             content: SingleChildScrollView(
               child: Column(
@@ -439,7 +454,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 onPressed: () => Navigator.pop(context),
                 child: Text(
                   '취소',
-                  style: getCustomTextStyle(fontSize: 10, text: '취소'),
+                  style: TextStyle(
+                    fontFamily: 'CustomFont',
+                    fontSize: 10,
+                    color: Colors.black,
+                  ),
                 ),
               ),
               TextButton(
@@ -458,7 +477,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 },
                 child: Text(
                   '추가',
-                  style: getCustomTextStyle(fontSize: 10, text: '추가'),
+                  style: TextStyle(
+                    fontFamily: 'CustomFont',
+                    fontSize: 10,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ],
@@ -478,10 +501,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       appBar: AppBar(
         title: Text(
           'Calender v250514',
-          style: getCustomTextStyle(
+          style: TextStyle(
+            fontFamily: 'CustomFont',
             fontSize: 14,
             color: Colors.white,
-            text: 'Calender v250514',
           ),
         ),
         backgroundColor: Colors.black,
@@ -521,7 +544,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                 eventLoader: _getEventsForDay,
                 startingDayOfWeek: StartingDayOfWeek.sunday,
                 headerStyle: HeaderStyle(
-                  titleTextStyle: getCustomTextStyle(
+                  titleTextStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 12,
                     color: Colors.black,
                   ),
@@ -541,11 +565,13 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   titleCentered: true,
                 ),
                 daysOfWeekStyle: DaysOfWeekStyle(
-                  weekdayStyle: getCustomTextStyle(
+                  weekdayStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 8,
                     color: Colors.black,
                   ),
-                  weekendStyle: getCustomTextStyle(
+                  weekendStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 8,
                     color: Colors.red,
                   ),
@@ -555,23 +581,28 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   ),
                 ),
                 calendarStyle: CalendarStyle(
-                  defaultTextStyle: getCustomTextStyle(
+                  defaultTextStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 8,
                     color: Colors.black,
                   ),
-                  weekendTextStyle: getCustomTextStyle(
+                  weekendTextStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 8,
                     color: Colors.red,
                   ),
-                  selectedTextStyle: getCustomTextStyle(
+                  selectedTextStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 8,
                     color: Colors.white,
                   ),
-                  todayTextStyle: getCustomTextStyle(
+                  todayTextStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 8,
                     color: Colors.black,
                   ),
-                  outsideTextStyle: getCustomTextStyle(
+                  outsideTextStyle: TextStyle(
+                    fontFamily: 'CustomFont',
                     fontSize: 8,
                     color: const Color(0xFF888888),
                   ),

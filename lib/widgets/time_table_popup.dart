@@ -48,7 +48,7 @@ class TimeTablePopup extends StatelessWidget {
                   children: [
                     Text(
                       '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 시간표',
-                      style: getCustomTextStyle(
+                      style: getTextStyle(
                         fontSize: 8,
                         color: Colors.white,
                         text:
@@ -69,7 +69,7 @@ class TimeTablePopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               '+',
-                              style: getCustomTextStyle(
+                              style: getTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
                                 text: '+',
@@ -90,7 +90,7 @@ class TimeTablePopup extends StatelessWidget {
                             alignment: Alignment.center,
                             child: Text(
                               'X',
-                              style: getCustomTextStyle(
+                              style: getTextStyle(
                                 fontSize: 8,
                                 color: Colors.white,
                                 text: 'X',
@@ -114,7 +114,7 @@ class TimeTablePopup extends StatelessWidget {
                           child: Center(
                             child: Text(
                               '일정이 없습니다',
-                              style: getCustomTextStyle(
+                              style: getTextStyle(
                                 fontSize: 10,
                                 color: Colors.grey,
                                 text: '일정이 없습니다',
@@ -150,7 +150,7 @@ class TimeTablePopup extends StatelessWidget {
                                       children: [
                                         Text(
                                           slot.title,
-                                          style: getCustomTextStyle(
+                                          style: getTextStyle(
                                             fontSize: 10,
                                             color: Colors.black,
                                             text: slot.title,
@@ -159,7 +159,7 @@ class TimeTablePopup extends StatelessWidget {
                                         const SizedBox(height: 4),
                                         Text(
                                           '${slot.startTime} - ${slot.endTime}',
-                                          style: getCustomTextStyle(
+                                          style: getTextStyle(
                                             fontSize: 8,
                                             color: Colors.grey[800]!,
                                             text:

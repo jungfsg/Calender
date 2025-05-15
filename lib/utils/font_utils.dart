@@ -1,18 +1,29 @@
 import 'package:flutter/material.dart';
 
-// 한글 텍스트인지 확인하는 함수
-bool isKorean(String text) {
-  return RegExp(r'[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]').hasMatch(text);
+// 텍스트 내용에 따라 적절한 폰트를 선택하는 함수
+TextStyle getTextStyle({required double fontSize, Color? color, String? text}) {
+  // 텍스트가 null이거나 비어있으면 영어 폰트를 기본값으로 사용
+  bool hasKorean =
+      text != null ? RegExp(r'[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]').hasMatch(text) : false;
+
+  return TextStyle(
+    fontFamily: hasKorean ? 'KoreanFont' : 'EnglishFont',
+    fontSize: fontSize,
+    color: color ?? Colors.black,
+  );
 }
 
-// 텍스트 스타일 헬퍼 함수
+// 이전 함수와 호환성을 위한 함수 - 텍스트를 분석하여 적절한 폰트 선택
 TextStyle getCustomTextStyle({
   required double fontSize,
   Color? color,
   String? text,
 }) {
+  bool hasKorean =
+      text != null ? RegExp(r'[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]').hasMatch(text) : false;
+
   return TextStyle(
-    fontFamily: text != null && isKorean(text) ? 'Stardust' : 'PressStart2P',
+    fontFamily: hasKorean ? 'KoreanFont' : 'EnglishFont',
     fontSize: fontSize,
     color: color ?? Colors.black,
   );
