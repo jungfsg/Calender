@@ -657,7 +657,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           padding: const EdgeInsets.only(top: 5.0),
                           child: Text(
                             '${day.day}',
-                            style: getCustomTextStyle(
+                            style: getTextStyle(
                               fontSize: 8,
                               color: Colors.black,
                             ),
@@ -686,7 +686,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           padding: const EdgeInsets.only(top: 5.0),
                           child: Text(
                             '${day.day}',
-                            style: getCustomTextStyle(
+                            style: getTextStyle(
                               fontSize: 8,
                               color: Colors.white,
                             ),
@@ -723,7 +723,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           padding: const EdgeInsets.only(top: 5.0),
                           child: Text(
                             '${day.day}',
-                            style: getCustomTextStyle(
+                            style: getTextStyle(
                               fontSize: 8,
                               color: Colors.black,
                             ),
@@ -755,7 +755,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                       alignment: Alignment.center,
                       child: Text(
                         weekdayNames[weekdayIndex],
-                        style: getCustomTextStyle(
+                        style: getTextStyle(
                           fontSize: 8,
                           color: isWeekend ? Colors.red : Colors.black,
                         ),
@@ -792,10 +792,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                       ),
                       child: Text(
                         '${month.year}년 ${monthNames[month.month - 1]}',
-                        style: getCustomTextStyle(
-                          fontSize: 10,
-                          color: Colors.white,
-                        ),
+                        style: getTextStyle(fontSize: 10, color: Colors.white),
                       ),
                     );
                   },
