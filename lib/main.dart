@@ -956,7 +956,15 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
                   // 요일 헤더 빌더
                   dowBuilder: (context, day) {
-                    final weekdayNames = ['월', '화', '수', '목', '금', '토', '일'];
+                    final weekdayNames = [
+                      'Mon',
+                      'Tue',
+                      'Wed',
+                      'Tur',
+                      'Fri',
+                      'Sat',
+                      'Sun',
+                    ];
                     final weekdayIndex = day.weekday - 1;
                     final isWeekend =
                         day.weekday == DateTime.saturday ||
