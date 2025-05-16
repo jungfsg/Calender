@@ -7,15 +7,11 @@ class WeatherIcon extends StatelessWidget {
   final WeatherInfo weatherInfo;
   final double size;
 
-  const WeatherIcon({
-    Key? key,
-    required this.weatherInfo,
-    this.size = 24.0,
-  }) : super(key: key);
+  const WeatherIcon({Key? key, required this.weatherInfo, this.size = 24.0})
+    : super(key: key);
 
-  // uc544uc774ucf58 uac00uc838uc624uae30
+  // 아이콘 가져오기
   IconData _getWeatherIcon() {
-    print('날씨 아이콘 생성: ${weatherInfo.condition}');
     switch (weatherInfo.condition) {
       case 'sunny':
         return Icons.wb_sunny;
@@ -30,7 +26,7 @@ class WeatherIcon extends StatelessWidget {
     }
   }
 
-  // uc544uc774ucf58 uc0c9uc0c1 uacb0uc815
+  // 아이콘 색상 결정
   Color _getWeatherColor() {
     switch (weatherInfo.condition) {
       case 'sunny':
@@ -52,8 +48,7 @@ class WeatherIcon extends StatelessWidget {
       // 비동기 메서드로 URL 가져오기
       final url = await WeatherService.getNaverWeatherUrl();
       final uri = Uri.parse(url);
-      
-      print('네이버 날씨 열기 시도: $url');
+
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw '열 수 없는 URL: $url';
       }
@@ -64,40 +59,40 @@ class WeatherIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('날씨 아이콘 빌드 - 조건: ${weatherInfo.condition}, 온도: ${weatherInfo.temperature}');
     return InkWell(
       onTap: _openNaverWeather,
       child: Tooltip(
-        message: '${weatherInfo.condition} ${weatherInfo.temperature.toStringAsFixed(1)}°C\n${_getDateText()}\n네이버 날씨 열기',
+        message:
+            '${weatherInfo.condition} ${weatherInfo.temperature.toStringAsFixed(1)}°C\n${_getDateText()}\n네이버 날씨 열기',
         child: Container(
           padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             color: _getWeatherColor().withOpacity(0.2),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Icon(
-            _getWeatherIcon(),
-            color: _getWeatherColor(),
-            size: size,
-          ),
+          child: Icon(_getWeatherIcon(), color: _getWeatherColor(), size: size),
         ),
       ),
     );
   }
-  
+
   // 날짜 텍스트 생성 (오늘, 내일, 또는 날짜)
   String _getDateText() {
     final today = DateTime.now();
     final tomorrow = DateTime.now().add(Duration(days: 1));
-    
+
     final weatherDate = DateTime.parse(weatherInfo.date);
-    
-    if (weatherDate.year == today.year && weatherDate.month == today.month && weatherDate.day == today.day) {
+
+    if (weatherDate.year == today.year &&
+        weatherDate.month == today.month &&
+        weatherDate.day == today.day) {
       return '오늘';
-    } else if (weatherDate.year == tomorrow.year && weatherDate.month == tomorrow.month && weatherDate.day == tomorrow.day) {
+    } else if (weatherDate.year == tomorrow.year &&
+        weatherDate.month == tomorrow.month &&
+        weatherDate.day == tomorrow.day) {
       return '내일';
     } else {
       return '${weatherDate.month}/${weatherDate.day}';
     }
   }
-} 
+}

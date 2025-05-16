@@ -81,7 +81,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
-    _calendarFormat = CalendarFormat.month; // ud56duc0c1 uc6d4 ud615uc2dduc73cub85c uace0uc815
+    _calendarFormat =
+        CalendarFormat
+            .month; // ud56duc0c1 uc6d4 ud615uc2dduc73cub85c uace0uc815
     // uc800uc7a5ub41c ubaa8ub4e0 ud0a4 ud655uc778
     EventStorageService.printAllKeys();
     // ucd08uae30 ub370uc774ud130 ub85cub4dc
@@ -91,16 +93,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
     // uc704uce58 uad8cud55c uc694uccad
     _requestLocationPermission();
-    
-    // ub0a0uc528 uc815ubcf4 ub85cub4dc
+
+    // ub0a0uc528 uc815ubcf4 ub85cub4dc (딱 한 번만 실행)
     _loadWeatherData();
-    
-    // 1ubd84 ub9c8ub2e4 ub0a0uc528 uc815ubcf4 uc5c5ub370uc774ud2b8
-    Timer.periodic(Duration(minutes: 1), (timer) {
-      if (mounted) {
-        _loadWeatherData();
-      }
-    });
+
+    // 1분마다 날씨 정보 업데이트하는 코드 제거
   }
 
   // 애플리케이션 시작 시 초기 데이터 로드
@@ -232,7 +229,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
     // 화면 패딩 고려 (main.dart에서 사용하는 패딩 값)
-    final screenPadding = 22.0;
+    final screenPadding = 15.0;
     // 실제 가용 화면 영역
     final effectiveHeight = size.height - appBarHeight - safeAreaTop;
     final effectiveWidth = size.width;
@@ -525,17 +522,18 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   Future<void> _requestLocationPermission() async {
     print('uc704uce58 uad8cud55c uc694uccad uc2dcuc791');
     final permission = await Geolocator.checkPermission();
-    
+
     if (permission == LocationPermission.denied) {
       print('uc704uce58 uad8cud55c uc694uccadud558ub294 uc911...');
       final result = await Geolocator.requestPermission();
       print('uc704uce58 uad8cud55c uc694uccad uacb0uacfc: $result');
-      
-      if (result == LocationPermission.denied || result == LocationPermission.deniedForever) {
+
+      if (result == LocationPermission.denied ||
+          result == LocationPermission.deniedForever) {
         // uc0acuc6a9uc790uc5d0uac8c uad8cud55cuc774 ud544uc694ud558ub2e4uace0 uc54cub9bc
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')));
       } else {
         // 권한을 얻었으니 날씨 로드 재시도
         _loadWeatherData();
@@ -558,41 +556,50 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       print('uc704uce58 uad8cud55c uc774ubbf8 uc788uc74c: $permission');
     }
   }
-  
-  // ub0a0uc528 uc815ubcf4 ub85cub4dc
-  Future<void> _loadWeatherData() async {
-    print('ub0a0uc528 uc815ubcf4 ub85cub4dc uc2dcuc791');
+
+  // 날씨 정보 로드
+  Future<void> _loadWeatherData({bool forceRefresh = false}) async {
+    print('날씨 정보 로드 시작');
     if (_loadingWeather) {
-      print('uc774ubbf8 ub85cub4dc uc911');
+      print('이미 로드 중');
       return;
     }
-    
+
     setState(() {
       _loadingWeather = true;
     });
-    
+
     try {
+      // 이미 날씨 데이터가 있고 강제 새로고침이 아니면 다시 로드하지 않음
+      if (_weatherForecast.isNotEmpty && !forceRefresh) {
+        print('날씨 데이터가 이미 로드되어 있습니다.');
+        setState(() {
+          _loadingWeather = false;
+        });
+        return;
+      }
+
       final weatherList = await WeatherService.get10DayForecast();
-      print('uac00uc838uc628 ub0a0uc528 uc218: ${weatherList.length}');
-      
+      print('가져온 날씨 수: ${weatherList.length}');
+
       if (mounted) {
         setState(() {
-          // uc0acuc774ud074 ub0a0uc528 ucc98ub9acub97c uc704ud574 uce90uc2dc uc0c8ub85c ucd08uae30ud654
+          // 사이클 날씨 처리를 위해 캐시 새로 초기화
           _weatherCache.clear();
           _weatherForecast = weatherList; // 10일 예보 데이터 저장
-          
+
           for (var weather in weatherList) {
             _weatherCache[weather.date] = weather;
-            print('ub0a0uc528 uce90uc2dc ucd94uac00: ${weather.date}, ${weather.condition}');
+            print('날씨 캐시 추가: ${weather.date}, ${weather.condition}');
           }
           _loadingWeather = false;
         });
-        
-        // uc5c5ub370uc774ud2b8 ud6c4 uce98ub9b0ub354 ud654uba74 uc0c8ub85c uadf8ub9acuae30
+
+        // 업데이트 후 캘린더 화면 새로 그리기
         setState(() {});
       }
     } catch (e) {
-      print('ub0a0uc528 ub370uc774ud130 ub85cub4dc uc624ub958: $e');
+      print('날씨 데이터 로드 오류: $e');
       if (mounted) {
         setState(() {
           _loadingWeather = false;
@@ -600,21 +607,15 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       }
     }
   }
-  
-  // ud2b9uc815 ub0a0uc9dcuc758 ub0a0uc528 uc815ubcf4 uac00uc838uc624uae30
+
+  // 특정 날짜의 날씨 정보 가져오기
   WeatherInfo? _getWeatherForDay(DateTime day) {
     final dateKey = DateFormat('yyyy-MM-dd').format(day);
     final weatherInfo = _weatherCache[dateKey];
-    
-    if (weatherInfo != null) {
-      print('ub0a0uc528 uc815ubcf4 uc870ud68c: $dateKey => ${weatherInfo.condition}');
-    } else {
-      print('ub0a0uc528 uc815ubcf4 uc5c6uc74c: $dateKey');
-    }
-    
-    // ud14cuc2a4ud2b8 ub370uc774ud130 (ub0a0uc528 uc815ubcf4uac00 uc5c6ub294 uacbduc6b0 ub2e4uc74c uc8fcuae30ub9acub85c ud14cuc2a4ud2b8 ub370uc774ud130 uc0acuc6a9)
-    if (weatherInfo == null && dateKey == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
-      print('ud14cuc2a4ud2b8 ub370uc774ud130 uc0acuc6a9');
+
+    // 테스트 데이터 (날씨 정보가 없는 경우 더미 데이터 제공)
+    if (weatherInfo == null &&
+        dateKey == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
       return WeatherInfo(
         date: dateKey,
         condition: 'sunny',
@@ -623,7 +624,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         lon: 126.9780,
       );
     }
-    
+
     return weatherInfo;
   }
 
@@ -665,14 +666,14 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
             },
             tooltip: '10일간 날씨 예보 보기',
           ),
-          // ub0a0uc528 uc0c8ub85cuco8uc774uae30 ubc84ud2bc
+          // 날씨 새로고침 버튼
           IconButton(
             icon: Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
-              _loadWeatherData();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('날씨 정보를 업데이트하고 있습니다...')),
-              );
+              _loadWeatherData(forceRefresh: true);
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('날씨 정보를 업데이트하고 있습니다...')));
             },
             tooltip: '날씨 정보 새로 가져오기',
           ),
@@ -956,7 +957,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
               onClose: _hideTimeTableDialog,
               onAddTimeSlot: _showAddTimeSlotDialog,
             ),
-            
+
           // 날씨 예보 팝업 오버레이
           if (_showWeatherPopup)
             WeatherSummaryPopup(
