@@ -15,3 +15,9 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference
+
+## 문제점
+- 일정을 추가하면 바로 추가가 안 되고 에뮬레이터를 재실행해야 보이는 문제
+- 터미널에 알 수 없는 실행문이 무한 출력되는 문제
+- 달력셀이 크롬에서는 정사각형에 가까운데 기기에서는 너무 길어서 짤리는 문제
+- 앱 테두리가 너무 두꺼운 문제
