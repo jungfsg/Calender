@@ -3,11 +3,8 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-<<<<<<< Updated upstream
-=======
   geolocator_windows
   permission_handler_windows
->>>>>>> Stashed changes
   url_launcher_windows
 )
 

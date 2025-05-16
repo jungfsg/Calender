@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chat_ui/flutter_chat_ui.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
-import 'package:uuid/uuid.dart';
 import '../utils/font_utils.dart';
-import '../services/chat_service.dart';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({Key? key}) : super(key: key);
@@ -13,62 +9,47 @@ class EmptyPage extends StatefulWidget {
 }
 
 class _EmptyPageState extends State<EmptyPage> {
-  final List<types.Message> _messages = [];
-  final _user = types.User(id: 'user');
-  final _botUser = types.User(id: 'bot', firstName: 'AI 어시스턴트');
-  final _uuid = Uuid();
-  final ChatService _chatService = ChatService();
+  final TextEditingController _textController = TextEditingController();
+  final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _addSystemMessage('안녕하세요! 무엇을 도와드릴까요?');
+    _addSystemMessage('여기는 빈 페이지입니다. 나중에 기능이 추가될 예정입니다.');
   }
 
   void _addSystemMessage(String text) {
-    final message = types.TextMessage(
-      author: _botUser,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      id: _uuid.v4(),
-      text: text,
-    );
-
     setState(() {
-      _messages.insert(0, message);
+      _messages.add(ChatMessage(
+        text: text,
+        isUser: false,
+      ));
     });
   }
 
-  void _handleSendPressed(types.PartialText message) async {
-    final textMessage = types.TextMessage(
-      author: _user,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      id: _uuid.v4(),
-      text: message.text,
-    );
+  void _handleSendPressed() {
+    if (_textController.text.trim().isEmpty) return;
 
     setState(() {
-      _messages.insert(0, textMessage);
+      _messages.add(ChatMessage(
+        text: _textController.text,
+        isUser: true,
+      ));
       _isLoading = true;
     });
 
-    try {
-      // 서버로 메시지 전송 및 응답 받기
-      final botResponse = await _chatService.sendMessage(
-        message.text,
-        _user.id,
-      );
-
+    // 메시지 전송 후 응답 처리 (여기서는 간단한 에코로 대체)
+    Future.delayed(Duration(seconds: 1), () {
       setState(() {
-        _messages.insert(0, botResponse);
+        _messages.add(ChatMessage(
+          text: '메시지를 받았습니다: ${_textController.text}',
+          isUser: false,
+        ));
         _isLoading = false;
+        _textController.clear();
       });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _addSystemMessage('죄송합니다. 서버 통신 중 오류가 발생했습니다: $e');
-    }
+    });
   }
 
   @override
@@ -76,8 +57,8 @@ class _EmptyPageState extends State<EmptyPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          '채팅 화면',
-          style: getTextStyle(fontSize: 16, color: Colors.white, text: 'AI 채팅'),
+          '빈 화면',
+          style: getTextStyle(fontSize: 16, color: Colors.white),
         ),
         backgroundColor: Colors.black,
       ),
@@ -89,25 +70,39 @@ class _EmptyPageState extends State<EmptyPage> {
               child: LinearProgressIndicator(),
             ),
           Expanded(
-            child: Chat(
-              messages: _messages,
-              onSendPressed: _handleSendPressed,
-              user: _user,
-              showUserNames: true,
-              theme: const DefaultChatTheme(
-                inputBackgroundColor: Colors.black12,
-                backgroundColor: Colors.white,
-                inputTextColor: Colors.black,
-                sentMessageBodyTextStyle: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white,
-                ),
-                receivedMessageBodyTextStyle: TextStyle(
-                  fontSize: 16,
-                  color: Colors.black,
-                ),
+            child: ListView.builder(
+              reverse: true,
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                return _messages[index].buildWidget(context);
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade200),
               ),
-              l10n: const ChatL10nKo(),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    decoration: const InputDecoration(
+                      hintText: '메시지를 입력하세요',
+                      border: InputBorder.none,
+                    ),
+                    onSubmitted: (_) => _handleSendPressed(),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send),
+                  onPressed: _handleSendPressed,
+                ),
+              ],
             ),
           ),
         ],
@@ -116,27 +111,47 @@ class _EmptyPageState extends State<EmptyPage> {
   }
 }
 
-// 한국어 지역화 클래스
-class ChatL10nKo extends ChatL10n {
-  const ChatL10nKo({
-    String attachmentButtonAccessibilityLabel = '파일 첨부',
-    String emptyChatPlaceholder = '메시지가 없습니다',
-    String fileButtonAccessibilityLabel = '파일',
-    String inputPlaceholder = '메시지를 입력하세요',
-    String sendButtonAccessibilityLabel = '전송',
-    String and = '그리고',
-    String isTyping = '입력 중...',
-    String unreadMessagesLabel = '읽지 않은 메시지',
-    String others = '+1',
-  }) : super(
-         attachmentButtonAccessibilityLabel: attachmentButtonAccessibilityLabel,
-         emptyChatPlaceholder: emptyChatPlaceholder,
-         fileButtonAccessibilityLabel: fileButtonAccessibilityLabel,
-         inputPlaceholder: inputPlaceholder,
-         sendButtonAccessibilityLabel: sendButtonAccessibilityLabel,
-         and: and,
-         isTyping: isTyping,
-         unreadMessagesLabel: unreadMessagesLabel,
-         others: others,
-       );
+// 간단한 채팅 메시지 클래스
+class ChatMessage {
+  final String text;
+  final bool isUser;
+
+  ChatMessage({
+    required this.text,
+    required this.isUser,
+  });
+
+  Widget buildWidget(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Row(
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          if (!isUser) 
+            const CircleAvatar(
+              child: Icon(Icons.android),
+            ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isUser ? Colors.blue : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: isUser ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isUser) 
+            const CircleAvatar(
+              child: Icon(Icons.person),
+            ),
+        ],
+      ),
+    );
+  }
 }
