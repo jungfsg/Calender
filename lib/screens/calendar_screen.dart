@@ -5,14 +5,22 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
 import 'empty_page.dart';
 import '../utils/font_utils.dart';
 
 import '../models/time_slot.dart';
+import '../models/weather_info.dart';
 import '../services/event_storage_service.dart';
+import '../services/weather_service.dart';
 import '../widgets/event_popup.dart';
 import '../widgets/time_table_popup.dart';
 import '../widgets/moving_button.dart';
+import '../widgets/weather_calendar_cell.dart';
+import '../widgets/weather_icon.dart';
+import '../widgets/weather_summary_popup.dart';
 
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
@@ -28,6 +36,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   late CalendarFormat _calendarFormat;
   bool _showEventPopup = false; // 이벤트 팝업 표시 여부
   bool _showTimeTablePopup = false; // 타임테이블 팝업 표시 여부
+  bool _showWeatherPopup = false; // 날씨 예보 팝업 표시 여부
+
+  // ub0a0uc528 uad00ub828 ubcc0uc218
+  final Map<String, WeatherInfo> _weatherCache = {};
+  List<WeatherInfo> _weatherForecast = []; // 10일간 예보 데이터
+  bool _loadingWeather = false;
 
   // 움직이는 버튼 관련 변수
   double _buttonLeft = 0;
@@ -67,13 +81,26 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
-    _calendarFormat = CalendarFormat.month; // 항상 월 형식으로 고정
-    // 저장된 모든 키 확인
+    _calendarFormat = CalendarFormat.month; // ud56duc0c1 uc6d4 ud615uc2dduc73cub85c uace0uc815
+    // uc800uc7a5ub41c ubaa8ub4e0 ud0a4 ud655uc778
     EventStorageService.printAllKeys();
-    // 초기 데이터 로드
+    // ucd08uae30 ub370uc774ud130 ub85cub4dc
     _loadInitialData();
-    // 움직이는 버튼 초기 위치 설정
+    // uc6c0uc9c1uc774ub294 ubc84ud2bc ucd08uae30 uc704uce58 uc124uc815
     _startButtonMovement();
+
+    // uc704uce58 uad8cud55c uc694uccad
+    _requestLocationPermission();
+    
+    // ub0a0uc528 uc815ubcf4 ub85cub4dc
+    _loadWeatherData();
+    
+    // 1ubd84 ub9c8ub2e4 ub0a0uc528 uc815ubcf4 uc5c5ub370uc774ud2b8
+    Timer.periodic(Duration(minutes: 1), (timer) {
+      if (mounted) {
+        _loadWeatherData();
+      }
+    });
   }
 
   // 애플리케이션 시작 시 초기 데이터 로드
@@ -494,13 +521,134 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
+  // uc704uce58 uad8cud55c uc694uccad
+  Future<void> _requestLocationPermission() async {
+    print('uc704uce58 uad8cud55c uc694uccad uc2dcuc791');
+    final permission = await Geolocator.checkPermission();
+    
+    if (permission == LocationPermission.denied) {
+      print('uc704uce58 uad8cud55c uc694uccadud558ub294 uc911...');
+      final result = await Geolocator.requestPermission();
+      print('uc704uce58 uad8cud55c uc694uccad uacb0uacfc: $result');
+      
+      if (result == LocationPermission.denied || result == LocationPermission.deniedForever) {
+        // uc0acuc6a9uc790uc5d0uac8c uad8cud55cuc774 ud544uc694ud558ub2e4uace0 uc54cub9bc
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')),
+        );
+      } else {
+        // 권한을 얻었으니 날씨 로드 재시도
+        _loadWeatherData();
+      }
+    } else if (permission == LocationPermission.deniedForever) {
+      print('위치 권한이 영구 거부됨');
+      // 설정으로 이동하도록 안내
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 변경해주세요.'),
+          action: SnackBarAction(
+            label: '설정',
+            onPressed: () async {
+              await Geolocator.openAppSettings();
+            },
+          ),
+        ),
+      );
+    } else {
+      print('uc704uce58 uad8cud55c uc774ubbf8 uc788uc74c: $permission');
+    }
+  }
+  
+  // ub0a0uc528 uc815ubcf4 ub85cub4dc
+  Future<void> _loadWeatherData() async {
+    print('ub0a0uc528 uc815ubcf4 ub85cub4dc uc2dcuc791');
+    if (_loadingWeather) {
+      print('uc774ubbf8 ub85cub4dc uc911');
+      return;
+    }
+    
+    setState(() {
+      _loadingWeather = true;
+    });
+    
+    try {
+      final weatherList = await WeatherService.get10DayForecast();
+      print('uac00uc838uc628 ub0a0uc528 uc218: ${weatherList.length}');
+      
+      if (mounted) {
+        setState(() {
+          // uc0acuc774ud074 ub0a0uc528 ucc98ub9acub97c uc704ud574 uce90uc2dc uc0c8ub85c ucd08uae30ud654
+          _weatherCache.clear();
+          _weatherForecast = weatherList; // 10일 예보 데이터 저장
+          
+          for (var weather in weatherList) {
+            _weatherCache[weather.date] = weather;
+            print('ub0a0uc528 uce90uc2dc ucd94uac00: ${weather.date}, ${weather.condition}');
+          }
+          _loadingWeather = false;
+        });
+        
+        // uc5c5ub370uc774ud2b8 ud6c4 uce98ub9b0ub354 ud654uba74 uc0c8ub85c uadf8ub9acuae30
+        setState(() {});
+      }
+    } catch (e) {
+      print('ub0a0uc528 ub370uc774ud130 ub85cub4dc uc624ub958: $e');
+      if (mounted) {
+        setState(() {
+          _loadingWeather = false;
+        });
+      }
+    }
+  }
+  
+  // ud2b9uc815 ub0a0uc9dcuc758 ub0a0uc528 uc815ubcf4 uac00uc838uc624uae30
+  WeatherInfo? _getWeatherForDay(DateTime day) {
+    final dateKey = DateFormat('yyyy-MM-dd').format(day);
+    final weatherInfo = _weatherCache[dateKey];
+    
+    if (weatherInfo != null) {
+      print('ub0a0uc528 uc815ubcf4 uc870ud68c: $dateKey => ${weatherInfo.condition}');
+    } else {
+      print('ub0a0uc528 uc815ubcf4 uc5c6uc74c: $dateKey');
+    }
+    
+    // ud14cuc2a4ud2b8 ub370uc774ud130 (ub0a0uc528 uc815ubcf4uac00 uc5c6ub294 uacbduc6b0 ub2e4uc74c uc8fcuae30ub9acub85c ud14cuc2a4ud2b8 ub370uc774ud130 uc0acuc6a9)
+    if (weatherInfo == null && dateKey == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+      print('ud14cuc2a4ud2b8 ub370uc774ud130 uc0acuc6a9');
+      return WeatherInfo(
+        date: dateKey,
+        condition: 'sunny',
+        temperature: 25.0,
+        lat: 37.5665,
+        lon: 126.9780,
+      );
+    }
+    
+    return weatherInfo;
+  }
+
+  // 날씨 예보 팝업 표시/숨김
+  void _showWeatherForecastDialog() {
+    setState(() {
+      _showWeatherPopup = true;
+      _showEventPopup = false;
+      _showTimeTablePopup = false;
+    });
+  }
+
+  void _hideWeatherForecastDialog() {
+    setState(() {
+      _showWeatherPopup = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 162, 222, 141),
       appBar: AppBar(
         title: Text(
-          'Calender v250514',
+          'Calender v250514 (Weather)',
           style: TextStyle(
             fontFamily: 'CustomFont',
             fontSize: 14,
@@ -508,6 +656,27 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
           ),
         ),
         backgroundColor: Colors.black,
+        actions: [
+          // 날씨 예보 보기 버튼
+          IconButton(
+            icon: Icon(Icons.wb_sunny, color: Colors.white),
+            onPressed: () {
+              _showWeatherForecastDialog();
+            },
+            tooltip: '10일간 날씨 예보 보기',
+          ),
+          // ub0a0uc528 uc0c8ub85cuco8uc774uae30 ubc84ud2bc
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.white),
+            onPressed: () {
+              _loadWeatherData();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('날씨 정보를 업데이트하고 있습니다...')),
+              );
+            },
+            tooltip: '날씨 정보 새로 가져오기',
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -633,9 +802,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   markerSize: 0,
                 ),
                 calendarBuilders: CalendarBuilders(
-                  // 기본 셀 빌더
+                  // uae30ubcf8 uc140 ube4cub354
                   defaultBuilder: (context, day, focusedDay) {
-                    return GestureDetector(
+                    return WeatherCalendarCell(
+                      day: day,
+                      isSelected: false,
+                      isToday: false,
                       onTap: () {
                         setState(() {
                           _selectedDay = day;
@@ -650,54 +822,34 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           _showTimeTableDialog();
                         });
                       },
-                      child: Container(
-                        margin: const EdgeInsets.all(2),
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 5.0),
-                          child: Text(
-                            '${day.day}',
-                            style: getTextStyle(
-                              fontSize: 8,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
+                      events: _getEventsForDay(day),
+                      eventColors: _eventColors,
+                      weatherInfo: _getWeatherForDay(day),
                     );
                   },
-                  // 선택된 날짜 셀 빌더
+                  // uc120ud0ddub41c ub0a0uc9dc uc140 ube4cub354
                   selectedBuilder: (context, day, focusedDay) {
-                    return GestureDetector(
+                    return WeatherCalendarCell(
+                      day: day,
+                      isSelected: true,
+                      isToday: false,
                       onTap: () {
                         _showEventDialog();
                       },
                       onLongPress: () {
                         _showTimeTableDialog();
                       },
-                      child: Container(
-                        margin: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[800],
-                          border: Border.all(color: Colors.black, width: 1),
-                        ),
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 5.0),
-                          child: Text(
-                            '${day.day}',
-                            style: getTextStyle(
-                              fontSize: 8,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
+                      events: _getEventsForDay(day),
+                      eventColors: _eventColors,
+                      weatherInfo: _getWeatherForDay(day),
                     );
                   },
-                  // 오늘 날짜 셀 빌더
+                  // uc624ub298 ub0a0uc9dc uc140 ube4cub354
                   todayBuilder: (context, day, focusedDay) {
-                    return GestureDetector(
+                    return WeatherCalendarCell(
+                      day: day,
+                      isSelected: false,
+                      isToday: true,
                       onTap: () {
                         setState(() {
                           _selectedDay = day;
@@ -712,27 +864,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           _showTimeTableDialog();
                         });
                       },
-                      child: Container(
-                        margin: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.amber[300],
-                          border: Border.all(color: Colors.black, width: 1),
-                        ),
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 5.0),
-                          child: Text(
-                            '${day.day}',
-                            style: getTextStyle(
-                              fontSize: 8,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
+                      events: _getEventsForDay(day),
+                      eventColors: _eventColors,
+                      weatherInfo: _getWeatherForDay(day),
                     );
                   },
-                  // 요일 헤더 빌더
+                  // uc694uc77c ud5e4ub354 ube4cub354
                   dowBuilder: (context, day) {
                     final weekdayNames = [
                       'Mon',
@@ -762,7 +899,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                       ),
                     );
                   },
-                  // 헤더 타이틀 빌더
+                  // ud5e4ub354 ud0c0uc774ud2c0 ube4cub354
                   headerTitleBuilder: (context, month) {
                     final monthNames = [
                       '1월',
@@ -796,53 +933,6 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                       ),
                     );
                   },
-                  // 이벤트 마커 빌더
-                  markerBuilder: (context, date, events) {
-                    if (events.isEmpty) return const SizedBox.shrink();
-
-                    final displayedEvents =
-                        events.length > 6 ? events.sublist(0, 6) : events;
-
-                    return Positioned(
-                      bottom: 4,
-                      left: 4,
-                      right: 4,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children:
-                            displayedEvents.map((event) {
-                              final eventString = event.toString();
-                              final bgColor =
-                                  _eventColors[eventString] ?? _colors[0];
-
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 1),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: bgColor.withOpacity(0.7),
-                                  border: Border.all(
-                                    color: Colors.black,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  eventString,
-                                  style: getCustomTextStyle(
-                                    fontSize: 10,
-                                    color: Colors.white,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              );
-                            }).toList(),
-                      ),
-                    );
-                  },
                 ),
               ),
             ),
@@ -865,6 +955,13 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
               timeSlots: _getTimeSlotsForDay(_selectedDay),
               onClose: _hideTimeTableDialog,
               onAddTimeSlot: _showAddTimeSlotDialog,
+            ),
+            
+          // 날씨 예보 팝업 오버레이
+          if (_showWeatherPopup)
+            WeatherSummaryPopup(
+              weatherList: _weatherForecast,
+              onClose: _hideWeatherForecastDialog,
             ),
 
           // 움직이는 GIF 버튼

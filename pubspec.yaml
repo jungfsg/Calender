@@ -30,13 +30,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  table_calendar: ^3.1.0
-  intl: ^0.20.2
+  table_calendar: ^3.0.9
+  intl: ^0.18.1
   shared_preferences: ^2.2.2
+<<<<<<< Updated upstream
   flutter_chat_ui: ^1.6.12
   flutter_chat_types: ^3.6.2
   http: ^1.1.2
   uuid: ^4.1.0
+=======
+  geolocator: ^10.1.0
+  http: ^1.1.0
+  url_launcher: ^6.2.2
+  permission_handler: ^11.0.1
+  geocoding: ^2.1.0
+>>>>>>> Stashed changes
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
