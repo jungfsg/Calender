@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/weather_info.dart';
 import '../services/weather_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/font_utils.dart';
 
 class WeatherSummaryPopup extends StatelessWidget {
   final List<WeatherInfo> weatherList;
@@ -43,10 +44,10 @@ class WeatherSummaryPopup extends StatelessWidget {
                   children: [
                     Text(
                       '10일간 날씨 예보',
-                      style: TextStyle(
-                        fontFamily: 'CustomFont',
+                      style: getCustomTextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        text: '10일간 날씨 예보',
                       ),
                     ),
                     IconButton(
@@ -81,10 +82,10 @@ class WeatherSummaryPopup extends StatelessWidget {
                   ),
                   child: Text(
                     '네이버 날씨에서 자세히 보기',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'CustomFont',
+                    style: getCustomTextStyle(
                       fontSize: 12,
+                      color: Colors.white,
+                      text: '네이버 날씨에서 자세히 보기',
                     ),
                   ),
                 ),
@@ -141,11 +142,11 @@ class WeatherSummaryPopup extends StatelessWidget {
             width: 80,
             child: Text(
               dateText,
-              style: TextStyle(
-                fontFamily: 'CustomFont',
+              style: getCustomTextStyle(
                 fontSize: 12,
                 fontWeight:
                     isToday || isTomorrow ? FontWeight.bold : FontWeight.normal,
+                text: dateText,
               ),
             ),
           ),
@@ -165,14 +166,17 @@ class WeatherSummaryPopup extends StatelessWidget {
               children: [
                 Text(
                   _getWeatherText(weather.condition),
-                  style: TextStyle(fontFamily: 'CustomFont', fontSize: 12),
+                  style: getCustomTextStyle(
+                    fontSize: 12,
+                    text: _getWeatherText(weather.condition),
+                  ),
                 ),
                 Text(
                   '${weather.temperature.toStringAsFixed(1)}°C',
-                  style: TextStyle(
-                    fontFamily: 'CustomFont',
+                  style: getCustomTextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
+                    text: '${weather.temperature.toStringAsFixed(1)}°C',
                   ),
                 ),
               ],

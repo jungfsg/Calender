@@ -18,6 +18,7 @@ TextStyle getCustomTextStyle({
   required double fontSize,
   Color? color,
   String? text,
+  FontWeight? fontWeight,
 }) {
   bool hasKorean =
       text != null ? RegExp(r'[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]').hasMatch(text) : false;
@@ -26,5 +27,6 @@ TextStyle getCustomTextStyle({
     fontFamily: hasKorean ? 'KoreanFont' : 'EnglishFont',
     fontSize: fontSize,
     color: color ?? Colors.black,
+    fontWeight: fontWeight,
   );
 }
