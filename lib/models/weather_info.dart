@@ -13,11 +13,16 @@ class WeatherInfo {
     required this.lon,
   });
 
-  factory WeatherInfo.fromJson(Map<String, dynamic> json, String date, double lat, double lon) {
+  factory WeatherInfo.fromJson(
+    Map<String, dynamic> json,
+    String date,
+    double lat,
+    double lon,
+  ) {
     // OpenWeatherMap API의 응답을 파싱
     final weather = json['weather'][0]['main'].toString().toLowerCase();
     String condition;
-    
+
     // 날씨 상태 매핑
     if (weather.contains('clear')) {
       condition = 'sunny';
@@ -39,4 +44,4 @@ class WeatherInfo {
       lon: lon,
     );
   }
-} 
+}
