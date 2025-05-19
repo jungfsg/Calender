@@ -579,14 +579,14 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         return;
       }
 
-      final weatherList = await WeatherService.get10DayForecast();
+      final weatherList = await WeatherService.get5DayForecast();
       print('가져온 날씨 수: ${weatherList.length}');
 
       if (mounted) {
         setState(() {
           // 사이클 날씨 처리를 위해 캐시 새로 초기화
           _weatherCache.clear();
-          _weatherForecast = weatherList; // 10일 예보 데이터 저장
+          _weatherForecast = weatherList; // 5일 예보 데이터 저장
 
           for (var weather in weatherList) {
             _weatherCache[weather.date] = weather;

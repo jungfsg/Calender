@@ -43,11 +43,11 @@ class WeatherSummaryPopup extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '10일간 날씨 예보',
+                      '5일간 날씨 예보',
                       style: getCustomTextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        text: '10일간 날씨 예보',
+                        text: '5일간 날씨 예보',
                       ),
                     ),
                     IconButton(
