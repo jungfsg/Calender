@@ -22,3 +22,4 @@ samples, guidance on mobile development, and a full API reference
 - 달력셀이 크롬에서는 정사각형에 가까운데 기기에서는 너무 길어서 짤리는 문제
 - 앱 테두리가 너무 두꺼운 문제(수정됨: 22 -> 15)
 - OpenWeatherMap API의 forecast 엔드포인트가 5일 예보를 제공하는데, 10일치 날씨정보를 불러오고 있는 문제(수정됨)
+- 고양이가 셀 아래에서 모습이 가려지는 문제
