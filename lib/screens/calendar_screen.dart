@@ -649,7 +649,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       backgroundColor: const Color.fromARGB(255, 162, 222, 141),
       appBar: AppBar(
         title: Text(
-          'Calender v250514 (Weather)',
+          'Calender v250519 (Weather)',
           style: TextStyle(
             fontFamily: 'CustomFont',
             fontSize: 14,
@@ -664,7 +664,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
             onPressed: () {
               _showWeatherForecastDialog();
             },
-            tooltip: '10일간 날씨 예보 보기',
+            tooltip: '5일간 날씨 예보 보기',
           ),
           // 날씨 새로고침 버튼
           IconButton(
