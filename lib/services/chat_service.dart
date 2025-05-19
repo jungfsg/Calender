@@ -13,9 +13,9 @@ class ChatService {
   Future<types.TextMessage> sendMessage(String text, String userId) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/chat'),
+        Uri.parse('$baseUrl/api/v1/calendar/chat'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'message': text, 'user_id': userId}),
+        body: jsonEncode({'message': text, 'session_id': userId}),
       );
 
       if (response.statusCode == 200) {
@@ -47,12 +47,7 @@ class ChatService {
       );
 
       // 파일 추가
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'image',
-          image.path,
-        ),
-      );
+      request.files.add(await http.MultipartFile.fromPath('image', image.path));
 
       // 사용자 ID 추가
       request.fields['user_id'] = userId;
