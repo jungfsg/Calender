@@ -42,6 +42,12 @@ dependencies:
   permission_handler: ^11.0.1
   geocoding: ^2.1.0
   image_picker: ^1.0.4
+  firebase_core: ^2.27.1
+  firebase_auth: ^4.17.9
+  firebase_database: ^10.4.10
+  google_sign_in: ^6.1.6
+  # MLKIT OCR
+  google_mlkit_text_recognition: ^0.11.0
   
   # 채팅 UI 관련 패키지 (필요하다면 주석 해제)
   # flutter_chat_ui: ^1.6.12

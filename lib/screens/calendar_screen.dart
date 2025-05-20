@@ -38,7 +38,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   bool _showTimeTablePopup = false; // 타임테이블 팝업 표시 여부
   bool _showWeatherPopup = false; // 날씨 예보 팝업 표시 여부
 
-  // ub0a0uc528 uad00ub828 ubcc0uc218
+  // 날씨 정보 캐시
   final Map<String, WeatherInfo> _weatherCache = {};
   List<WeatherInfo> _weatherForecast = []; // 10일간 예보 데이터
   bool _loadingWeather = false;
@@ -76,28 +76,34 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   // 현재 타임슬롯 로드 중인 날짜를 추적하기 위한 세트
   final Set<String> _loadingTimeSlots = {};
 
+  // 클래스 변수로 추가
+  OverlayEntry? _buttonOverlay;
+
   @override
   void initState() {
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
-    _calendarFormat =
-        CalendarFormat
-            .month; // ud56duc0c1 uc6d4 ud615uc2dduc73cub85c uace0uc815
-    // uc800uc7a5ub41c ubaa8ub4e0 ud0a4 ud655uc778
+    _calendarFormat = CalendarFormat.month; // 기본 월 형식으로 고정
+    // 저장된 모든 키 확인
     EventStorageService.printAllKeys();
-    // ucd08uae30 ub370uc774ud130 ub85cub4dc
+    // 초기 데이터 로드
     _loadInitialData();
-    // uc6c0uc9c1uc774ub294 ubc84ud2bc ucd08uae30 uc704uce58 uc124uc815
+    // 움직이는 버튼 초기 위치 설정
     _startButtonMovement();
 
-    // uc704uce58 uad8cud55c uc694uccad
+    // 위치 권한 요청
     _requestLocationPermission();
 
-    // ub0a0uc528 uc815ubcf4 ub85cub4dc (딱 한 번만 실행)
+    // 날씨 정보 로드 (딱 한 번만 실행)
     _loadWeatherData();
 
     // 1분마다 날씨 정보 업데이트하는 코드 제거
+
+    // 포스트 프레임 콜백을 사용하여 화면이 그려진 후 Overlay 추가
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _createButtonOverlay();
+    });
   }
 
   // 애플리케이션 시작 시 초기 데이터 로드
@@ -206,6 +212,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   @override
   void dispose() {
+    // Overlay 제거
+    _buttonOverlay?.remove();
+    _buttonOverlay = null;
     _timer?.cancel();
     super.dispose();
   }
@@ -224,12 +233,15 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   void _moveButton() {
     final size = MediaQuery.of(context).size;
     final speed = 4.0 + _random.nextDouble() * 4.0; // 지정값 사이의 랜덤 속도
+
     // 앱바와 화면 패딩을 고려한 실제 가용 영역 계산
     final appBarHeight = AppBar().preferredSize.height;
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+
     // 화면 패딩 고려 (main.dart에서 사용하는 패딩 값)
     final screenPadding = 15.0;
+
     // 실제 가용 화면 영역
     final effectiveHeight = size.height - appBarHeight - safeAreaTop;
     final effectiveWidth = size.width;
@@ -271,6 +283,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         }
         break;
     }
+
+    // Overlay 업데이트
+    _buttonOverlay?.markNeedsBuild();
   }
 
   // 빈 페이지로 이동
@@ -520,17 +535,17 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   // uc704uce58 uad8cud55c uc694uccad
   Future<void> _requestLocationPermission() async {
-    print('uc704uce58 uad8cud55c uc694uccad uc2dcuc791');
+    print('위치 권한 요청 시작');
     final permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      print('uc704uce58 uad8cud55c uc694uccadud558ub294 uc911...');
+      print('위치 권한 요청하는 중...');
       final result = await Geolocator.requestPermission();
-      print('uc704uce58 uad8cud55c uc694uccad uacb0uacfc: $result');
+      print('위치 권한 요청 결과: $result');
 
       if (result == LocationPermission.denied ||
           result == LocationPermission.deniedForever) {
-        // uc0acuc6a9uc790uc5d0uac8c uad8cud55cuc774 ud544uc694ud558ub2e4uace0 uc54cub9bc
+        // 사용자에게 권한이 필요하다고 알림
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')));
@@ -553,7 +568,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         ),
       );
     } else {
-      print('uc704uce58 uad8cud55c uc774ubbf8 uc788uc74c: $permission');
+      print('위치 권한 이미 있음: $permission');
     }
   }
 
@@ -641,6 +656,26 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     setState(() {
       _showWeatherPopup = false;
     });
+  }
+
+  // Overlay 생성 및 삽입 메서드
+  void _createButtonOverlay() {
+    _buttonOverlay?.remove();
+    _buttonOverlay = OverlayEntry(
+      builder: (context) {
+        return Positioned(
+          left: _buttonLeft,
+          // AppBar와 상태바 높이를 고려하여 top 위치 조정
+          top:
+              _buttonTop +
+              AppBar().preferredSize.height +
+              MediaQuery.of(context).padding.top,
+          child: MovingButton(size: _buttonSize, onTap: _navigateToEmptyPage),
+        );
+      },
+    );
+
+    Overlay.of(context)?.insert(_buttonOverlay!);
   }
 
   @override
@@ -803,7 +838,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                     markerSize: 0,
                   ),
                   calendarBuilders: CalendarBuilders(
-                    // uae30ubcf8 uc140 ube4cub354
+                    // 기본 셀 빌더
                     defaultBuilder: (context, day, focusedDay) {
                       return WeatherCalendarCell(
                         day: day,
@@ -828,7 +863,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         weatherInfo: _getWeatherForDay(day),
                       );
                     },
-                    // uc120ud0ddub41c ub0a0uc9dc uc140 ube4cub354
+                    // 선택된 날짜 셀 빌더
                     selectedBuilder: (context, day, focusedDay) {
                       return WeatherCalendarCell(
                         day: day,
@@ -845,7 +880,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         weatherInfo: _getWeatherForDay(day),
                       );
                     },
-                    // uc624ub298 ub0a0uc9dc uc140 ube4cub354
+                    // 오늘 날짜 셀 빌더
                     todayBuilder: (context, day, focusedDay) {
                       return WeatherCalendarCell(
                         day: day,
@@ -870,7 +905,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         weatherInfo: _getWeatherForDay(day),
                       );
                     },
-                    // uc694uc77c ud5e4ub354 ube4cub354
+                    // 요일 헤더 빌더
                     dowBuilder: (context, day) {
                       final weekdayNames = [
                         'Mon',
@@ -900,7 +935,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         ),
                       );
                     },
-                    // ud5e4ub354 ud0c0uc774ud2c0 ube4cub354
+                    // 헤더 타이틀 빌더
                     headerTitleBuilder: (context, month) {
                       final monthNames = [
                         '1월',
@@ -930,7 +965,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         ),
                         child: Text(
                           '${month.year}년 ${monthNames[month.month - 1]}',
-                          style: getTextStyle(fontSize: 10, color: Colors.white),
+                          style: getTextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                          ),
                         ),
                       );
                     },
@@ -965,13 +1003,6 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
               weatherList: _weatherForecast,
               onClose: _hideWeatherForecastDialog,
             ),
-
-          // 움직이는 GIF 버튼
-          Positioned(
-            left: _buttonLeft,
-            top: _buttonTop,
-            child: MovingButton(size: _buttonSize, onTap: _navigateToEmptyPage),
-          ),
         ],
       ),
     );
