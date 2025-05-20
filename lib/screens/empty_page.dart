@@ -4,6 +4,9 @@ import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:uuid/uuid.dart';
 import '../utils/font_utils.dart';
 import '../services/chat_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:convert';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({Key? key}) : super(key: key);
@@ -18,6 +21,7 @@ class _EmptyPageState extends State<EmptyPage> {
   final _botUser = types.User(id: 'bot', firstName: 'AI 어시스턴트');
   final _uuid = Uuid();
   final ChatService _chatService = ChatService();
+  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
   @override
@@ -71,6 +75,135 @@ class _EmptyPageState extends State<EmptyPage> {
     }
   }
 
+  Future<void> _handleImageSelection() async {
+    final XFile? result = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+      maxWidth: 1440,
+    );
+
+    if (result != null) {
+      await _handleImageUpload(File(result.path));
+    }
+  }
+
+  Future<void> _handleCameraCapture() async {
+    final XFile? result = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70,
+      maxWidth: 1440,
+    );
+
+    if (result != null) {
+      await _handleImageUpload(File(result.path));
+    }
+  }
+
+  Future<void> _handleImageUpload(File imageFile) async {
+    // 이미지 파일을 base64로 인코딩
+    final bytes = await imageFile.readAsBytes();
+    final base64Image = base64Encode(bytes);
+
+    // 이미지 크기 계산
+    final size = bytes.length;
+
+    // 이미지 메시지 생성
+    final imageMessage = types.ImageMessage(
+      author: _user,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      id: _uuid.v4(),
+      name: imageFile.path.split('/').last,
+      size: size,
+      uri: imageFile.path,
+    );
+
+    setState(() {
+      _messages.insert(0, imageMessage);
+      _isLoading = true;
+    });
+
+    try {
+      // 서버로 이미지 전송 및 응답 받기
+      final botResponse = await _chatService.sendImage(imageFile, _user.id);
+
+      setState(() {
+        _messages.insert(0, botResponse);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _addSystemMessage('죄송합니다. 이미지 전송 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  // 커스텀 입력 영역 위젯
+  Widget _buildCustomInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Colors.black12,
+      child: SafeArea(
+        child: Row(
+          children: [
+            // 카메라 버튼
+            IconButton(
+              icon: const Icon(Icons.camera_alt),
+              onPressed: _handleCameraCapture,
+              tooltip: '카메라로 사진 찍기',
+            ),
+            // 갤러리 버튼
+            IconButton(
+              icon: const Icon(Icons.photo),
+              onPressed: _handleImageSelection,
+              tooltip: '갤러리에서 사진 선택',
+            ),
+            // 메시지 입력 필드
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: TextField(
+                  controller: _chatInputController,
+                  decoration: InputDecoration(
+                    hintText: '메시지를 입력하세요',
+                    hintStyle: getCustomTextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                      text: '메시지를 입력하세요',
+                    ),
+                    border: InputBorder.none,
+                  ),
+                  maxLines: null,
+                  textCapitalization: TextCapitalization.sentences,
+                  onSubmitted: _handleSubmitted,
+                ),
+              ),
+            ),
+            // 전송 버튼
+            IconButton(
+              icon: const Icon(Icons.send),
+              onPressed: _handleSubmitPressed,
+              tooltip: '메시지 전송',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  final TextEditingController _chatInputController = TextEditingController();
+
+  void _handleSubmitted(String text) {
+    if (text.trim().isNotEmpty) {
+      _handleSendPressed(types.PartialText(text: text.trim()));
+      _chatInputController.clear();
+    }
+  }
+
+  void _handleSubmitPressed() {
+    _handleSubmitted(_chatInputController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,7 +211,7 @@ class _EmptyPageState extends State<EmptyPage> {
         title: Text(
           'AI 채팅',
           style: getCustomTextStyle(
-            fontSize: 14,
+            fontSize: 18,
             color: Colors.white,
             text: 'AI 채팅',
           ),
@@ -98,6 +231,7 @@ class _EmptyPageState extends State<EmptyPage> {
               onSendPressed: _handleSendPressed,
               user: _user,
               showUserNames: true,
+              customBottomWidget: _buildCustomInput(),
               theme: DefaultChatTheme(
                 inputBackgroundColor: Colors.black12,
                 backgroundColor: Colors.white,
@@ -139,6 +273,12 @@ class _EmptyPageState extends State<EmptyPage> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _chatInputController.dispose();
+    super.dispose();
   }
 }
 

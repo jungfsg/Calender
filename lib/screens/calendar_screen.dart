@@ -81,20 +81,18 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
-    _calendarFormat =
-        CalendarFormat
-            .month; // ud56duc0c1 uc6d4 ud615uc2dduc73cub85c uace0uc815
-    // uc800uc7a5ub41c ubaa8ub4e0 ud0a4 ud655uc778
+    _calendarFormat = CalendarFormat.month; // 기본 월 형식으로 고정
+    // 저장된 모든 키 확인
     EventStorageService.printAllKeys();
-    // ucd08uae30 ub370uc774ud130 ub85cub4dc
+    // 초기 데이터 로드
     _loadInitialData();
-    // uc6c0uc9c1uc774ub294 ubc84ud2bc ucd08uae30 uc704uce58 uc124uc815
+    // 움직이는 버튼 초기 위치 설정
     _startButtonMovement();
 
-    // uc704uce58 uad8cud55c uc694uccad
+    // 위치 권한 요청
     _requestLocationPermission();
 
-    // ub0a0uc528 uc815ubcf4 ub85cub4dc (딱 한 번만 실행)
+    // 날씨 정보 로드 (딱 한 번만 실행)
     _loadWeatherData();
 
     // 1분마다 날씨 정보 업데이트하는 코드 제거
@@ -520,17 +518,17 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   // uc704uce58 uad8cud55c uc694uccad
   Future<void> _requestLocationPermission() async {
-    print('uc704uce58 uad8cud55c uc694uccad uc2dcuc791');
+    print('위치 권한 요청 시작');
     final permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      print('uc704uce58 uad8cud55c uc694uccadud558ub294 uc911...');
+      print('위치 권한 요청하는 중...');
       final result = await Geolocator.requestPermission();
-      print('uc704uce58 uad8cud55c uc694uccad uacb0uacfc: $result');
+      print('위치 권한 요청 결과: $result');
 
       if (result == LocationPermission.denied ||
           result == LocationPermission.deniedForever) {
-        // uc0acuc6a9uc790uc5d0uac8c uad8cud55cuc774 ud544uc694ud558ub2e4uace0 uc54cub9bc
+        // 사용자에게 권한이 필요하다고 알림
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')));
@@ -553,7 +551,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         ),
       );
     } else {
-      print('uc704uce58 uad8cud55c uc774ubbf8 uc788uc74c: $permission');
+      print('위치 권한 이미 있음: $permission');
     }
   }
 
@@ -684,256 +682,257 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
           // 메인 콘텐츠
           Padding(
             padding: const EdgeInsets.all(22.0),
-            child: Container(
-              height: double.infinity,
-              decoration: BoxDecoration(color: const Color(0xFFFFFFFF)),
-              child: TableCalendar(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: _focusedDay,
-                calendarFormat: _calendarFormat,
-                daysOfWeekHeight: 50.0,
-                rowHeight: 109.5,
-                selectedDayPredicate: (day) {
-                  return isSameDay(_selectedDay, day);
-                },
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    _selectedDay = selectedDay;
-                    _focusedDay = focusedDay;
-                    _showEventDialog();
-                  });
-                },
-                onPageChanged: (focusedDay) {
-                  setState(() {
-                    _focusedDay = focusedDay;
-                    _showEventPopup = false;
-                    _showTimeTablePopup = false;
-                  });
-                },
-                eventLoader: _getEventsForDay,
-                startingDayOfWeek: StartingDayOfWeek.sunday,
-                headerStyle: HeaderStyle(
-                  titleTextStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 12,
-                    color: Colors.black,
+            child: SingleChildScrollView(
+              child: Container(
+                decoration: BoxDecoration(color: const Color(0xFFFFFFFF)),
+                child: TableCalendar(
+                  firstDay: DateTime.utc(2020, 1, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  focusedDay: _focusedDay,
+                  calendarFormat: _calendarFormat,
+                  daysOfWeekHeight: 35.0, // 헤더 높이 더 감소
+                  rowHeight: 70.0, // 행 높이 더 감소
+                  selectedDayPredicate: (day) {
+                    return isSameDay(_selectedDay, day);
+                  },
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                      _showEventDialog();
+                    });
+                  },
+                  onPageChanged: (focusedDay) {
+                    setState(() {
+                      _focusedDay = focusedDay;
+                      _showEventPopup = false;
+                      _showTimeTablePopup = false;
+                    });
+                  },
+                  eventLoader: _getEventsForDay,
+                  startingDayOfWeek: StartingDayOfWeek.sunday,
+                  headerStyle: HeaderStyle(
+                    titleTextStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 12,
+                      color: Colors.black,
+                    ),
+                    formatButtonVisible: false,
+                    leftChevronIcon: const Icon(
+                      Icons.arrow_left,
+                      color: Colors.black,
+                      size: 24,
+                    ),
+                    rightChevronIcon: const Icon(
+                      Icons.arrow_right,
+                      color: Colors.black,
+                      size: 24,
+                    ),
+                    headerMargin: const EdgeInsets.only(bottom: 8),
+                    headerPadding: const EdgeInsets.symmetric(vertical: 10),
+                    titleCentered: true,
                   ),
-                  formatButtonVisible: false,
-                  leftChevronIcon: const Icon(
-                    Icons.arrow_left,
-                    color: Colors.black,
-                    size: 24,
+                  daysOfWeekStyle: DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 8,
+                      color: Colors.black,
+                    ),
+                    weekendStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 8,
+                      color: Colors.red,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEEEEE),
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
                   ),
-                  rightChevronIcon: const Icon(
-                    Icons.arrow_right,
-                    color: Colors.black,
-                    size: 24,
+                  calendarStyle: CalendarStyle(
+                    defaultTextStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 8,
+                      color: Colors.black,
+                    ),
+                    weekendTextStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 8,
+                      color: Colors.red,
+                    ),
+                    selectedTextStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 8,
+                      color: Colors.white,
+                    ),
+                    todayTextStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 8,
+                      color: Colors.black,
+                    ),
+                    outsideTextStyle: TextStyle(
+                      fontFamily: 'CustomFont',
+                      fontSize: 8,
+                      color: const Color(0xFF888888),
+                    ),
+                    selectedDecoration: BoxDecoration(
+                      color: Colors.blue[800],
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    todayDecoration: BoxDecoration(
+                      color: Colors.amber[300],
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    defaultDecoration: BoxDecoration(
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    weekendDecoration: BoxDecoration(
+                      color: const Color(0xFFEEEEEE),
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    outsideDecoration: BoxDecoration(
+                      color: const Color(0xFFDDDDDD),
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    tableBorder: TableBorder.all(color: Colors.black, width: 2),
+                    markersMaxCount: 6,
+                    markersAlignment: Alignment.bottomCenter,
+                    markerMargin: const EdgeInsets.only(top: 2),
+                    markerDecoration: BoxDecoration(color: Colors.transparent),
+                    markerSize: 0,
                   ),
-                  headerMargin: const EdgeInsets.only(bottom: 8),
-                  headerPadding: const EdgeInsets.symmetric(vertical: 10),
-                  titleCentered: true,
-                ),
-                daysOfWeekStyle: DaysOfWeekStyle(
-                  weekdayStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 8,
-                    color: Colors.black,
-                  ),
-                  weekendStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 8,
-                    color: Colors.red,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEEEEE),
-                    border: Border.all(color: Colors.black, width: 1),
-                  ),
-                ),
-                calendarStyle: CalendarStyle(
-                  defaultTextStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 8,
-                    color: Colors.black,
-                  ),
-                  weekendTextStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 8,
-                    color: Colors.red,
-                  ),
-                  selectedTextStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 8,
-                    color: Colors.white,
-                  ),
-                  todayTextStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 8,
-                    color: Colors.black,
-                  ),
-                  outsideTextStyle: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 8,
-                    color: const Color(0xFF888888),
-                  ),
-                  selectedDecoration: BoxDecoration(
-                    color: Colors.blue[800],
-                    border: Border.all(color: Colors.black, width: 1),
-                  ),
-                  todayDecoration: BoxDecoration(
-                    color: Colors.amber[300],
-                    border: Border.all(color: Colors.black, width: 1),
-                  ),
-                  defaultDecoration: BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 1),
-                  ),
-                  weekendDecoration: BoxDecoration(
-                    color: const Color(0xFFEEEEEE),
-                    border: Border.all(color: Colors.black, width: 1),
-                  ),
-                  outsideDecoration: BoxDecoration(
-                    color: const Color(0xFFDDDDDD),
-                    border: Border.all(color: Colors.black, width: 1),
-                  ),
-                  tableBorder: TableBorder.all(color: Colors.black, width: 2),
-                  markersMaxCount: 6,
-                  markersAlignment: Alignment.bottomCenter,
-                  markerMargin: const EdgeInsets.only(top: 2),
-                  markerDecoration: BoxDecoration(color: Colors.transparent),
-                  markerSize: 0,
-                ),
-                calendarBuilders: CalendarBuilders(
-                  // uae30ubcf8 uc140 ube4cub354
-                  defaultBuilder: (context, day, focusedDay) {
-                    return WeatherCalendarCell(
-                      day: day,
-                      isSelected: false,
-                      isToday: false,
-                      onTap: () {
-                        setState(() {
-                          _selectedDay = day;
-                          _focusedDay = focusedDay;
+                  calendarBuilders: CalendarBuilders(
+                    // uae30ubcf8 uc140 ube4cub354
+                    defaultBuilder: (context, day, focusedDay) {
+                      return WeatherCalendarCell(
+                        day: day,
+                        isSelected: false,
+                        isToday: false,
+                        onTap: () {
+                          setState(() {
+                            _selectedDay = day;
+                            _focusedDay = focusedDay;
+                            _showEventDialog();
+                          });
+                        },
+                        onLongPress: () {
+                          setState(() {
+                            _selectedDay = day;
+                            _focusedDay = focusedDay;
+                            _showTimeTableDialog();
+                          });
+                        },
+                        events: _getEventsForDay(day),
+                        eventColors: _eventColors,
+                        weatherInfo: _getWeatherForDay(day),
+                      );
+                    },
+                    // uc120ud0ddub41c ub0a0uc9dc uc140 ube4cub354
+                    selectedBuilder: (context, day, focusedDay) {
+                      return WeatherCalendarCell(
+                        day: day,
+                        isSelected: true,
+                        isToday: false,
+                        onTap: () {
                           _showEventDialog();
-                        });
-                      },
-                      onLongPress: () {
-                        setState(() {
-                          _selectedDay = day;
-                          _focusedDay = focusedDay;
+                        },
+                        onLongPress: () {
                           _showTimeTableDialog();
-                        });
-                      },
-                      events: _getEventsForDay(day),
-                      eventColors: _eventColors,
-                      weatherInfo: _getWeatherForDay(day),
-                    );
-                  },
-                  // uc120ud0ddub41c ub0a0uc9dc uc140 ube4cub354
-                  selectedBuilder: (context, day, focusedDay) {
-                    return WeatherCalendarCell(
-                      day: day,
-                      isSelected: true,
-                      isToday: false,
-                      onTap: () {
-                        _showEventDialog();
-                      },
-                      onLongPress: () {
-                        _showTimeTableDialog();
-                      },
-                      events: _getEventsForDay(day),
-                      eventColors: _eventColors,
-                      weatherInfo: _getWeatherForDay(day),
-                    );
-                  },
-                  // uc624ub298 ub0a0uc9dc uc140 ube4cub354
-                  todayBuilder: (context, day, focusedDay) {
-                    return WeatherCalendarCell(
-                      day: day,
-                      isSelected: false,
-                      isToday: true,
-                      onTap: () {
-                        setState(() {
-                          _selectedDay = day;
-                          _focusedDay = focusedDay;
-                          _showEventDialog();
-                        });
-                      },
-                      onLongPress: () {
-                        setState(() {
-                          _selectedDay = day;
-                          _focusedDay = focusedDay;
-                          _showTimeTableDialog();
-                        });
-                      },
-                      events: _getEventsForDay(day),
-                      eventColors: _eventColors,
-                      weatherInfo: _getWeatherForDay(day),
-                    );
-                  },
-                  // uc694uc77c ud5e4ub354 ube4cub354
-                  dowBuilder: (context, day) {
-                    final weekdayNames = [
-                      'Mon',
-                      'Tue',
-                      'Wed',
-                      'Tur',
-                      'Fri',
-                      'Sat',
-                      'Sun',
-                    ];
-                    final weekdayIndex = day.weekday - 1;
-                    final isWeekend =
-                        day.weekday == DateTime.saturday ||
-                        day.weekday == DateTime.sunday;
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEEEEEE),
-                        border: Border.all(color: Colors.black, width: 1),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        weekdayNames[weekdayIndex],
-                        style: getTextStyle(
-                          fontSize: 8,
-                          color: isWeekend ? Colors.red : Colors.black,
+                        },
+                        events: _getEventsForDay(day),
+                        eventColors: _eventColors,
+                        weatherInfo: _getWeatherForDay(day),
+                      );
+                    },
+                    // uc624ub298 ub0a0uc9dc uc140 ube4cub354
+                    todayBuilder: (context, day, focusedDay) {
+                      return WeatherCalendarCell(
+                        day: day,
+                        isSelected: false,
+                        isToday: true,
+                        onTap: () {
+                          setState(() {
+                            _selectedDay = day;
+                            _focusedDay = focusedDay;
+                            _showEventDialog();
+                          });
+                        },
+                        onLongPress: () {
+                          setState(() {
+                            _selectedDay = day;
+                            _focusedDay = focusedDay;
+                            _showTimeTableDialog();
+                          });
+                        },
+                        events: _getEventsForDay(day),
+                        eventColors: _eventColors,
+                        weatherInfo: _getWeatherForDay(day),
+                      );
+                    },
+                    // uc694uc77c ud5e4ub354 ube4cub354
+                    dowBuilder: (context, day) {
+                      final weekdayNames = [
+                        'Mon',
+                        'Tue',
+                        'Wed',
+                        'Tur',
+                        'Fri',
+                        'Sat',
+                        'Sun',
+                      ];
+                      final weekdayIndex = day.weekday - 1;
+                      final isWeekend =
+                          day.weekday == DateTime.saturday ||
+                          day.weekday == DateTime.sunday;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEEEEE),
+                          border: Border.all(color: Colors.black, width: 1),
                         ),
-                      ),
-                    );
-                  },
-                  // ud5e4ub354 ud0c0uc774ud2c0 ube4cub354
-                  headerTitleBuilder: (context, month) {
-                    final monthNames = [
-                      '1월',
-                      '2월',
-                      '3월',
-                      '4월',
-                      '5월',
-                      '6월',
-                      '7월',
-                      '8월',
-                      '9월',
-                      '10월',
-                      '11월',
-                      '12월',
-                    ];
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        border: Border.all(
-                          color: const Color(0xFF888888),
-                          width: 2,
+                        alignment: Alignment.center,
+                        child: Text(
+                          weekdayNames[weekdayIndex],
+                          style: getTextStyle(
+                            fontSize: 8,
+                            color: isWeekend ? Colors.red : Colors.black,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        '${month.year}년 ${monthNames[month.month - 1]}',
-                        style: getTextStyle(fontSize: 10, color: Colors.white),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                    // ud5e4ub354 ud0c0uc774ud2c0 ube4cub354
+                    headerTitleBuilder: (context, month) {
+                      final monthNames = [
+                        '1월',
+                        '2월',
+                        '3월',
+                        '4월',
+                        '5월',
+                        '6월',
+                        '7월',
+                        '8월',
+                        '9월',
+                        '10월',
+                        '11월',
+                        '12월',
+                      ];
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4,
+                          horizontal: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          border: Border.all(
+                            color: const Color(0xFF888888),
+                            width: 2,
+                          ),
+                        ),
+                        child: Text(
+                          '${month.year}년 ${monthNames[month.month - 1]}',
+                          style: getTextStyle(fontSize: 10, color: Colors.white),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
