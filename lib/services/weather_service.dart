@@ -13,24 +13,22 @@ class WeatherService {
       'b17dadb6340528a9d0764c6c2643de4f'; // 예시 키입니다. 실제 작동하는 키로 변경하세요
   static const String baseUrl = 'https://api.openweathermap.org/data/2.5';
 
-  // uce90uc2dc ud0a4
+  // 캐시 키
   static const String _cacheKey = 'weather_cache';
-  static const Duration _cacheDuration = Duration(
-    hours: 2,
-  ); // uce90uc2dc uc720ud6a8 uc2dcuac04
+  static const Duration _cacheDuration = Duration(hours: 2); // 캐시 유효 시간
 
-  // uc704uce58 uad8cud55c uccb4ud06c
+  // 위치 권한 체크
   static Future<bool> checkLocationPermission() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // uc704uce58 uc11cube44uc2a4 ud65cuc131ud654 ud655uc778
+    // 위치 서비스 활성화 확인
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return false;
     }
 
-    // uad8cud55c ud655uc778
+    // 권한 확인
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -46,7 +44,7 @@ class WeatherService {
     return true;
   }
 
-  // ud604uc7ac uc704uce58 uac00uc838uc624uae30
+  // 현재 위치 가져오기
   static Future<Position?> getCurrentLocation() async {
     if (!await checkLocationPermission()) {
       return null;

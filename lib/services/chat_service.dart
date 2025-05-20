@@ -3,19 +3,68 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:uuid/uuid.dart';
+import 'weather_service.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
   final String baseUrl = 'http://localhost:8000';
   final Uuid _uuid = Uuid();
 
+  // 날씨 관련 키워드 목록
+  final List<String> _weatherKeywords = [
+    '날씨',
+    '기온',
+    '비',
+    '눈',
+    '맑음',
+    '흐림',
+    '예보',
+    '오늘 날씨',
+    '내일 날씨',
+    '이번 주 날씨',
+    '주간 날씨',
+    '기후',
+    '강수',
+    '습도',
+    '바람',
+    '온도',
+  ];
+
   // LLM 서버에 메시지를 보내고 응답을 받는 메서드
   Future<types.TextMessage> sendMessage(String text, String userId) async {
     try {
+      // 날씨 관련 질문인지 확인
+      Map<String, dynamic> requestBody = {
+        'message': text,
+        'session_id': userId,
+      };
+
+      // 날씨 관련 질문이면 날씨 데이터 추가
+      if (_isWeatherRelatedQuestion(text)) {
+        try {
+          final weatherData = await WeatherService.get5DayForecast();
+          requestBody['weather_context'] =
+              weatherData
+                  .map(
+                    (w) => {
+                      'date': w.date,
+                      'condition': w.condition,
+                      'temperature': w.temperature,
+                      'lat': w.lat,
+                      'lon': w.lon,
+                    },
+                  )
+                  .toList();
+        } catch (weatherError) {
+          print('날씨 데이터 가져오기 실패: $weatherError');
+          // 날씨 데이터 가져오기 실패해도 계속 진행
+        }
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/api/v1/calendar/chat'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'message': text, 'session_id': userId}),
+        body: jsonEncode(requestBody),
       );
 
       if (response.statusCode == 200) {
@@ -35,6 +84,11 @@ class ChatService {
     } catch (e) {
       throw Exception('서버 통신 중 오류 발생: $e');
     }
+  }
+
+  // 날씨 관련 질문인지 확인하는 메서드
+  bool _isWeatherRelatedQuestion(String text) {
+    return _weatherKeywords.any((keyword) => text.contains(keyword));
   }
 
   // 이미지를 서버에 전송하는 메서드
