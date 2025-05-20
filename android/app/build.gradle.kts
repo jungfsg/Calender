@@ -42,6 +42,11 @@ android {
     }
 }
 
+dependencies {
+    // 한국어 텍스트 인식 라이브러리 추가
+    implementation("com.google.mlkit:text-recognition-korean:16.0.0")
+}
+
 flutter {
     source = "../.."
 }

@@ -7,12 +7,13 @@ import '../services/chat_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({Key? key}) : super(key: key);
 
   @override
-  State<EmptyPage> createState() => _EmptyPageState();
+  State createState() => _EmptyPageState();
 }
 
 class _EmptyPageState extends State<EmptyPage> {
@@ -22,6 +23,9 @@ class _EmptyPageState extends State<EmptyPage> {
   final _uuid = Uuid();
   final ChatService _chatService = ChatService();
   final ImagePicker _picker = ImagePicker();
+  final TextRecognizer _textRecognizer = TextRecognizer(
+    script: TextRecognitionScript.korean,
+  );
   bool _isLoading = false;
 
   @override
@@ -37,7 +41,6 @@ class _EmptyPageState extends State<EmptyPage> {
       id: _uuid.v4(),
       text: text,
     );
-
     setState(() {
       _messages.insert(0, message);
     });
@@ -50,19 +53,16 @@ class _EmptyPageState extends State<EmptyPage> {
       id: _uuid.v4(),
       text: message.text,
     );
-
     setState(() {
       _messages.insert(0, textMessage);
       _isLoading = true;
     });
-
     try {
       // 서버로 메시지 전송 및 응답 받기
       final botResponse = await _chatService.sendMessage(
         message.text,
         _user.id,
       );
-
       setState(() {
         _messages.insert(0, botResponse);
         _isLoading = false;
@@ -75,38 +75,89 @@ class _EmptyPageState extends State<EmptyPage> {
     }
   }
 
-  Future<void> _handleImageSelection() async {
+  Future _handleImageSelection() async {
     final XFile? result = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 70,
       maxWidth: 1440,
     );
-
     if (result != null) {
       await _handleImageUpload(File(result.path));
     }
   }
 
-  Future<void> _handleCameraCapture() async {
+  Future _handleCameraCapture() async {
     final XFile? result = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 70,
       maxWidth: 1440,
     );
-
     if (result != null) {
-      await _handleImageUpload(File(result.path));
+      final File imageFile = File(result.path);
+
+      // 이미지 메시지 생성
+      final imageMessage = types.ImageMessage(
+        author: _user,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: _uuid.v4(),
+        name: imageFile.path.split('/').last,
+        size: await imageFile.length(),
+        uri: imageFile.path,
+      );
+
+      setState(() {
+        _messages.insert(0, imageMessage);
+        _isLoading = true;
+      });
+
+      try {
+        // OCR 처리
+        final inputImage = InputImage.fromFilePath(imageFile.path);
+        final RecognizedText recognizedText = await _textRecognizer
+            .processImage(inputImage);
+
+        if (recognizedText.text.isNotEmpty) {
+          // 인식된 텍스트 메시지 생성
+          final textMessage = types.TextMessage(
+            author: _user,
+            createdAt: DateTime.now().millisecondsSinceEpoch,
+            id: _uuid.v4(),
+            text: recognizedText.text,
+          );
+
+          setState(() {
+            _messages.insert(0, textMessage);
+          });
+
+          // 인식된 텍스트를 서버로 전송
+          final botResponse = await _chatService.sendMessage(
+            recognizedText.text,
+            _user.id,
+          );
+
+          setState(() {
+            _messages.insert(0, botResponse);
+            _isLoading = false;
+          });
+        } else {
+          // 텍스트가 인식되지 않은 경우 이미지만 전송
+          await _handleImageUpload(imageFile);
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        _addSystemMessage('이미지 처리 중 오류가 발생했습니다: $e');
+      }
     }
   }
 
-  Future<void> _handleImageUpload(File imageFile) async {
+  Future _handleImageUpload(File imageFile) async {
     // 이미지 파일을 base64로 인코딩
     final bytes = await imageFile.readAsBytes();
     final base64Image = base64Encode(bytes);
-
     // 이미지 크기 계산
     final size = bytes.length;
-
     // 이미지 메시지 생성
     final imageMessage = types.ImageMessage(
       author: _user,
@@ -116,16 +167,13 @@ class _EmptyPageState extends State<EmptyPage> {
       size: size,
       uri: imageFile.path,
     );
-
     setState(() {
       _messages.insert(0, imageMessage);
       _isLoading = true;
     });
-
     try {
       // 서버로 이미지 전송 및 응답 받기
       final botResponse = await _chatService.sendImage(imageFile, _user.id);
-
       setState(() {
         _messages.insert(0, botResponse);
         _isLoading = false;
@@ -150,7 +198,7 @@ class _EmptyPageState extends State<EmptyPage> {
             IconButton(
               icon: const Icon(Icons.camera_alt),
               onPressed: _handleCameraCapture,
-              tooltip: '카메라로 사진 찍기',
+              tooltip: '카메라로 텍스트 인식',
             ),
             // 갤러리 버튼
             IconButton(
@@ -211,7 +259,7 @@ class _EmptyPageState extends State<EmptyPage> {
         title: Text(
           'AI 채팅',
           style: getCustomTextStyle(
-            fontSize: 18,
+            fontSize: 14,
             color: Colors.white,
             text: 'AI 채팅',
           ),
@@ -278,6 +326,7 @@ class _EmptyPageState extends State<EmptyPage> {
   @override
   void dispose() {
     _chatInputController.dispose();
+    _textRecognizer.close();
     super.dispose();
   }
 }
