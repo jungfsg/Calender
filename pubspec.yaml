@@ -45,7 +45,7 @@ dependencies:
   firebase_core: ^2.27.1
   firebase_auth: ^4.17.9
   firebase_database: ^10.4.10
-  google_sign_in: ^6.1.
+  google_sign_in: ^6.1.6
   # MLKIT OCR
   google_mlkit_text_recognition: ^0.11.0
   
