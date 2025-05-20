@@ -103,10 +103,10 @@ class _EmptyPageState extends State<EmptyPage> {
     // 이미지 파일을 base64로 인코딩
     final bytes = await imageFile.readAsBytes();
     final base64Image = base64Encode(bytes);
-    
+
     // 이미지 크기 계산
     final size = bytes.length;
-    
+
     // 이미지 메시지 생성
     final imageMessage = types.ImageMessage(
       author: _user,
@@ -124,10 +124,7 @@ class _EmptyPageState extends State<EmptyPage> {
 
     try {
       // 서버로 이미지 전송 및 응답 받기
-      final botResponse = await _chatService.sendImage(
-        imageFile,
-        _user.id,
-      );
+      final botResponse = await _chatService.sendImage(imageFile, _user.id);
 
       setState(() {
         _messages.insert(0, botResponse);
@@ -214,7 +211,7 @@ class _EmptyPageState extends State<EmptyPage> {
         title: Text(
           'AI 채팅',
           style: getCustomTextStyle(
-            fontSize: 14,
+            fontSize: 18,
             color: Colors.white,
             text: 'AI 채팅',
           ),

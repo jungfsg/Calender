@@ -81,20 +81,18 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
-    _calendarFormat =
-        CalendarFormat
-            .month; // ud56duc0c1 uc6d4 ud615uc2dduc73cub85c uace0uc815
-    // uc800uc7a5ub41c ubaa8ub4e0 ud0a4 ud655uc778
+    _calendarFormat = CalendarFormat.month; // 기본 월 형식으로 고정
+    // 저장된 모든 키 확인
     EventStorageService.printAllKeys();
-    // ucd08uae30 ub370uc774ud130 ub85cub4dc
+    // 초기 데이터 로드
     _loadInitialData();
-    // uc6c0uc9c1uc774ub294 ubc84ud2bc ucd08uae30 uc704uce58 uc124uc815
+    // 움직이는 버튼 초기 위치 설정
     _startButtonMovement();
 
-    // uc704uce58 uad8cud55c uc694uccad
+    // 위치 권한 요청
     _requestLocationPermission();
 
-    // ub0a0uc528 uc815ubcf4 ub85cub4dc (딱 한 번만 실행)
+    // 날씨 정보 로드 (딱 한 번만 실행)
     _loadWeatherData();
 
     // 1분마다 날씨 정보 업데이트하는 코드 제거
@@ -520,17 +518,17 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   // uc704uce58 uad8cud55c uc694uccad
   Future<void> _requestLocationPermission() async {
-    print('uc704uce58 uad8cud55c uc694uccad uc2dcuc791');
+    print('위치 권한 요청 시작');
     final permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      print('uc704uce58 uad8cud55c uc694uccadud558ub294 uc911...');
+      print('위치 권한 요청하는 중...');
       final result = await Geolocator.requestPermission();
-      print('uc704uce58 uad8cud55c uc694uccad uacb0uacfc: $result');
+      print('위치 권한 요청 결과: $result');
 
       if (result == LocationPermission.denied ||
           result == LocationPermission.deniedForever) {
-        // uc0acuc6a9uc790uc5d0uac8c uad8cud55cuc774 ud544uc694ud558ub2e4uace0 uc54cub9bc
+        // 사용자에게 권한이 필요하다고 알림
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')));
@@ -553,7 +551,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         ),
       );
     } else {
-      print('uc704uce58 uad8cud55c uc774ubbf8 uc788uc74c: $permission');
+      print('위치 권한 이미 있음: $permission');
     }
   }
 
