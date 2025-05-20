@@ -41,6 +41,9 @@ dependencies:
   url_launcher: ^6.2.2
   permission_handler: ^11.0.1
   geocoding: ^2.1.0
+  firebase_core: ^2.24.0
+  firebase_auth: ^4.15.0
+  google_sign_in: ^6.1.6
   
   # 채팅 UI 관련 패키지 (필요하다면 주석 해제)
   # flutter_chat_ui: ^1.6.12
