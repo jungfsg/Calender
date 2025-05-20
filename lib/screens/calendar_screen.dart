@@ -838,7 +838,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                     markerSize: 0,
                   ),
                   calendarBuilders: CalendarBuilders(
-                    // uae30ubcf8 uc140 ube4cub354
+                    // 기본 셀 빌더
                     defaultBuilder: (context, day, focusedDay) {
                       return WeatherCalendarCell(
                         day: day,
@@ -863,7 +863,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         weatherInfo: _getWeatherForDay(day),
                       );
                     },
-                    // uc120ud0ddub41c ub0a0uc9dc uc140 ube4cub354
+                    // 선택된 날짜 셀 빌더
                     selectedBuilder: (context, day, focusedDay) {
                       return WeatherCalendarCell(
                         day: day,
@@ -880,7 +880,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         weatherInfo: _getWeatherForDay(day),
                       );
                     },
-                    // uc624ub298 ub0a0uc9dc uc140 ube4cub354
+                    // 오늘 날짜 셀 빌더
                     todayBuilder: (context, day, focusedDay) {
                       return WeatherCalendarCell(
                         day: day,
@@ -905,7 +905,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         weatherInfo: _getWeatherForDay(day),
                       );
                     },
-                    // uc694uc77c ud5e4ub354 ube4cub354
+                    // 요일 헤더 빌더
                     dowBuilder: (context, day) {
                       final weekdayNames = [
                         'Mon',
@@ -935,7 +935,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         ),
                       );
                     },
-                    // ud5e4ub354 ud0c0uc774ud2c0 ube4cub354
+                    // 헤더 타이틀 빌더
                     headerTitleBuilder: (context, month) {
                       final monthNames = [
                         '1월',
