@@ -38,7 +38,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   bool _showTimeTablePopup = false; // 타임테이블 팝업 표시 여부
   bool _showWeatherPopup = false; // 날씨 예보 팝업 표시 여부
 
-  // ub0a0uc528 uad00ub828 ubcc0uc218
+  // 날씨 정보 캐시
   final Map<String, WeatherInfo> _weatherCache = {};
   List<WeatherInfo> _weatherForecast = []; // 10일간 예보 데이터
   bool _loadingWeather = false;
@@ -76,6 +76,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   // 현재 타임슬롯 로드 중인 날짜를 추적하기 위한 세트
   final Set<String> _loadingTimeSlots = {};
 
+  // 클래스 변수로 추가
+  OverlayEntry? _buttonOverlay;
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +99,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     _loadWeatherData();
 
     // 1분마다 날씨 정보 업데이트하는 코드 제거
+
+    // 포스트 프레임 콜백을 사용하여 화면이 그려진 후 Overlay 추가
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _createButtonOverlay();
+    });
   }
 
   // 애플리케이션 시작 시 초기 데이터 로드
@@ -204,6 +212,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   @override
   void dispose() {
+    // Overlay 제거
+    _buttonOverlay?.remove();
+    _buttonOverlay = null;
     _timer?.cancel();
     super.dispose();
   }
@@ -222,12 +233,15 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   void _moveButton() {
     final size = MediaQuery.of(context).size;
     final speed = 4.0 + _random.nextDouble() * 4.0; // 지정값 사이의 랜덤 속도
+
     // 앱바와 화면 패딩을 고려한 실제 가용 영역 계산
     final appBarHeight = AppBar().preferredSize.height;
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+
     // 화면 패딩 고려 (main.dart에서 사용하는 패딩 값)
     final screenPadding = 15.0;
+
     // 실제 가용 화면 영역
     final effectiveHeight = size.height - appBarHeight - safeAreaTop;
     final effectiveWidth = size.width;
@@ -269,6 +283,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         }
         break;
     }
+
+    // Overlay 업데이트
+    _buttonOverlay?.markNeedsBuild();
   }
 
   // 빈 페이지로 이동
@@ -641,6 +658,26 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     });
   }
 
+  // Overlay 생성 및 삽입 메서드
+  void _createButtonOverlay() {
+    _buttonOverlay?.remove();
+    _buttonOverlay = OverlayEntry(
+      builder: (context) {
+        return Positioned(
+          left: _buttonLeft,
+          // AppBar와 상태바 높이를 고려하여 top 위치 조정
+          top:
+              _buttonTop +
+              AppBar().preferredSize.height +
+              MediaQuery.of(context).padding.top,
+          child: MovingButton(size: _buttonSize, onTap: _navigateToEmptyPage),
+        );
+      },
+    );
+
+    Overlay.of(context)?.insert(_buttonOverlay!);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -928,7 +965,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         ),
                         child: Text(
                           '${month.year}년 ${monthNames[month.month - 1]}',
-                          style: getTextStyle(fontSize: 10, color: Colors.white),
+                          style: getTextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                          ),
                         ),
                       );
                     },
@@ -963,13 +1003,6 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
               weatherList: _weatherForecast,
               onClose: _hideWeatherForecastDialog,
             ),
-
-          // 움직이는 GIF 버튼
-          Positioned(
-            left: _buttonLeft,
-            top: _buttonTop,
-            child: MovingButton(size: _buttonSize, onTap: _navigateToEmptyPage),
-          ),
         ],
       ),
     );
