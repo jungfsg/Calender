@@ -394,12 +394,14 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   // 이벤트 추가 다이얼로그 표시
   void _showAddEventDialog() {
     final TextEditingController _titleController = TextEditingController();
+    // 지역 변수가 아닌 StatefulWidget의 상태로 만들기 위한 변수 선언
     TimeOfDay selectedTime = TimeOfDay.now();
 
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
+          (context) => StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
             title: Text(
               '새 일정 추가',
               style: getTextStyle(
@@ -453,9 +455,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           },
                         );
                         if (picked != null) {
-                          selectedTime = picked;
-                          Navigator.pop(context);
-                          _showAddEventDialog(); // 시간 선택 후 다이얼로그 다시 표시
+                          // StatefulBuilder의 setState 호출로 UI 업데이트
+                          setState(() {
+                            selectedTime = picked;
+                          });
                         }
                       },
                       child: Text(
@@ -509,6 +512,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
               ),
             ],
           ),
+        ),
     );
   }
 
