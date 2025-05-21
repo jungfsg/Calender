@@ -43,8 +43,9 @@ class WeatherCalendarCell extends StatelessWidget {
   Color _getDateColor() {
     if (isSelected) {
       return Colors.white;
-    } else if (day.weekday == DateTime.saturday ||
-        day.weekday == DateTime.sunday) {
+    } else if (day.weekday == DateTime.saturday) {
+      return const Color.fromARGB(255, 54, 184, 244);
+    } else if (day.weekday == DateTime.sunday) {
       return Colors.red;
     }
     return Colors.black;
@@ -63,13 +64,13 @@ class WeatherCalendarCell extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // 날짜 번호
+            // 달력에 표시되는 날자 텍스트
             Positioned(
               top: 5,
               left: 5,
               child: Text(
                 '${day.day}',
-                style: getTextStyle(fontSize: 8, color: _getDateColor()),
+                style: getTextStyle(fontSize: 10, color: _getDateColor()),
               ),
             ),
 

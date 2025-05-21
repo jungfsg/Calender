@@ -16,6 +16,10 @@ class ChatInput(BaseModel):
     session_id: Optional[str] = "default"
     weather_context: Optional[List[Dict[str, Any]]] = None
 
+class OCRTextInput(BaseModel):
+    text: str
+    metadata: Optional[Dict[str, Any]] = None
+
 class CalendarResponse(BaseModel):
     calendar_data: Dict[str, Any]
     relevant_context: Optional[List[dict]] = None
@@ -106,6 +110,19 @@ async def chat_with_context(
                 for doc in result.get("source_documents", [])]
     )
 
+@router.post("/ocr_text")
+async def store_ocr_text(
+    input_data: OCRTextInput,
+    vector_store: VectorStoreService = Depends(lambda: VectorStoreService())
+):
+    """
+    OCR로 추출한 텍스트를 벡터 저장소에 저장합니다.
+    """
+    # 단일 텍스트를 리스트로 변환하여 VectorStoreService.add_context 메소드 호출
+    metadata = [input_data.metadata] if input_data.metadata else [{"source": "ocr", "timestamp": datetime.now().isoformat()}]
+    result = await vector_store.add_context([input_data.text], metadata=metadata)
+    return result
+
 def _translate_weather_condition(condition):
     """날씨 상태를 한글로 변환합니다."""
     translations = {
@@ -114,4 +131,4 @@ def _translate_weather_condition(condition):
         'rainy': '비',
         'snowy': '눈',
     }
-    return translations.get(condition, condition) 
+    return translations.get(condition, condition)

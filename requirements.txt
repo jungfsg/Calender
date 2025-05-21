@@ -1,0 +1,23 @@
+# Flutter 의존성 목록 (pubspec.yaml 기반)
+flutter==3.7.0+
+table_calendar==3.0.9
+intl==0.18.1
+shared_preferences==2.2.2
+flutter_chat_ui==1.6.12
+flutter_chat_types==3.6.2
+http==1.1.2
+uuid==4.1.0
+geolocator==10.1.0
+url_launcher==6.2.2
+permission_handler==11.0.1
+geocoding==2.1.0
+image_picker==1.0.4
+firebase_core==2.27.1
+firebase_auth==4.17.9
+firebase_database==10.4.10
+google_sign_in==6.1.6
+google_mlkit_text_recognition==0.11.0
+cupertino_icons==1.0.8
+
+# 개발 의존성
+flutter_lints==5.0.0 
