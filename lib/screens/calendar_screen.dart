@@ -3,15 +3,13 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:math';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'empty_page.dart';
 import '../utils/font_utils.dart';
 
 import '../models/time_slot.dart';
+import '../models/event.dart';
 import '../models/weather_info.dart';
 import '../services/event_storage_service.dart';
 import '../services/weather_service.dart';
@@ -55,7 +53,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   final Random _random = Random();
 
   // 현재 날짜별 로드된 이벤트 캐시 - 키를 String으로 변경
-  final Map<String, List<String>> _events = {};
+  final Map<String, List<Event>> _events = {};
   // 현재 날짜별 로드된 타임 테이블 캐시 - 키를 String으로 변경
   final Map<String, List<TimeSlot>> _timeSlots = {};
   // 이벤트 색상 매핑
@@ -119,7 +117,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   Future _loadEventsForDay(DateTime day) async {
     final normalizedDay = DateTime(day.year, day.month, day.day);
     final dateKey = _getKey(normalizedDay);
-    // 캐시에 없으면 로드
+    
     if (!_events.containsKey(dateKey)) {
       final events = await EventStorageService.getEvents(normalizedDay);
       _events[dateKey] = events;
@@ -140,50 +138,55 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   }
 
   // 이벤트에 색상 할당
-  void _assignColorsToEvents(List<String> events) {
+  void _assignColorsToEvents(List<Event> events) {
     int colorIndex = 0;
     for (var event in events) {
-      if (!_eventColors.containsKey(event)) {
-        _eventColors[event] = _colors[colorIndex % _colors.length];
+      if (!_eventColors.containsKey(event.title)) {
+        _eventColors[event.title] = _colors[colorIndex % _colors.length];
         colorIndex++;
       }
     }
   }
 
   // 이벤트 추가
-  Future _addEvent(String title) async {
-    print('이벤트 추가: $title, 날짜: $_selectedDay');
+  Future _addEvent(Event event) async {
+    print('이벤트 추가: ${event.title}, 시간: ${event.time}, 날짜: ${event.date}');
     final normalizedDay = DateTime(
-      _selectedDay.year,
-      _selectedDay.month,
-      _selectedDay.day,
+      event.date.year,
+      event.date.month,
+      event.date.day,
     );
     final dateKey = _getKey(normalizedDay);
+    
     // 이벤트 저장
-    await EventStorageService.addEvent(normalizedDay, title);
+    await EventStorageService.addEvent(normalizedDay, event);
+    
     // 캐시 업데이트
     await _loadEventsForDay(normalizedDay);
-    // UI 갱신 - 상태 업데이트를 통해 전체 캘린더 새로고침
+    
+    // UI 갱신
     setState(() {
-      print('이벤트 추가 완료: $title');
-      // 현재 선택된 날짜를 다시 설정하여 날짜 이벤트 정보 새로고침
+      print('이벤트 추가 완료: ${event.title}');
       _focusedDay = normalizedDay;
       _selectedDay = normalizedDay;
     });
   }
 
   // 이벤트 삭제
-  Future _removeEvent(String event) async {
+  Future _removeEvent(Event event) async {
     final normalizedDay = DateTime(
-      _selectedDay.year,
-      _selectedDay.month,
-      _selectedDay.day,
+      event.date.year,
+      event.date.month,
+      event.date.day,
     );
     final dateKey = _getKey(normalizedDay);
+    
     // 이벤트 삭제
     await EventStorageService.removeEvent(normalizedDay, event);
+    
     // 캐시 업데이트
     await _loadEventsForDay(normalizedDay);
+    
     // UI 갱신
     setState(() {});
   }
@@ -297,15 +300,15 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   }
 
   // 날짜별 이벤트 가져오기
-  List<String> _getEventsForDay(DateTime day) {
+  List<Event> _getEventsForDay(DateTime day) {
     final normalizedDay = DateTime(day.year, day.month, day.day);
     final dateKey = _getKey(normalizedDay);
-    // 캐시에 없는 경우에만 로드하고 로그 출력 (이미 로드 요청 중인지 확인)
+    
     if (!_events.containsKey(dateKey) && !_loadingDates.contains(dateKey)) {
-      _loadingDates.add(dateKey); // 로드 중인 날짜 추가
+      _loadingDates.add(dateKey);
       _loadEventsForDay(normalizedDay).then((_) {
         setState(() {
-          _loadingDates.remove(dateKey); // 로드 완료 후 제거
+          _loadingDates.remove(dateKey);
         });
       });
       return [];
@@ -363,57 +366,93 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   // 이벤트 추가 다이얼로그 표시
   void _showAddEventDialog() {
-    final TextEditingController _textController = TextEditingController();
+    final TextEditingController _titleController = TextEditingController();
+    final TextEditingController _timeController = TextEditingController();
+    TimeOfDay selectedTime = TimeOfDay.now();
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(
-              '새 일정 추가',
+      builder: (context) => AlertDialog(
+        title: Text(
+          '새 일정 추가',
+          style: TextStyle(
+            fontFamily: 'CustomFont',
+            fontSize: 14,
+            color: Colors.black,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                hintText: '일정 제목',
+                hintStyle: TextStyle(
+                  fontFamily: 'CustomFont',
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _timeController,
+              decoration: InputDecoration(
+                hintText: '시간 (HH:mm)',
+                hintStyle: TextStyle(
+                  fontFamily: 'CustomFont',
+                  fontSize: 12,
+                ),
+              ),
+              keyboardType: TextInputType.datetime,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '취소',
               style: TextStyle(
                 fontFamily: 'CustomFont',
-                fontSize: 14,
+                fontSize: 12,
                 color: Colors.black,
               ),
             ),
-            content: TextField(
-              controller: _textController,
-              decoration: InputDecoration(hintText: '일정을 입력하세요'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  '취소',
-                  style: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 10,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () async {
-                  if (_textController.text.isNotEmpty) {
-                    await _addEvent(_textController.text);
-                    Navigator.pop(context);
-
-                    // 저장 후 상태 확인만 출력
-                    EventStorageService.printAllKeys();
-                  }
-                },
-                child: Text(
-                  '추가',
-                  style: TextStyle(
-                    fontFamily: 'CustomFont',
-                    fontSize: 10,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-            ],
           ),
+          TextButton(
+            onPressed: () async {
+              if (_titleController.text.isNotEmpty && _timeController.text.isNotEmpty) {
+                // 시간 형식 검증 (HH:mm)
+                final timeRegex = RegExp(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$');
+                if (!timeRegex.hasMatch(_timeController.text)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('올바른 시간 형식(HH:mm)을 입력해주세요')),
+                  );
+                  return;
+                }
+
+                final event = Event(
+                  title: _titleController.text,
+                  time: _timeController.text,
+                  date: _selectedDay,
+                );
+
+                await _addEvent(event);
+                Navigator.pop(context);
+              }
+            },
+            child: Text(
+              '추가',
+              style: TextStyle(
+                fontFamily: 'CustomFont',
+                fontSize: 12,
+                color: Colors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -746,7 +785,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                       _showTimeTablePopup = false;
                     });
                   },
-                  eventLoader: _getEventsForDay,
+                  eventLoader: (day) => _getEventsForDay(day).map((e) => e.title).toList(),
                   startingDayOfWeek: StartingDayOfWeek.sunday,
                   headerStyle: HeaderStyle(
                     titleTextStyle: TextStyle(
@@ -858,7 +897,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                             _showTimeTableDialog();
                           });
                         },
-                        events: _getEventsForDay(day),
+                        events: _getEventsForDay(day).map((e) => e.title).toList(),
                         eventColors: _eventColors,
                         weatherInfo: _getWeatherForDay(day),
                       );
@@ -875,7 +914,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         onLongPress: () {
                           _showTimeTableDialog();
                         },
-                        events: _getEventsForDay(day),
+                        events: _getEventsForDay(day).map((e) => e.title).toList(),
                         eventColors: _eventColors,
                         weatherInfo: _getWeatherForDay(day),
                       );
@@ -900,7 +939,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                             _showTimeTableDialog();
                           });
                         },
-                        events: _getEventsForDay(day),
+                        events: _getEventsForDay(day).map((e) => e.title).toList(),
                         eventColors: _eventColors,
                         weatherInfo: _getWeatherForDay(day),
                       );
@@ -986,6 +1025,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
               eventColors: _eventColors,
               onClose: _hideEventDialog,
               onAddEvent: _showAddEventDialog,
+              onDeleteEvent: (Event event) async {
+                await _removeEvent(event);
+                setState(() {});
+              },
             ),
 
           // 타임테이블 팝업 오버레이

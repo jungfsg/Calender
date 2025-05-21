@@ -46,28 +46,35 @@ class _EmptyPageState extends State<EmptyPage> {
     });
   }
 
-  void _handleSendPressed(types.PartialText message) async {
+  Future<void> _handleSendPressed(types.PartialText message) async {
+    if (!mounted) return;
+    
     final textMessage = types.TextMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: _uuid.v4(),
       text: message.text,
     );
+    
     setState(() {
       _messages.insert(0, textMessage);
       _isLoading = true;
     });
+
     try {
-      // 서버로 메시지 전송 및 응답 받기
+      if (!mounted) return;
       final botResponse = await _chatService.sendMessage(
         message.text,
         _user.id,
       );
+      
+      if (!mounted) return;
       setState(() {
         _messages.insert(0, botResponse);
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -152,13 +159,13 @@ class _EmptyPageState extends State<EmptyPage> {
     }
   }
 
-  Future _handleImageUpload(File imageFile) async {
-    // 이미지 파일을 base64로 인코딩
+  Future<void> _handleImageUpload(File imageFile) async {
+    if (!mounted) return;
+    
     final bytes = await imageFile.readAsBytes();
     final base64Image = base64Encode(bytes);
-    // 이미지 크기 계산
     final size = bytes.length;
-    // 이미지 메시지 생성
+    
     final imageMessage = types.ImageMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -167,18 +174,23 @@ class _EmptyPageState extends State<EmptyPage> {
       size: size,
       uri: imageFile.path,
     );
+
     setState(() {
       _messages.insert(0, imageMessage);
       _isLoading = true;
     });
+
     try {
-      // 서버로 이미지 전송 및 응답 받기
+      if (!mounted) return;
       final botResponse = await _chatService.sendImage(imageFile, _user.id);
+      
+      if (!mounted) return;
       setState(() {
         _messages.insert(0, botResponse);
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -254,77 +266,97 @@ class _EmptyPageState extends State<EmptyPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'AI 채팅',
-          style: getCustomTextStyle(
-            fontSize: 14,
-            color: Colors.white,
-            text: 'AI 채팅',
+    return WillPopScope(
+      onWillPop: () async {
+        if (_isLoading) {
+          return false; // 로딩 중에는 뒤로가기 방지
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
           ),
+          title: Text(
+            'AI 채팅',
+            style: getCustomTextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              text: 'AI 채팅',
+            ),
+          ),
+          backgroundColor: Colors.black,
         ),
-        backgroundColor: Colors.black,
-      ),
-      body: Column(
-        children: [
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: LinearProgressIndicator(),
-            ),
-          Expanded(
-            child: Chat(
-              messages: _messages,
-              onSendPressed: _handleSendPressed,
-              user: _user,
-              showUserNames: true,
-              customBottomWidget: _buildCustomInput(),
-              theme: DefaultChatTheme(
-                inputBackgroundColor: Colors.black12,
-                backgroundColor: Colors.white,
-                inputTextColor: Colors.black,
-                sentMessageBodyTextStyle: getCustomTextStyle(
-                  fontSize: 16,
-                  color: Colors.white,
-                  text: '보낸 메시지',
-                ),
-                receivedMessageBodyTextStyle: getCustomTextStyle(
-                  fontSize: 16,
-                  color: Colors.black,
-                  text: '받은 메시지',
-                ),
-                inputTextStyle: getCustomTextStyle(
-                  fontSize: 14,
-                  color: Colors.black,
-                  text: '메시지 입력',
-                ),
-                emptyChatPlaceholderTextStyle: getCustomTextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                  text: '메시지가 없습니다',
-                ),
-                userNameTextStyle: getCustomTextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[700],
-                  text: '사용자 이름',
-                ),
-                dateDividerTextStyle: getCustomTextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  text: '날짜 구분선',
-                ),
+        body: Column(
+          children: [
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: LinearProgressIndicator(),
               ),
-              l10n: const ChatL10nKo(),
+            Expanded(
+              child: Chat(
+                messages: _messages,
+                onSendPressed: _handleSendPressed,
+                user: _user,
+                showUserNames: true,
+                customBottomWidget: _buildCustomInput(),
+                theme: DefaultChatTheme(
+                  inputBackgroundColor: Colors.black12,
+                  backgroundColor: Colors.white,
+                  inputTextColor: Colors.black,
+                  sentMessageBodyTextStyle: getCustomTextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    text: '보낸 메시지',
+                  ),
+                  receivedMessageBodyTextStyle: getCustomTextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                    text: '받은 메시지',
+                  ),
+                  inputTextStyle: getCustomTextStyle(
+                    fontSize: 14,
+                    color: Colors.black,
+                    text: '메시지 입력',
+                  ),
+                  emptyChatPlaceholderTextStyle: getCustomTextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    text: '메시지가 없습니다',
+                  ),
+                  userNameTextStyle: getCustomTextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                    text: '사용자 이름',
+                  ),
+                  dateDividerTextStyle: getCustomTextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    text: '날짜 구분선',
+                  ),
+                ),
+                l10n: const ChatL10nKo(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   @override
   void dispose() {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _messages.clear();
+      });
+    }
     _chatInputController.dispose();
     _textRecognizer.close();
     super.dispose();

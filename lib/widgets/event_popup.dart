@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../models/event.dart';
 import '../utils/font_utils.dart';
 
 class EventPopup extends StatelessWidget {
   final DateTime selectedDay;
-  final List<String> events;
+  final List<Event> events;
   final Map<String, Color> eventColors;
-  final VoidCallback onClose;
-  final VoidCallback onAddEvent;
+  final Function() onClose;
+  final Function() onAddEvent;
+  final Function(Event) onDeleteEvent;
 
   const EventPopup({
     Key? key,
@@ -16,156 +18,157 @@ class EventPopup extends StatelessWidget {
     required this.eventColors,
     required this.onClose,
     required this.onAddEvent,
+    required this.onDeleteEvent,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // 시간순으로 정렬된 이벤트 목록
+    final sortedEvents = List<Event>.from(events)..sort((a, b) => a.compareTo(b));
+
     return Container(
       color: Colors.black.withOpacity(0.5),
-      width: double.infinity,
-      height: double.infinity,
       child: Center(
         child: Container(
-          width: 300,
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: Colors.black, width: 4),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black, width: 2),
           ),
-          padding: const EdgeInsets.all(8),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 팝업 헤더와 닫기 버튼
+              // 헤더
               Container(
-                width: double.infinity,
-                color: Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                  horizontal: 12,
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 이벤트',
+                      DateFormat('yyyy년 MM월 dd일').format(selectedDay),
                       style: getTextStyle(
-                        fontSize: 8,
+                        fontSize: 14,
                         color: Colors.white,
-                        text:
-                            '${DateFormat('yyyy.MM.dd').format(selectedDay)}의 이벤트',
                       ),
                     ),
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: onAddEvent,
-                          child: Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              border: Border.all(color: Colors.white, width: 1),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '+',
-                              style: getTextStyle(
-                                fontSize: 8,
-                                color: Colors.white,
-                                text: '+',
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: onClose,
-                          child: Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              border: Border.all(color: Colors.white, width: 1),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'X',
-                              style: getTextStyle(
-                                fontSize: 8,
-                                color: Colors.white,
-                                text: 'X',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: onClose,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
               // 이벤트 목록
-              Container(
-                width: 700,
-                constraints: const BoxConstraints(
-                  maxHeight: 300,
-                  maxWidth: 700,
-                ),
-                child:
-                    events.isEmpty
-                        ? Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Image.asset(
-                                  'assets/images/balloon (1).gif',
-                                  width: 150,
-                                  height: 150,
-                                ),
-                                const SizedBox(height: 24),
-                                Text(
-                                  '할 일이 없어. 아직은..',
-                                  style: getTextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
-                                    text: '할 일이 없어. 아직은..',
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: sortedEvents.length,
+                  itemBuilder: (context, index) {
+                    final event = sortedEvents[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: eventColors[event.title]?.withOpacity(0.1) ?? Colors.grey.withOpacity(0.1),
+                        border: Border.all(
+                          color: eventColors[event.title] ?? Colors.grey,
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          width: 60,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            event.time,
+                            style: getTextStyle(
+                              fontSize: 12,
+                              color: Colors.black,
                             ),
+                            textAlign: TextAlign.center,
                           ),
-                        )
-                        : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: events.length,
-                          itemBuilder: (context, index) {
-                            final event = events[index];
-                            final eventString = event.toString();
-                            final bgColor =
-                                eventColors[eventString] ?? Colors.blue;
-
-                            return Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: bgColor.withOpacity(0.2),
-                                border: Border.all(color: bgColor, width: 2),
-                              ),
-                              child: Text(
-                                eventString,
-                                style: getTextStyle(
-                                  fontSize: 10,
-                                  color: Colors.black,
-                                  text: eventString,
+                        ),
+                        title: Text(
+                          event.title,
+                          style: getTextStyle(
+                            fontSize: 12,
+                            color: Colors.black,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, size: 20),
+                          onPressed: () async {
+                            // 삭제 확인 다이얼로그
+                            final shouldDelete = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text(
+                                  '일정 삭제',
+                                  style: getTextStyle(fontSize: 14),
                                 ),
+                                content: Text(
+                                  '${event.time} ${event.title} 일정을 삭제하시겠습니까?',
+                                  style: getTextStyle(fontSize: 12),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: Text(
+                                      '취소',
+                                      style: getTextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: Text(
+                                      '삭제',
+                                      style: getTextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
+
+                            if (shouldDelete == true) {
+                              onDeleteEvent(event);
+                            }
                           },
                         ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // 하단 버튼
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.black, width: 1),
+                  ),
+                ),
+                child: ElevatedButton(
+                  onPressed: onAddEvent,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    minimumSize: const Size(double.infinity, 40),
+                  ),
+                  child: Text(
+                    '새 일정 추가',
+                    style: getTextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
