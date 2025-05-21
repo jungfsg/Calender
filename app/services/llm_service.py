@@ -14,7 +14,7 @@ class LLMService:
     def __init__(self):
         self.llm = ChatOpenAI(
             api_key=settings.OPENAI_API_KEY,
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             temperature=0.7
         )
         self.vector_store = VectorStoreService()
@@ -31,7 +31,7 @@ class LLMService:
         try:
             chat = ChatOpenAI(
                 api_key=settings.OPENAI_API_KEY,
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 temperature=temperature,
                 max_tokens=max_tokens
             )
