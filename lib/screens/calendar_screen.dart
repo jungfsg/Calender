@@ -394,90 +394,118 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   // 이벤트 추가 다이얼로그 표시
   void _showAddEventDialog() {
     final TextEditingController _titleController = TextEditingController();
-    final TextEditingController _timeController = TextEditingController();
     TimeOfDay selectedTime = TimeOfDay.now();
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(
-              '새 일정 추가',
-              style: getTextStyle(
-                fontSize: 14,
-                color: Colors.black,
-                text: '새 일정 추가',
+      builder: (context) => AlertDialog(
+        title: Text(
+          '새 일정 추가',
+          style: getTextStyle(
+            fontSize: 14,
+            color: Colors.black,
+            text: '새 일정 추가',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                hintText: '일정 제목',
+                hintStyle: getTextStyle(fontSize: 12, text: '일정 제목'),
               ),
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextField(
-                  controller: _titleController,
-                  decoration: InputDecoration(
-                    hintText: '일정 제목',
-                    hintStyle: getTextStyle(fontSize: 12, text: '일정 제목'),
+                Text(
+                  '시간 선택:',
+                  style: getTextStyle(
+                    fontSize: 12,
+                    color: Colors.black,
+                    text: '시간 선택:',
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _timeController,
-                  decoration: InputDecoration(
-                    hintText: '시간 (HH:mm)',
-                    hintStyle: getTextStyle(fontSize: 12, text: '시간 (HH:mm)'),
+                TextButton(
+                  onPressed: () async {
+                    final TimeOfDay? picked = await showTimePicker(
+                      context: context,
+                      initialTime: selectedTime,
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            timePickerTheme: TimePickerThemeData(
+                              backgroundColor: Colors.white,
+                              hourMinuteTextColor: Colors.black,
+                              dayPeriodTextColor: Colors.black,
+                              dayPeriodColor: Colors.grey[200],
+                              dayPeriodShape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      selectedTime = picked;
+                      Navigator.pop(context);
+                      _showAddEventDialog(); // 시간 선택 후 다이얼로그 다시 표시
+                    }
+                  },
+                  child: Text(
+                    '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                    style: getTextStyle(
+                      fontSize: 12,
+                      color: Colors.blue,
+                      text: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                    ),
                   ),
-                  keyboardType: TextInputType.datetime,
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  '취소',
-                  style: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.black,
-                    text: '취소',
-                  ),
-                ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '취소',
+              style: getTextStyle(
+                fontSize: 12,
+                color: Colors.black,
+                text: '취소',
               ),
-              TextButton(
-                onPressed: () async {
-                  if (_titleController.text.isNotEmpty &&
-                      _timeController.text.isNotEmpty) {
-                    // 시간 형식 검증 (HH:mm)
-                    final timeRegex = RegExp(
-                      r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$',
-                    );
-                    if (!timeRegex.hasMatch(_timeController.text)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('올바른 시간 형식(HH:mm)을 입력해주세요')),
-                      );
-                      return;
-                    }
-
-                    final event = Event(
-                      title: _titleController.text,
-                      time: _timeController.text,
-                      date: _selectedDay,
-                    );
-
-                    await _addEvent(event);
-                    Navigator.pop(context);
-                  }
-                },
-                child: Text(
-                  '추가',
-                  style: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.black,
-                    text: '추가',
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
+          TextButton(
+            onPressed: () async {
+              if (_titleController.text.isNotEmpty) {
+                final event = Event(
+                  title: _titleController.text,
+                  time: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                  date: _selectedDay,
+                );
+
+                await _addEvent(event);
+                Navigator.pop(context);
+              }
+            },
+            child: Text(
+              '추가',
+              style: getTextStyle(
+                fontSize: 12,
+                color: Colors.black,
+                text: '추가',
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
