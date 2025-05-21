@@ -24,7 +24,8 @@ class EventPopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 시간순으로 정렬된 이벤트 목록
-    final sortedEvents = List<Event>.from(events)..sort((a, b) => a.compareTo(b));
+    final sortedEvents = List<Event>.from(events)
+      ..sort((a, b) => a.compareTo(b));
 
     return Container(
       color: Colors.black.withOpacity(0.5),
@@ -54,14 +55,27 @@ class EventPopup extends StatelessWidget {
                   children: [
                     Text(
                       DateFormat('yyyy년 MM월 dd일').format(selectedDay),
-                      style: getTextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
+                      style: getTextStyle(fontSize: 14, color: Colors.white),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: onClose,
+                    GestureDetector(
+                      onTap: onClose,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          border: Border.all(color: Colors.white, width: 1),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'X',
+                          style: getTextStyle(
+                            fontSize: 8,
+                            color: Colors.white,
+                            text: 'X',
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -76,7 +90,9 @@ class EventPopup extends StatelessWidget {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: eventColors[event.title]?.withOpacity(0.1) ?? Colors.grey.withOpacity(0.1),
+                        color:
+                            eventColors[event.title]?.withOpacity(0.1) ??
+                            Colors.grey.withOpacity(0.1),
                         border: Border.all(
                           color: eventColors[event.title] ?? Colors.grey,
                           width: 1,
@@ -85,7 +101,7 @@ class EventPopup extends StatelessWidget {
                       ),
                       child: ListTile(
                         leading: Container(
-                          width: 60,
+                          width: 90,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
                             event.time,
@@ -109,32 +125,35 @@ class EventPopup extends StatelessWidget {
                             // 삭제 확인 다이얼로그
                             final shouldDelete = await showDialog<bool>(
                               context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text(
-                                  '일정 삭제',
-                                  style: getTextStyle(fontSize: 14),
-                                ),
-                                content: Text(
-                                  '${event.time} ${event.title} 일정을 삭제하시겠습니까?',
-                                  style: getTextStyle(fontSize: 12),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: Text(
-                                      '취소',
+                              builder:
+                                  (context) => AlertDialog(
+                                    title: Text(
+                                      '일정 삭제',
+                                      style: getTextStyle(fontSize: 14),
+                                    ),
+                                    content: Text(
+                                      '${event.time} ${event.title} 일정을 삭제하시겠습니까?',
                                       style: getTextStyle(fontSize: 12),
                                     ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed:
+                                            () => Navigator.pop(context, false),
+                                        child: Text(
+                                          '취소',
+                                          style: getTextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed:
+                                            () => Navigator.pop(context, true),
+                                        child: Text(
+                                          '삭제',
+                                          style: getTextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: Text(
-                                      '삭제',
-                                      style: getTextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             );
 
                             if (shouldDelete == true) {
@@ -155,17 +174,43 @@ class EventPopup extends StatelessWidget {
                     top: BorderSide(color: Colors.black, width: 1),
                   ),
                 ),
-                child: ElevatedButton(
-                  onPressed: onAddEvent,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    minimumSize: const Size(double.infinity, 40),
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    '새 일정 추가',
-                    style: getTextStyle(
-                      fontSize: 12,
-                      color: Colors.white,
+                  child: Material(
+                    color: const Color.fromARGB(255, 162, 222, 141),
+                    child: InkWell(
+                      onTap: onAddEvent,
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.add_box_outlined,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '새 일정 추가',
+                              style: getTextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

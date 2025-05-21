@@ -63,13 +63,13 @@ class WeatherCalendarCell extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // 날짜 번호
+            // 달력에 표시되는 날자 텍스트
             Positioned(
               top: 5,
               left: 5,
               child: Text(
                 '${day.day}',
-                style: getTextStyle(fontSize: 8, color: _getDateColor()),
+                style: getTextStyle(fontSize: 10, color: _getDateColor()),
               ),
             ),
 

@@ -83,9 +83,6 @@ flutter:
     - assets/images/
   
   fonts:
-    - family: EnglishFont
-      fonts:
-        - asset: assets/fonts/PressStart2P-Regular.ttf
     - family: KoreanFont
       fonts:
         - asset: assets/fonts/PF스타더스트 3.0 S Bold.ttf
