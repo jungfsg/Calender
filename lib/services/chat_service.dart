@@ -128,4 +128,29 @@ class ChatService {
       throw Exception('서버 통신 중 오류 발생: $e');
     }
   }
+
+  // OCR로 추출한 텍스트를 서버에 저장하는 메소드
+  Future<void> storeOcrText(
+    String text, {
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/v1/calendar/ocr_text'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'text': text,
+          'metadata':
+              metadata ??
+              {'source': 'ocr', 'timestamp': DateTime.now().toIso8601String()},
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('OCR 텍스트 저장 실패: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('OCR 텍스트 저장 중 오류 발생: $e');
+    }
+  }
 }

@@ -10,7 +10,7 @@ import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 class EmptyPage extends StatefulWidget {
-  const EmptyPage({Key? key}) : super(key: key);
+  const EmptyPage({super.key});
 
   @override
   State createState() => _EmptyPageState();
@@ -122,7 +122,6 @@ class _EmptyPageState extends State<EmptyPage> {
         final inputImage = InputImage.fromFilePath(imageFile.path);
         final RecognizedText recognizedText = await _textRecognizer
             .processImage(inputImage);
-
         if (recognizedText.text.isNotEmpty) {
           // 인식된 텍스트 메시지 생성
           final textMessage = types.TextMessage(
@@ -135,6 +134,21 @@ class _EmptyPageState extends State<EmptyPage> {
           setState(() {
             _messages.insert(0, textMessage);
           });
+
+          try {
+            // 인식된 텍스트를 ChromaDB에 저장
+            await _chatService.storeOcrText(
+              recognizedText.text,
+              metadata: {
+                'source': 'camera_ocr',
+                'timestamp': DateTime.now().toIso8601String(),
+                'user_id': _user.id,
+              },
+            );
+          } catch (e) {
+            print('OCR 텍스트 저장 중 오류 발생: $e');
+            // 저장 실패해도 계속 진행
+          }
 
           // 인식된 텍스트를 서버로 전송
           final botResponse = await _chatService.sendMessage(
@@ -352,11 +366,7 @@ class _EmptyPageState extends State<EmptyPage> {
   @override
   void dispose() {
     _chatInputController.dispose();
-    try {
-      _textRecognizer.close();
-    } catch (e) {
-      print('텍스트 인식기 해제 중 오류 발생: $e');
-    }
+    _textRecognizer.close();
     super.dispose();
   }
 }
@@ -364,24 +374,14 @@ class _EmptyPageState extends State<EmptyPage> {
 // 한국어 지역화 클래스
 class ChatL10nKo extends ChatL10n {
   const ChatL10nKo({
-    String attachmentButtonAccessibilityLabel = '파일 첨부',
-    String emptyChatPlaceholder = '메시지가 없습니다',
-    String fileButtonAccessibilityLabel = '파일',
-    String inputPlaceholder = '메시지를 입력하세요',
-    String sendButtonAccessibilityLabel = '전송',
-    String and = '그리고',
-    String isTyping = '입력 중...',
-    String unreadMessagesLabel = '읽지 않은 메시지',
-    String others = '+1',
-  }) : super(
-         attachmentButtonAccessibilityLabel: attachmentButtonAccessibilityLabel,
-         emptyChatPlaceholder: emptyChatPlaceholder,
-         fileButtonAccessibilityLabel: fileButtonAccessibilityLabel,
-         inputPlaceholder: inputPlaceholder,
-         sendButtonAccessibilityLabel: sendButtonAccessibilityLabel,
-         and: and,
-         isTyping: isTyping,
-         unreadMessagesLabel: unreadMessagesLabel,
-         others: others,
-       );
+    super.attachmentButtonAccessibilityLabel = '파일 첨부',
+    super.emptyChatPlaceholder = '메시지가 없습니다',
+    super.fileButtonAccessibilityLabel = '파일',
+    super.inputPlaceholder = '메시지를 입력하세요',
+    super.sendButtonAccessibilityLabel = '전송',
+    super.and = '그리고',
+    super.isTyping = '입력 중...',
+    super.unreadMessagesLabel = '읽지 않은 메시지',
+    super.others = '+1',
+  });
 }
