@@ -398,114 +398,117 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          '새 일정 추가',
-          style: getTextStyle(
-            fontSize: 14,
-            color: Colors.black,
-            text: '새 일정 추가',
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                hintText: '일정 제목',
-                hintStyle: getTextStyle(fontSize: 12, text: '일정 제목'),
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              '새 일정 추가',
+              style: getTextStyle(
+                fontSize: 14,
+                color: Colors.black,
+                text: '새 일정 추가',
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '시간 선택:',
-                  style: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.black,
-                    text: '시간 선택:',
+                TextField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    hintText: '일정 제목',
+                    hintStyle: getTextStyle(fontSize: 12, text: '일정 제목'),
                   ),
                 ),
-                TextButton(
-                  onPressed: () async {
-                    final TimeOfDay? picked = await showTimePicker(
-                      context: context,
-                      initialTime: selectedTime,
-                      builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            timePickerTheme: TimePickerThemeData(
-                              backgroundColor: Colors.white,
-                              hourMinuteTextColor: Colors.black,
-                              dayPeriodTextColor: Colors.black,
-                              dayPeriodColor: Colors.grey[200],
-                              dayPeriodShape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picked != null) {
-                      selectedTime = picked;
-                      Navigator.pop(context);
-                      _showAddEventDialog(); // 시간 선택 후 다이얼로그 다시 표시
-                    }
-                  },
-                  child: Text(
-                    '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
-                    style: getTextStyle(
-                      fontSize: 12,
-                      color: Colors.blue,
-                      text: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '시간 선택:',
+                      style: getTextStyle(
+                        fontSize: 12,
+                        color: Colors.black,
+                        text: '시간 선택:',
+                      ),
                     ),
-                  ),
+                    TextButton(
+                      onPressed: () async {
+                        final TimeOfDay? picked = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime,
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                timePickerTheme: TimePickerThemeData(
+                                  backgroundColor: Colors.white,
+                                  hourMinuteTextColor: Colors.black,
+                                  dayPeriodTextColor: Colors.black,
+                                  dayPeriodColor: Colors.grey[200],
+                                  dayPeriodShape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          selectedTime = picked;
+                          Navigator.pop(context);
+                          _showAddEventDialog(); // 시간 선택 후 다이얼로그 다시 표시
+                        }
+                      },
+                      child: Text(
+                        '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                        style: getTextStyle(
+                          fontSize: 12,
+                          color: Colors.blue,
+                          text:
+                              '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              '취소',
-              style: getTextStyle(
-                fontSize: 12,
-                color: Colors.black,
-                text: '취소',
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  '취소',
+                  style: getTextStyle(
+                    fontSize: 12,
+                    color: Colors.black,
+                    text: '취소',
+                  ),
+                ),
               ),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (_titleController.text.isNotEmpty) {
-                final event = Event(
-                  title: _titleController.text,
-                  time: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
-                  date: _selectedDay,
-                );
+              TextButton(
+                onPressed: () async {
+                  if (_titleController.text.isNotEmpty) {
+                    final event = Event(
+                      title: _titleController.text,
+                      time:
+                          '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                      date: _selectedDay,
+                    );
 
-                await _addEvent(event);
-                Navigator.pop(context);
-              }
-            },
-            child: Text(
-              '추가',
-              style: getTextStyle(
-                fontSize: 12,
-                color: Colors.black,
-                text: '추가',
+                    await _addEvent(event);
+                    Navigator.pop(context);
+                  }
+                },
+                child: Text(
+                  '추가',
+                  style: getTextStyle(
+                    fontSize: 12,
+                    color: Colors.black,
+                    text: '추가',
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -776,11 +779,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       backgroundColor: const Color.fromARGB(255, 162, 222, 141),
       appBar: AppBar(
         title: Text(
-          'Calender v250519 (Weather)',
+          'Calender v250521',
           style: getTextStyle(
             fontSize: 14,
             color: Colors.white,
-            text: 'Calender v250519 (Weather)',
+            text: 'Calender v250521',
           ),
         ),
         backgroundColor: Colors.black,
