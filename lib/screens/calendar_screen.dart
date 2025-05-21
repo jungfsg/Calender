@@ -161,15 +161,26 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     // 이벤트 저장
     await EventStorageService.addEvent(normalizedDay, event);
     
-    // 캐시 업데이트
-    await _loadEventsForDay(normalizedDay);
+    // 캐시에 직접 이벤트 추가
+    if (!_events.containsKey(dateKey)) {
+      _events[dateKey] = [];
+    }
+    _events[dateKey]!.add(event);
     
-    // UI 갱신
-    setState(() {
-      print('이벤트 추가 완료: ${event.title}');
-      _focusedDay = normalizedDay;
-      _selectedDay = normalizedDay;
-    });
+    // 이벤트 색상 할당
+    if (!_eventColors.containsKey(event.title)) {
+      _eventColors[event.title] = _colors[_eventColors.length % _colors.length];
+    }
+    
+    // UI 즉시 갱신
+    if (mounted) {
+      setState(() {
+        _focusedDay = normalizedDay;
+        _selectedDay = normalizedDay;
+      });
+    }
+    
+    print('이벤트 추가 완료: ${event.title}');
   }
 
   // 이벤트 삭제
@@ -184,11 +195,26 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     // 이벤트 삭제
     await EventStorageService.removeEvent(normalizedDay, event);
     
-    // 캐시 업데이트
-    await _loadEventsForDay(normalizedDay);
+    // 캐시에서 직접 이벤트 제거
+    if (_events.containsKey(dateKey)) {
+      _events[dateKey]!.removeWhere((e) => 
+        e.title == event.title && 
+        e.time == event.time && 
+        e.date.year == event.date.year &&
+        e.date.month == event.date.month &&
+        e.date.day == event.date.day
+      );
+      
+      // 해당 날짜의 이벤트가 모두 삭제된 경우 빈 배열로 설정
+      if (_events[dateKey]!.isEmpty) {
+        _events[dateKey] = [];
+      }
+    }
     
-    // UI 갱신
-    setState(() {});
+    // UI 즉시 갱신
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   // 타임슬롯 추가
