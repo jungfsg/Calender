@@ -242,8 +242,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
 
-    // 화면 패딩 고려 (main.dart에서 사용하는 패딩 값)
-    final screenPadding = 15.0;
+    // 고양이 버튼이 움직일 때 계산되는 패딩값
+    final screenPadding = 3.0;
 
     // 실제 가용 화면 영역
     final effectiveHeight = size.height - appBarHeight - safeAreaTop;
@@ -757,7 +757,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         children: [
           // 메인 콘텐츠
           Padding(
-            padding: const EdgeInsets.all(22.0),
+            padding: const EdgeInsets.all(3.0),
             child: SingleChildScrollView(
               child: Container(
                 decoration: BoxDecoration(color: const Color(0xFFFFFFFF)),
