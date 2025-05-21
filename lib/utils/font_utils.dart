@@ -19,7 +19,7 @@ TextStyle getCustomTextStyle({
 }) {
   return TextStyle(
     fontFamily: 'KoreanFont', // 한글과 영어를 모두 지원하는 폰트로 통일
-    fontSize: fontSize * 1.8, // 일괄적으로 폰트 크기를 지정한대로 증가
+    fontSize: fontSize * 1.3, // 일괄적으로 폰트 크기를 지정한대로 증가
     color: color ?? Colors.black,
     fontWeight: fontWeight,
   );
