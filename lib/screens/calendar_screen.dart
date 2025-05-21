@@ -887,7 +887,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         ),
                         weekendStyle: getTextStyle(
                           fontSize: 8,
-                          color: Colors.red,
+                          color: const Color.fromARGB(255, 54, 184, 244),
                           text: 'Sat',
                         ),
                         decoration: BoxDecoration(
@@ -1041,9 +1041,14 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                             'Sun',
                           ];
                           final weekdayIndex = day.weekday - 1;
-                          final isWeekend =
-                              day.weekday == DateTime.saturday ||
-                              day.weekday == DateTime.sunday;
+                          Color textColor;
+                          if (day.weekday == DateTime.saturday) {
+                            textColor = const Color.fromARGB(255, 54, 184, 244);
+                          } else if (day.weekday == DateTime.sunday) {
+                            textColor = Colors.red;
+                          } else {
+                            textColor = Colors.black;
+                          }
                           return Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFEEEEEE),
@@ -1054,7 +1059,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                               weekdayNames[weekdayIndex],
                               style: getTextStyle(
                                 fontSize: 8,
-                                color: isWeekend ? Colors.red : Colors.black,
+                                color: textColor,
                               ),
                             ),
                           );

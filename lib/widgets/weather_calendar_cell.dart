@@ -43,8 +43,9 @@ class WeatherCalendarCell extends StatelessWidget {
   Color _getDateColor() {
     if (isSelected) {
       return Colors.white;
-    } else if (day.weekday == DateTime.saturday ||
-        day.weekday == DateTime.sunday) {
+    } else if (day.weekday == DateTime.saturday) {
+      return const Color.fromARGB(255, 54, 184, 244);
+    } else if (day.weekday == DateTime.sunday) {
       return Colors.red;
     }
     return Colors.black;

@@ -352,7 +352,11 @@ class _EmptyPageState extends State<EmptyPage> {
   @override
   void dispose() {
     _chatInputController.dispose();
-    _textRecognizer.close();
+    try {
+      _textRecognizer.close();
+    } catch (e) {
+      print('텍스트 인식기 해제 중 오류 발생: $e');
+    }
     super.dispose();
   }
 }
