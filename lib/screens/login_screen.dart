@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'calendar_screen.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -9,14 +10,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // 구글 로그인을 처리하는 함수
-  void _handleGoogleSignIn() {
+  void _handleGoogleSignIn() async {
+  final user = await AuthService().signInWithGoogle();
+  if (user != null) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => const PixelArtCalendarScreen(),
       ),
     );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('로그인이 취소되었습니다')),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

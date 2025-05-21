@@ -64,6 +64,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '136672532812',
     projectId: 'calendar-service-79804',
     storageBucket: 'calendar-service-79804.firebasestorage.app',
+    androidClientId: '136672532812-pmi1cg4fjsd3263ovmpi2b9un7usmt60.apps.googleusercontent.com',
+    iosClientId: '136672532812-66h53g93ban6n5f0tv4e6o4hf4k2er2a.apps.googleusercontent.com',
     iosBundleId: 'com.example.calander',
   );
 
@@ -73,6 +75,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '136672532812',
     projectId: 'calendar-service-79804',
     storageBucket: 'calendar-service-79804.firebasestorage.app',
+    androidClientId: '136672532812-pmi1cg4fjsd3263ovmpi2b9un7usmt60.apps.googleusercontent.com',
+    iosClientId: '136672532812-66h53g93ban6n5f0tv4e6o4hf4k2er2a.apps.googleusercontent.com',
     iosBundleId: 'com.example.calander',
   );
 
@@ -85,4 +89,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'calendar-service-79804.firebasestorage.app',
     measurementId: 'G-G1BJRMPZMS',
   );
+
 }

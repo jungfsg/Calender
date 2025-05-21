@@ -12,7 +12,20 @@
           "package_name": "com.example.calander"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "136672532812-pmi1cg4fjsd3263ovmpi2b9un7usmt60.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.calander",
+            "certificate_hash": "3c9a3deff722a67008b900c20371d4691841212b"
+          }
+        },
+        {
+          "client_id": "136672532812-l68jp0oksbqklll208vbgth8v7trs1no.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCxQqB6dXIMgqE97dcq4UMKLVYUtj7MLr0"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "136672532812-l68jp0oksbqklll208vbgth8v7trs1no.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "136672532812-66h53g93ban6n5f0tv4e6o4hf4k2er2a.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.calander"
+              }
+            }
+          ]
         }
       }
     }
