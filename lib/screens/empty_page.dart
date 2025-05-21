@@ -48,14 +48,14 @@ class _EmptyPageState extends State<EmptyPage> {
 
   Future<void> _handleSendPressed(types.PartialText message) async {
     if (!mounted) return;
-    
+
     final textMessage = types.TextMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: _uuid.v4(),
       text: message.text,
     );
-    
+
     setState(() {
       _messages.insert(0, textMessage);
       _isLoading = true;
@@ -67,7 +67,7 @@ class _EmptyPageState extends State<EmptyPage> {
         message.text,
         _user.id,
       );
-      
+
       if (!mounted) return;
       setState(() {
         _messages.insert(0, botResponse);
@@ -161,11 +161,11 @@ class _EmptyPageState extends State<EmptyPage> {
 
   Future<void> _handleImageUpload(File imageFile) async {
     if (!mounted) return;
-    
+
     final bytes = await imageFile.readAsBytes();
     final base64Image = base64Encode(bytes);
     final size = bytes.length;
-    
+
     final imageMessage = types.ImageMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -183,7 +183,7 @@ class _EmptyPageState extends State<EmptyPage> {
     try {
       if (!mounted) return;
       final botResponse = await _chatService.sendImage(imageFile, _user.id);
-      
+
       if (!mounted) return;
       setState(() {
         _messages.insert(0, botResponse);
@@ -351,12 +351,6 @@ class _EmptyPageState extends State<EmptyPage> {
 
   @override
   void dispose() {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _messages.clear();
-      });
-    }
     _chatInputController.dispose();
     _textRecognizer.close();
     super.dispose();
