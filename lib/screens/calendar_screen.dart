@@ -19,6 +19,7 @@ import '../widgets/moving_button.dart';
 import '../widgets/weather_calendar_cell.dart';
 import '../widgets/weather_icon.dart';
 import '../widgets/weather_summary_popup.dart';
+import '../widgets/side_menu.dart';
 
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
@@ -35,22 +36,13 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   bool _showEventPopup = false; // 이벤트 팝업 표시 여부
   bool _showTimeTablePopup = false; // 타임테이블 팝업 표시 여부
   bool _showWeatherPopup = false; // 날씨 예보 팝업 표시 여부
+  int _selectedIndex = 0; // 현재 선택된 네비게이션 바 인덱스
+  final Random _random = Random(); // Random 객체 추가
 
   // 날씨 정보 캐시
   final Map<String, WeatherInfo> _weatherCache = {};
   List<WeatherInfo> _weatherForecast = []; // 10일간 예보 데이터
   bool _loadingWeather = false;
-
-  // 움직이는 버튼 관련 변수
-  double _buttonLeft = 0;
-  double _buttonTop = 0;
-  double _buttonRight = 0;
-  double _buttonBottom = 0;
-  int _currentEdge = 0; // 0: 상단, 1: 오른쪽, 2: 하단, 3: 왼쪽
-  Timer? _timer;
-  final double _buttonSize = 80;
-  bool _isMovingHorizontally = true;
-  final Random _random = Random();
 
   // 현재 날짜별 로드된 이벤트 캐시 - 키를 String으로 변경
   final Map<String, List<Event>> _events = {};
@@ -74,9 +66,6 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   // 현재 타임슬롯 로드 중인 날짜를 추적하기 위한 세트
   final Set<String> _loadingTimeSlots = {};
 
-  // 클래스 변수로 추가
-  OverlayEntry? _buttonOverlay;
-
   @override
   void initState() {
     super.initState();
@@ -87,21 +76,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     EventStorageService.printAllKeys();
     // 초기 데이터 로드
     _loadInitialData();
-    // 움직이는 버튼 초기 위치 설정
-    _startButtonMovement();
 
     // 위치 권한 요청
     _requestLocationPermission();
 
     // 날씨 정보 로드 (딱 한 번만 실행)
     _loadWeatherData();
-
-    // 1분마다 날씨 정보 업데이트하는 코드 제거
-
-    // 포스트 프레임 콜백을 사용하여 화면이 그려진 후 Overlay 추가
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _createButtonOverlay();
-    });
   }
 
   // 애플리케이션 시작 시 초기 데이터 로드
@@ -242,80 +222,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   @override
   void dispose() {
-    // Overlay 제거
-    _buttonOverlay?.remove();
-    _buttonOverlay = null;
-    _timer?.cancel();
     super.dispose();
-  }
-
-  // 버튼 움직임 시작
-  void _startButtonMovement() {
-    // 타이머 간격을 변경하여 업데이트 빈도 조정 (밀리초 단위)
-    _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      setState(() {
-        _moveButton();
-      });
-    });
-  }
-
-  // 버튼 움직임 로직
-  void _moveButton() {
-    final size = MediaQuery.of(context).size;
-    final speed = 4.0 + _random.nextDouble() * 4.0; // 지정값 사이의 랜덤 속도
-
-    // 앱바와 화면 패딩을 고려한 실제 가용 영역 계산
-    final appBarHeight = AppBar().preferredSize.height;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
-    // 고양이 버튼이 움직일 때 계산되는 패딩값
-    final screenPadding = 3.0;
-
-    // 실제 가용 화면 영역
-    final effectiveHeight = size.height - appBarHeight - safeAreaTop;
-    final effectiveWidth = size.width;
-
-    switch (_currentEdge) {
-      case 0: // 상단
-        _buttonLeft += speed;
-        _buttonTop = screenPadding;
-        if (_buttonLeft + _buttonSize >= effectiveWidth - screenPadding) {
-          _buttonLeft = effectiveWidth - _buttonSize - screenPadding;
-          _currentEdge = 1; // 오른쪽으로 전환
-        }
-        break;
-      case 1: // 오른쪽
-        _buttonTop += speed;
-        _buttonLeft = effectiveWidth - _buttonSize - screenPadding;
-        if (_buttonTop + _buttonSize >=
-            effectiveHeight - screenPadding - safeAreaBottom) {
-          _buttonTop =
-              effectiveHeight - _buttonSize - screenPadding - safeAreaBottom;
-          _currentEdge = 2; // 하단으로 전환
-        }
-        break;
-      case 2: // 하단
-        _buttonLeft -= speed;
-        _buttonTop =
-            effectiveHeight - _buttonSize - screenPadding - safeAreaBottom;
-        if (_buttonLeft <= screenPadding) {
-          _buttonLeft = screenPadding;
-          _currentEdge = 3; // 왼쪽으로 전환
-        }
-        break;
-      case 3: // 왼쪽
-        _buttonTop -= speed;
-        _buttonLeft = screenPadding;
-        if (_buttonTop <= screenPadding) {
-          _buttonTop = screenPadding;
-          _currentEdge = 0; // 상단으로 전환
-        }
-        break;
-    }
-
-    // Overlay 업데이트
-    _buttonOverlay?.markNeedsBuild();
   }
 
   // 빈 페이지로 이동
@@ -401,118 +308,121 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       context: context,
       builder:
           (context) => StatefulBuilder(
-            builder: (context, setState) => AlertDialog(
-            title: Text(
-              '새 일정 추가',
-              style: getTextStyle(
-                fontSize: 14,
-                color: Colors.black,
-                text: '새 일정 추가',
-              ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _titleController,
-                  decoration: InputDecoration(
-                    hintText: '일정 제목',
-                    hintStyle: getTextStyle(fontSize: 12, text: '일정 제목'),
+            builder:
+                (context, setState) => AlertDialog(
+                  title: Text(
+                    '새 일정 추가',
+                    style: getTextStyle(
+                      fontSize: 14,
+                      color: Colors.black,
+                      text: '새 일정 추가',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '시간 선택:',
-                      style: getTextStyle(
-                        fontSize: 12,
-                        color: Colors.black,
-                        text: '시간 선택:',
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: _titleController,
+                        decoration: InputDecoration(
+                          hintText: '일정 제목',
+                          hintStyle: getTextStyle(fontSize: 12, text: '일정 제목'),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '시간 선택:',
+                            style: getTextStyle(
+                              fontSize: 12,
+                              color: Colors.black,
+                              text: '시간 선택:',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              final TimeOfDay? picked = await showTimePicker(
+                                context: context,
+                                initialTime: selectedTime,
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      timePickerTheme: TimePickerThemeData(
+                                        backgroundColor: Colors.white,
+                                        hourMinuteTextColor: Colors.black,
+                                        dayPeriodTextColor: Colors.black,
+                                        dayPeriodColor: Colors.grey[200],
+                                        dayPeriodShape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                // StatefulBuilder의 setState 호출로 UI 업데이트
+                                setState(() {
+                                  selectedTime = picked;
+                                });
+                              }
+                            },
+                            child: Text(
+                              '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                              style: getTextStyle(
+                                fontSize: 12,
+                                color: Colors.blue,
+                                text:
+                                    '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        '취소',
+                        style: getTextStyle(
+                          fontSize: 12,
+                          color: Colors.black,
+                          text: '취소',
+                        ),
                       ),
                     ),
                     TextButton(
                       onPressed: () async {
-                        final TimeOfDay? picked = await showTimePicker(
-                          context: context,
-                          initialTime: selectedTime,
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                timePickerTheme: TimePickerThemeData(
-                                  backgroundColor: Colors.white,
-                                  hourMinuteTextColor: Colors.black,
-                                  dayPeriodTextColor: Colors.black,
-                                  dayPeriodColor: Colors.grey[200],
-                                  dayPeriodShape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (picked != null) {
-                          // StatefulBuilder의 setState 호출로 UI 업데이트
-                          setState(() {
-                            selectedTime = picked;
-                          });
+                        if (_titleController.text.isNotEmpty) {
+                          final event = Event(
+                            title: _titleController.text,
+                            time:
+                                '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                            date: _selectedDay,
+                          );
+
+                          await _addEvent(event);
+                          Navigator.pop(context);
                         }
                       },
                       child: Text(
-                        '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                        '추가',
                         style: getTextStyle(
                           fontSize: 12,
-                          color: Colors.blue,
-                          text:
-                              '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                          color: Colors.black,
+                          text: '추가',
                         ),
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  '취소',
-                  style: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.black,
-                    text: '취소',
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () async {
-                  if (_titleController.text.isNotEmpty) {
-                    final event = Event(
-                      title: _titleController.text,
-                      time:
-                          '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
-                      date: _selectedDay,
-                    );
-
-                    await _addEvent(event);
-                    Navigator.pop(context);
-                  }
-                },
-                child: Text(
-                  '추가',
-                  style: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.black,
-                    text: '추가',
-                  ),
-                ),
-              ),
-            ],
           ),
-        ),
     );
   }
 
@@ -757,88 +667,79 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     });
   }
 
-  // Overlay 생성 및 삽입 메서드
-  void _createButtonOverlay() {
-    _buttonOverlay?.remove();
-    _buttonOverlay = OverlayEntry(
-      builder: (context) {
-        return Positioned(
-          left: _buttonLeft,
-          // AppBar와 상태바 높이를 고려하여 top 위치 조정
-          top:
-              _buttonTop +
-              AppBar().preferredSize.height +
-              MediaQuery.of(context).padding.top,
-          child: MovingButton(size: _buttonSize, onTap: _navigateToEmptyPage),
-        );
-      },
-    );
+  // 네비게이션 바 아이템 탭 처리
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
 
-    Overlay.of(context)?.insert(_buttonOverlay!);
+    switch (index) {
+      case 0: // 캘린더 - 현재 화면이므로 아무 작업 없음
+        break;
+      case 1: // 설정 또는 빈 페이지
+        _navigateToEmptyPage();
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // 현재 월의 주 수 계산
+    final DateTime firstDay = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final DateTime lastDay = DateTime(
+      _focusedDay.year,
+      _focusedDay.month + 1,
+      0,
+    );
+
+    // 주 시작일에 맞는 요일 오프셋 계산
+    final int firstWeekday = (firstDay.weekday % 7); // 0: 일, 1: 월, ... 6: 토
+    // 마지막 날의 날짜
+    final int lastDate = lastDay.day;
+
+    // 정확한 주 수 계산
+    final int totalWeeks = ((firstWeekday + lastDate) / 7).ceil();
+
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 162, 222, 141),
-      appBar: AppBar(
-        title: Text(
-          'Calender v250521',
-          style: getTextStyle(
-            fontSize: 14,
-            color: Colors.white,
-            text: 'Calender v250521',
-          ),
-        ),
-        backgroundColor: Colors.black,
-        actions: [
-          // 날씨 예보 보기 버튼
-          IconButton(
-            icon: Icon(Icons.wb_sunny, color: Colors.white),
-            onPressed: () {
-              _showWeatherForecastDialog();
-            },
-            tooltip: '5일간 날씨 예보 보기',
-          ),
-          // 날씨 새로고침 버튼
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              _loadWeatherData(forceRefresh: true);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('날씨 정보를 업데이트하고 있습니다...')));
-            },
-            tooltip: '날씨 정보 새로 가져오기',
-          ),
-        ],
+      drawer: CalendarSideMenu(
+        onWeatherForecastTap: _showWeatherForecastDialog,
       ),
-      body: Stack(
-        children: [
-          // 메인 콘텐츠
-          Padding(
-            padding: const EdgeInsets.all(3.0),
-            // SingleChildScrollView를 제거하고 Expanded와 함께 사용
-            child: Column(
+      body: SafeArea(
+        bottom: false, // 하단 SafeArea는 적용하지 않음 (네비게이션 바가 차지)
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // 사용 가능한 화면 높이 (네비게이션 바 제외)
+            final availableHeight = constraints.maxHeight;
+
+            // 연/월 표시 헤더 높이 (타이틀 텍스트 + 패딩 + 마진)
+            const monthHeaderHeight = 65.0; // 대략적인 연/월 헤더 높이
+
+            // 요일 헤더 높이
+            const dayOfWeekHeaderHeight = 35.0;
+
+            // 각 주의 높이 계산 (가용 높이에서 두 헤더 높이와 패딩 제외)
+            final weekHeight =
+                (availableHeight -
+                    monthHeaderHeight -
+                    dayOfWeekHeaderHeight -
+                    16.0) /
+                totalWeeks;
+
+            return Stack(
               children: [
-                Expanded(
+                // 캘린더 부분
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(3.0, 3.0, 3.0, 0),
                   child: Container(
-                    decoration: BoxDecoration(color: const Color(0xFFFFFFFF)),
+                    color: Colors.white,
                     child: TableCalendar(
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
                       focusedDay: _focusedDay,
                       calendarFormat: _calendarFormat,
-                      daysOfWeekHeight: 35.0,
-                      // TableCalendar는 null을 허용하지 않으므로 계산식 사용
-                      rowHeight:
-                          (MediaQuery.of(context).size.height -
-                              AppBar().preferredSize.height -
-                              MediaQuery.of(context).padding.top -
-                              MediaQuery.of(context).padding.bottom -
-                              35.0 -
-                              20.0) /
-                          6, // 최대 6주 기준으로 계산
+                      daysOfWeekHeight: dayOfWeekHeaderHeight,
+                      rowHeight: weekHeight,
                       selectedDayPredicate: (day) {
                         return isSameDay(_selectedDay, day);
                       },
@@ -869,16 +770,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           text: '달력 제목',
                         ),
                         formatButtonVisible: false,
-                        leftChevronIcon: const Icon(
-                          Icons.arrow_left,
-                          color: Colors.black,
-                          size: 24,
-                        ),
-                        rightChevronIcon: const Icon(
-                          Icons.arrow_right,
-                          color: Colors.black,
-                          size: 24,
-                        ),
+                        leftChevronVisible: false,
+                        rightChevronVisible: false,
                         headerMargin: const EdgeInsets.only(bottom: 8),
                         headerPadding: const EdgeInsets.symmetric(vertical: 10),
                         titleCentered: true,
@@ -927,26 +820,20 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         ),
                         selectedDecoration: BoxDecoration(
                           color: Colors.blue[800],
-                          border: Border.all(color: Colors.black, width: 1),
                         ),
                         todayDecoration: BoxDecoration(
                           color: Colors.amber[300],
-                          border: Border.all(color: Colors.black, width: 1),
                         ),
-                        defaultDecoration: BoxDecoration(
-                          border: Border.all(color: Colors.black, width: 1),
+                        defaultDecoration: const BoxDecoration(),
+                        weekendDecoration: const BoxDecoration(
+                          color: Color(0xFFEEEEEE),
                         ),
-                        weekendDecoration: BoxDecoration(
-                          color: const Color(0xFFEEEEEE),
-                          border: Border.all(color: Colors.black, width: 1),
-                        ),
-                        outsideDecoration: BoxDecoration(
-                          color: const Color(0xFFDDDDDD),
-                          border: Border.all(color: Colors.black, width: 1),
+                        outsideDecoration: const BoxDecoration(
+                          color: Color(0xFFDDDDDD),
                         ),
                         tableBorder: TableBorder.all(
-                          color: Colors.black,
-                          width: 2,
+                          color: const Color.fromARGB(24, 0, 0, 0),
+                          width: 1,
                         ),
                         markersMaxCount: 6,
                         markersAlignment: Alignment.bottomCenter,
@@ -1036,13 +923,13 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                         // 요일 헤더 빌더
                         dowBuilder: (context, day) {
                           final weekdayNames = [
-                            'Mon',
-                            'Tue',
-                            'Wed',
-                            'Tur',
-                            'Fri',
-                            'Sat',
-                            'Sun',
+                            '월',
+                            '화',
+                            '수',
+                            '목',
+                            '금',
+                            '토',
+                            '일',
                           ];
                           final weekdayIndex = day.weekday - 1;
                           Color textColor;
@@ -1054,21 +941,23 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                             textColor = Colors.black;
                           }
                           return Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEEEEEE),
-                              border: Border.all(color: Colors.black, width: 1),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFEEEEEE),
+                              // 테두리 제거
                             ),
                             alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
                             child: Text(
                               weekdayNames[weekdayIndex],
                               style: getTextStyle(
-                                fontSize: 8,
+                                fontSize: 14, // 글씨 크기 키움
                                 color: textColor,
+                                text: weekdayNames[weekdayIndex],
                               ),
                             ),
                           );
                         },
-                        // 헤더 타이틀 빌더
+                        // 헤더 타이틀 빌더 - 날씨 버튼 제거
                         headerTitleBuilder: (context, month) {
                           final monthNames = [
                             '1월',
@@ -1084,65 +973,118 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                             '11월',
                             '12월',
                           ];
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 4,
-                              horizontal: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              border: Border.all(
-                                color: const Color(0xFF888888),
-                                width: 2,
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // 햄버거 메뉴 아이콘 추가
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                ),
+                                onPressed: () {
+                                  Scaffold.of(context).openDrawer();
+                                },
                               ),
-                            ),
-                            child: Text(
-                              '${month.year}년 ${monthNames[month.month - 1]}',
-                              style: getTextStyle(
-                                fontSize: 10,
-                                color: Colors.white,
+                              // 연/월 표시 박스 제거하고 텍스트만 표시
+                              Expanded(
+                                child: Center(
+                                  child: Text(
+                                    '${month.year}년 ${monthNames[month.month - 1]}',
+                                    style: getTextStyle(
+                                      fontSize: 20,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              // 여백을 위한 빈 아이콘 버튼
+                              const IconButton(
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.transparent,
+                                ),
+                                onPressed: null,
+                              ),
+                            ],
                           );
                         },
                       ),
                     ),
                   ),
                 ),
+
+                // 이벤트 팝업 오버레이
+                if (_showEventPopup)
+                  EventPopup(
+                    selectedDay: _selectedDay,
+                    events: _getEventsForDay(_selectedDay),
+                    eventColors: _eventColors,
+                    onClose: _hideEventDialog,
+                    onAddEvent: _showAddEventDialog,
+                    onDeleteEvent: (Event event) async {
+                      await _removeEvent(event);
+                      setState(() {});
+                    },
+                  ),
+
+                // 타임테이블 팝업 오버레이
+                if (_showTimeTablePopup)
+                  TimeTablePopup(
+                    selectedDay: _selectedDay,
+                    timeSlots: _getTimeSlotsForDay(_selectedDay),
+                    onClose: _hideTimeTableDialog,
+                    onAddTimeSlot: _showAddTimeSlotDialog,
+                  ),
+
+                // 날씨 예보 팝업 오버레이
+                if (_showWeatherPopup)
+                  WeatherSummaryPopup(
+                    weatherList: _weatherForecast,
+                    onClose: _hideWeatherForecastDialog,
+                  ),
               ],
-            ),
-          ),
+            );
+          },
+        ),
+      ),
 
-          // 이벤트 팝업 오버레이
-          if (_showEventPopup)
-            EventPopup(
-              selectedDay: _selectedDay,
-              events: _getEventsForDay(_selectedDay),
-              eventColors: _eventColors,
-              onClose: _hideEventDialog,
-              onAddEvent: _showAddEventDialog,
-              onDeleteEvent: (Event event) async {
-                await _removeEvent(event);
-                setState(() {});
-              },
+      // 네비게이션 바
+      bottomNavigationBar: Container(
+        height: 100.0, // 여기서 높이 설정 - 달력셀이 이 높이를 참조하여 화면을 채우고 있음
+        decoration: BoxDecoration(
+          color: Color.fromARGB(255, 162, 222, 141),
+          boxShadow: [
+            BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 0),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            // 캘린더 아이콘
+            IconButton(
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: Icon(
+                Icons.calendar_today,
+                color: _selectedIndex == 0 ? Colors.blue[800] : Colors.grey,
+              ),
+              onPressed: () => _onItemTapped(0),
             ),
-
-          // 타임테이블 팝업 오버레이
-          if (_showTimeTablePopup)
-            TimeTablePopup(
-              selectedDay: _selectedDay,
-              timeSlots: _getTimeSlotsForDay(_selectedDay),
-              onClose: _hideTimeTableDialog,
-              onAddTimeSlot: _showAddTimeSlotDialog,
+            // 설정 아이콘
+            IconButton(
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: Icon(
+                Icons.chat,
+                color: _selectedIndex == 1 ? Colors.blue[800] : Colors.grey,
+              ),
+              onPressed: () => _onItemTapped(1),
             ),
-
-          // 날씨 예보 팝업 오버레이
-          if (_showWeatherPopup)
-            WeatherSummaryPopup(
-              weatherList: _weatherForecast,
-              onClose: _hideWeatherForecastDialog,
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

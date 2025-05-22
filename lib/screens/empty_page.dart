@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'calendar_screen.dart';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({super.key});
@@ -27,6 +28,7 @@ class _EmptyPageState extends State<EmptyPage> {
     script: TextRecognitionScript.korean,
   );
   bool _isLoading = false;
+  int _selectedIndex = 1;
 
   @override
   void initState() {
@@ -278,12 +280,31 @@ class _EmptyPageState extends State<EmptyPage> {
     _handleSubmitted(_chatInputController.text);
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PixelArtCalendarScreen(),
+          ),
+        );
+        break;
+      case 1:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
         if (_isLoading) {
-          return false; // 로딩 중에는 뒤로가기 방지
+          return false;
         }
         return true;
       },
@@ -358,6 +379,40 @@ class _EmptyPageState extends State<EmptyPage> {
               ),
             ),
           ],
+        ),
+        bottomNavigationBar: Container(
+          height: 100.0,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 0),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  Icons.calendar_today,
+                  color: _selectedIndex == 0 ? Colors.blue[800] : Colors.grey,
+                ),
+                onPressed: () => _onItemTapped(0),
+              ),
+              IconButton(
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  Icons.chat,
+                  color: _selectedIndex == 1 ? Colors.blue[800] : Colors.grey,
+                ),
+                onPressed: () => _onItemTapped(1),
+              ),
+            ],
+          ),
         ),
       ),
     );
