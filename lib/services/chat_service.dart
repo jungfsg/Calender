@@ -7,7 +7,7 @@ import 'weather_service.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'http://localhost:8000';
+  final String baseUrl = 'https://847e-218-158-75-120.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 날씨 관련 키워드 목록
@@ -126,6 +126,31 @@ class ChatService {
       }
     } catch (e) {
       throw Exception('서버 통신 중 오류 발생: $e');
+    }
+  }
+
+  // OCR로 추출한 텍스트를 서버에 저장하는 메소드
+  Future<void> storeOcrText(
+    String text, {
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/v1/calendar/ocr_text'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'text': text,
+          'metadata':
+              metadata ??
+              {'source': 'ocr', 'timestamp': DateTime.now().toIso8601String()},
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('OCR 텍스트 저장 실패: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('OCR 텍스트 저장 중 오류 발생: $e');
     }
   }
 }

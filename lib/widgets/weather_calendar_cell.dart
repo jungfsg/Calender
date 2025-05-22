@@ -26,15 +26,15 @@ class WeatherCalendarCell extends StatelessWidget {
     this.weatherInfo,
   }) : super(key: key);
 
-  // 배경 색상 결정
+  // 셀 배경 색상 결정
   Color _getBackgroundColor() {
     if (isSelected) {
-      return Colors.blue[800]!;
+      return const Color.fromARGB(255, 68, 138, 218)!;
     } else if (isToday) {
       return Colors.amber[300]!;
     } else if (day.weekday == DateTime.saturday ||
         day.weekday == DateTime.sunday) {
-      return const Color(0xFFEEEEEE);
+      return const Color.fromARGB(255, 255, 255, 255);
     }
     return Colors.white;
   }
@@ -43,8 +43,9 @@ class WeatherCalendarCell extends StatelessWidget {
   Color _getDateColor() {
     if (isSelected) {
       return Colors.white;
-    } else if (day.weekday == DateTime.saturday ||
-        day.weekday == DateTime.sunday) {
+    } else if (day.weekday == DateTime.saturday) {
+      return const Color.fromARGB(255, 54, 184, 244);
+    } else if (day.weekday == DateTime.sunday) {
       return Colors.red;
     }
     return Colors.black;
@@ -56,28 +57,29 @@ class WeatherCalendarCell extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        margin: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: _getBackgroundColor(),
-          border: Border.all(color: Colors.black, width: 1),
-        ),
+        // 여백만 남기고 테두리 제거
+        padding: const EdgeInsets.all(2),
+        color: _getBackgroundColor(),
         child: Stack(
           children: [
-            // 날짜 번호
+            // 달력에 표시되는 날짜 텍스트를 중앙 상단에 배치
             Positioned(
-              top: 5,
-              left: 5,
-              child: Text(
-                '${day.day}',
-                style: getTextStyle(fontSize: 8, color: _getDateColor()),
+              top: 8, // 상단에서 약간 여백
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
+                  '${day.day}',
+                  style: getTextStyle(fontSize: 16, color: _getDateColor()),
+                ),
               ),
             ),
 
-            // 날씨 아이콘 (있는 경우에만 표시)
+            // 날씨 아이콘 (있는 경우에만 표시) - 우상단 유지
             if (weatherInfo != null)
               Positioned(
-                top: 5,
-                right: 5,
+                top: 3,
+                right: 3,
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.7),
@@ -89,12 +91,12 @@ class WeatherCalendarCell extends StatelessWidget {
                 ),
               ),
 
-            // 이벤트 리스트
+            // 이벤트 리스트 - 하단 유지
             if (events.isNotEmpty)
               Positioned(
-                bottom: 4,
-                left: 4,
-                right: 4,
+                bottom: 2,
+                left: 2,
+                right: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,

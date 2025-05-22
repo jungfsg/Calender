@@ -38,6 +38,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Google Sign-In 용 클라이언트 ID 추가 -->
+        <meta-data
+            android:name="google-signin-client_id"
+            android:value="YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

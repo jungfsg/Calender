@@ -8,9 +8,10 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'calendar_screen.dart';
 
 class EmptyPage extends StatefulWidget {
-  const EmptyPage({Key? key}) : super(key: key);
+  const EmptyPage({super.key});
 
   @override
   State createState() => _EmptyPageState();
@@ -27,6 +28,7 @@ class _EmptyPageState extends State<EmptyPage> {
     script: TextRecognitionScript.korean,
   );
   bool _isLoading = false;
+  int _selectedIndex = 1;
 
   @override
   void initState() {
@@ -46,28 +48,35 @@ class _EmptyPageState extends State<EmptyPage> {
     });
   }
 
-  void _handleSendPressed(types.PartialText message) async {
+  Future<void> _handleSendPressed(types.PartialText message) async {
+    if (!mounted) return;
+
     final textMessage = types.TextMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: _uuid.v4(),
       text: message.text,
     );
+
     setState(() {
       _messages.insert(0, textMessage);
       _isLoading = true;
     });
+
     try {
-      // 서버로 메시지 전송 및 응답 받기
+      if (!mounted) return;
       final botResponse = await _chatService.sendMessage(
         message.text,
         _user.id,
       );
+
+      if (!mounted) return;
       setState(() {
         _messages.insert(0, botResponse);
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -115,7 +124,6 @@ class _EmptyPageState extends State<EmptyPage> {
         final inputImage = InputImage.fromFilePath(imageFile.path);
         final RecognizedText recognizedText = await _textRecognizer
             .processImage(inputImage);
-
         if (recognizedText.text.isNotEmpty) {
           // 인식된 텍스트 메시지 생성
           final textMessage = types.TextMessage(
@@ -128,6 +136,21 @@ class _EmptyPageState extends State<EmptyPage> {
           setState(() {
             _messages.insert(0, textMessage);
           });
+
+          try {
+            // 인식된 텍스트를 ChromaDB에 저장
+            await _chatService.storeOcrText(
+              recognizedText.text,
+              metadata: {
+                'source': 'camera_ocr',
+                'timestamp': DateTime.now().toIso8601String(),
+                'user_id': _user.id,
+              },
+            );
+          } catch (e) {
+            print('OCR 텍스트 저장 중 오류 발생: $e');
+            // 저장 실패해도 계속 진행
+          }
 
           // 인식된 텍스트를 서버로 전송
           final botResponse = await _chatService.sendMessage(
@@ -152,13 +175,13 @@ class _EmptyPageState extends State<EmptyPage> {
     }
   }
 
-  Future _handleImageUpload(File imageFile) async {
-    // 이미지 파일을 base64로 인코딩
+  Future<void> _handleImageUpload(File imageFile) async {
+    if (!mounted) return;
+
     final bytes = await imageFile.readAsBytes();
     final base64Image = base64Encode(bytes);
-    // 이미지 크기 계산
     final size = bytes.length;
-    // 이미지 메시지 생성
+
     final imageMessage = types.ImageMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -167,18 +190,23 @@ class _EmptyPageState extends State<EmptyPage> {
       size: size,
       uri: imageFile.path,
     );
+
     setState(() {
       _messages.insert(0, imageMessage);
       _isLoading = true;
     });
+
     try {
-      // 서버로 이미지 전송 및 응답 받기
+      if (!mounted) return;
       final botResponse = await _chatService.sendImage(imageFile, _user.id);
+
+      if (!mounted) return;
       setState(() {
         _messages.insert(0, botResponse);
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -252,73 +280,140 @@ class _EmptyPageState extends State<EmptyPage> {
     _handleSubmitted(_chatInputController.text);
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PixelArtCalendarScreen(),
+          ),
+        );
+        break;
+      case 1:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'AI 채팅',
-          style: getCustomTextStyle(
-            fontSize: 14,
+    return WillPopScope(
+      onWillPop: () async {
+        if (_isLoading) {
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+          title: Text(
+            'AI 채팅',
+            style: getCustomTextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              text: 'AI 채팅',
+            ),
+          ),
+          backgroundColor: Colors.black,
+        ),
+        body: Column(
+          children: [
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: LinearProgressIndicator(),
+              ),
+            Expanded(
+              child: Chat(
+                messages: _messages,
+                onSendPressed: _handleSendPressed,
+                user: _user,
+                showUserNames: true,
+                customBottomWidget: _buildCustomInput(),
+                theme: DefaultChatTheme(
+                  inputBackgroundColor: Colors.black12,
+                  backgroundColor: Colors.white,
+                  inputTextColor: Colors.black,
+                  sentMessageBodyTextStyle: getCustomTextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    text: '보낸 메시지',
+                  ),
+                  receivedMessageBodyTextStyle: getCustomTextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                    text: '받은 메시지',
+                  ),
+                  inputTextStyle: getCustomTextStyle(
+                    fontSize: 14,
+                    color: Colors.black,
+                    text: '메시지 입력',
+                  ),
+                  emptyChatPlaceholderTextStyle: getCustomTextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    text: '메시지가 없습니다',
+                  ),
+                  userNameTextStyle: getCustomTextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                    text: '사용자 이름',
+                  ),
+                  dateDividerTextStyle: getCustomTextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    text: '날짜 구분선',
+                  ),
+                ),
+                l10n: const ChatL10nKo(),
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: Container(
+          height: 100.0,
+          decoration: BoxDecoration(
             color: Colors.white,
-            text: 'AI 채팅',
+            boxShadow: [
+              BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 0),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  Icons.calendar_today,
+                  color: _selectedIndex == 0 ? Colors.blue[800] : Colors.grey,
+                ),
+                onPressed: () => _onItemTapped(0),
+              ),
+              IconButton(
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  Icons.chat,
+                  color: _selectedIndex == 1 ? Colors.blue[800] : Colors.grey,
+                ),
+                onPressed: () => _onItemTapped(1),
+              ),
+            ],
           ),
         ),
-        backgroundColor: Colors.black,
-      ),
-      body: Column(
-        children: [
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: LinearProgressIndicator(),
-            ),
-          Expanded(
-            child: Chat(
-              messages: _messages,
-              onSendPressed: _handleSendPressed,
-              user: _user,
-              showUserNames: true,
-              customBottomWidget: _buildCustomInput(),
-              theme: DefaultChatTheme(
-                inputBackgroundColor: Colors.black12,
-                backgroundColor: Colors.white,
-                inputTextColor: Colors.black,
-                sentMessageBodyTextStyle: getCustomTextStyle(
-                  fontSize: 16,
-                  color: Colors.white,
-                  text: '보낸 메시지',
-                ),
-                receivedMessageBodyTextStyle: getCustomTextStyle(
-                  fontSize: 16,
-                  color: Colors.black,
-                  text: '받은 메시지',
-                ),
-                inputTextStyle: getCustomTextStyle(
-                  fontSize: 14,
-                  color: Colors.black,
-                  text: '메시지 입력',
-                ),
-                emptyChatPlaceholderTextStyle: getCustomTextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                  text: '메시지가 없습니다',
-                ),
-                userNameTextStyle: getCustomTextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[700],
-                  text: '사용자 이름',
-                ),
-                dateDividerTextStyle: getCustomTextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  text: '날짜 구분선',
-                ),
-              ),
-              l10n: const ChatL10nKo(),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -334,24 +429,14 @@ class _EmptyPageState extends State<EmptyPage> {
 // 한국어 지역화 클래스
 class ChatL10nKo extends ChatL10n {
   const ChatL10nKo({
-    String attachmentButtonAccessibilityLabel = '파일 첨부',
-    String emptyChatPlaceholder = '메시지가 없습니다',
-    String fileButtonAccessibilityLabel = '파일',
-    String inputPlaceholder = '메시지를 입력하세요',
-    String sendButtonAccessibilityLabel = '전송',
-    String and = '그리고',
-    String isTyping = '입력 중...',
-    String unreadMessagesLabel = '읽지 않은 메시지',
-    String others = '+1',
-  }) : super(
-         attachmentButtonAccessibilityLabel: attachmentButtonAccessibilityLabel,
-         emptyChatPlaceholder: emptyChatPlaceholder,
-         fileButtonAccessibilityLabel: fileButtonAccessibilityLabel,
-         inputPlaceholder: inputPlaceholder,
-         sendButtonAccessibilityLabel: sendButtonAccessibilityLabel,
-         and: and,
-         isTyping: isTyping,
-         unreadMessagesLabel: unreadMessagesLabel,
-         others: others,
-       );
+    super.attachmentButtonAccessibilityLabel = '파일 첨부',
+    super.emptyChatPlaceholder = '메시지가 없습니다',
+    super.fileButtonAccessibilityLabel = '파일',
+    super.inputPlaceholder = '메시지를 입력하세요',
+    super.sendButtonAccessibilityLabel = '전송',
+    super.and = '그리고',
+    super.isTyping = '입력 중...',
+    super.unreadMessagesLabel = '읽지 않은 메시지',
+    super.others = '+1',
+  });
 }
