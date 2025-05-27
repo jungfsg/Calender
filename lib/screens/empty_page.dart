@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'calendar_screen.dart';
 import 'package:flutter/foundation.dart';
+import '../widgets/common_navigation_bar.dart';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({super.key});
@@ -382,39 +383,9 @@ class _EmptyPageState extends State<EmptyPage> {
             ),
           ],
         ),
-        bottomNavigationBar: Container(
-          height: 100.0,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 0),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.calendar_today,
-                  color: _selectedIndex == 0 ? Colors.blue[800] : Colors.grey,
-                ),
-                onPressed: () => _onItemTapped(0),
-              ),
-              IconButton(
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.chat,
-                  color: _selectedIndex == 1 ? Colors.blue[800] : Colors.grey,
-                ),
-                onPressed: () => _onItemTapped(1),
-              ),
-            ],
-          ),
+        bottomNavigationBar: CommonNavigationBar(
+          selectedIndex: _selectedIndex,
+          onItemTapped: _onItemTapped,
         ),
       ),
     );

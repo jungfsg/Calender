@@ -20,6 +20,7 @@ import '../widgets/weather_calendar_cell.dart';
 import '../widgets/weather_icon.dart';
 import '../widgets/weather_summary_popup.dart';
 import '../widgets/side_menu.dart';
+import '../widgets/common_navigation_bar.dart';
 
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
@@ -1050,41 +1051,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       ),
 
       // 네비게이션 바
-      bottomNavigationBar: Container(
-        height: 100.0, // 여기서 높이 설정 - 달력셀이 이 높이를 참조하여 화면을 채우고 있음
-        decoration: BoxDecoration(
-          color: Color.fromARGB(255, 162, 222, 141),
-          boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 0),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            // 캘린더 아이콘
-            IconButton(
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: Icon(
-                Icons.calendar_today,
-                color: _selectedIndex == 0 ? Colors.blue[800] : Colors.grey,
-              ),
-              onPressed: () => _onItemTapped(0),
-            ),
-            // 설정 아이콘
-            IconButton(
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: Icon(
-                Icons.chat,
-                color: _selectedIndex == 1 ? Colors.blue[800] : Colors.grey,
-              ),
-              onPressed: () => _onItemTapped(1),
-            ),
-          ],
-        ),
+      bottomNavigationBar: CommonNavigationBar(
+        selectedIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
       ),
     );
   }

@@ -56,79 +56,92 @@ class WeatherCalendarCell extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Container(
-        // 여백만 남기고 테두리 제거
-        padding: const EdgeInsets.all(2),
-        color: _getBackgroundColor(),
-        child: Stack(
-          children: [
-            // 달력에 표시되는 날짜 텍스트를 중앙 상단에 배치
-            Positioned(
-              top: 8, // 상단에서 약간 여백
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  '${day.day}',
-                  style: getTextStyle(fontSize: 16, color: _getDateColor()),
-                ),
-              ),
-            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 셀의 너비를 기준으로 날짜 폰트 크기 계산
+          // 달력의 셀 크기는 calendar_screen.dart 파일의 TableCalendar 위젯에서 설정됨
+          final cellWidth = constraints.maxWidth;
+          final fontSize = cellWidth * 0.15; // 셀 너비 대비 비율
 
-            // 날씨 아이콘 (있는 경우에만 표시) - 우상단 유지
-            if (weatherInfo != null)
-              Positioned(
-                top: 3,
-                right: 3,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.black, width: 1),
+          return Container(
+            padding: const EdgeInsets.all(2),
+            color: _getBackgroundColor(),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 8,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Text(
+                      '${day.day}',
+                      style: getTextStyle(
+                        fontSize: fontSize, // 동적으로 계산된 폰트 크기 사용
+                        color: _getDateColor(),
+                      ),
+                    ),
                   ),
-                  padding: EdgeInsets.all(2),
-                  child: WeatherIcon(weatherInfo: weatherInfo!, size: 16),
                 ),
-              ),
 
-            // 이벤트 리스트 - 하단 유지
-            if (events.isNotEmpty)
-              Positioned(
-                bottom: 2,
-                left: 2,
-                right: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children:
-                      events.take(6).map((event) {
-                        final bgColor = eventColors[event] ?? Colors.blue;
+                // 날씨 아이콘 (있는 경우에만 표시) - 우상단 유지
+                if (weatherInfo != null)
+                  Positioned(
+                    top: 3,
+                    right: 3,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.black, width: 1),
+                      ),
+                      padding: EdgeInsets.all(2),
+                      child: WeatherIcon(weatherInfo: weatherInfo!, size: 16),
+                    ),
+                  ),
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 1),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 2,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: bgColor.withOpacity(0.7),
-                            border: Border.all(color: Colors.black, width: 1),
-                          ),
-                          child: Text(
-                            event,
-                            style: getCustomTextStyle(
-                              fontSize: 10,
-                              color: Colors.white,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        );
-                      }).toList(),
-                ),
-              ),
-          ],
-        ),
+                // 이벤트 리스트 - 하단 유지
+                if (events.isNotEmpty)
+                  Positioned(
+                    bottom: 2,
+                    left: 2,
+                    right: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children:
+                          events.take(6).map((event) {
+                            final bgColor = eventColors[event] ?? Colors.blue;
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: bgColor.withOpacity(0.7),
+                                border: Border.all(
+                                  color: Colors.black,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                event,
+                                style: getCustomTextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

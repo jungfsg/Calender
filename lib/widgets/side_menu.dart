@@ -19,7 +19,7 @@ class CalendarSideMenu extends StatelessWidget {
         ),
       ),
       child: Drawer(
-        width: 400,
+        width: MediaQuery.of(context).size.width * 0.6, // 화면 너비의 60%로 설정
         backgroundColor: Colors.white,
         child: Column(
           children: [
