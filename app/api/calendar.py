@@ -87,10 +87,8 @@ async def chat_with_context(
             condition_kr = _translate_weather_condition(weather['condition'])
             weather_info += f"날짜: {weather['date']}, 상태: {condition_kr}, 온도: {weather['temperature']}°C\n"
     
-    # 날씨 정보를 포함한 질문 생성
-    original_question = input_data.message
-    
     # 시스템 정보와 날씨 정보를 포함한 질문 생성
+    original_question = input_data.message
     enhanced_question = f"""
 현재 날짜: {formatted_date}
 현재 요일: {day_of_week}
@@ -101,13 +99,15 @@ async def chat_with_context(
     if weather_info:
         enhanced_question += f"\n참고할 날씨 정보:\n{weather_info}"
     
-    chain = await llm_service.create_conversational_chain(input_data.session_id)
-    result = chain({"question": enhanced_question})
+    # LangGraph 워크플로우를 사용하여 응답 생성
+    result = await llm_service.chat_with_graph(
+        message=enhanced_question,
+        session_id=input_data.session_id
+    )
     
     return ChatResponse(
-        response=result["answer"],
-        sources=[{"text": doc.page_content, "metadata": doc.metadata} 
-                for doc in result.get("source_documents", [])]
+        response=result["response"],
+        sources=[]  # 벡터 검색 결과가 없으므로 빈 리스트 반환
     )
 
 @router.post("/ocr_text")

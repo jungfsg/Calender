@@ -9,6 +9,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'calendar_screen.dart';
+import 'package:flutter/foundation.dart';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({super.key});
@@ -96,6 +97,7 @@ class _EmptyPageState extends State<EmptyPage> {
   }
 
   Future _handleCameraCapture() async {
+    if (kIsWeb) return; // 웹에서는 기능을 호출하지 않음
     final XFile? result = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 70,
@@ -421,7 +423,9 @@ class _EmptyPageState extends State<EmptyPage> {
   @override
   void dispose() {
     _chatInputController.dispose();
-    _textRecognizer.close();
+    if (!kIsWeb) {
+      _textRecognizer.close(); // 웹이 아닐 때만 리소스 해제
+    }
     super.dispose();
   }
 }
