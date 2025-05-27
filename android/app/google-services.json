@@ -22,6 +22,38 @@
           }
         },
         {
+          "client_id": "136672532812-pmi1cg4fjsd3263ovmpi2b9un7usmt60.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.calander",
+            "certificate_hash": "A9A2E5D5C070D5C1D31EDA9D88DECF78DF143FFC"
+          }
+        },
+        {
+          "client_id": "136672532812-pmi1cg4fjsd3263ovmpi2b9un7usmt60.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.calander",
+            "certificate_hash": "FB1B56E78A282A03FE8AF94DF322F42F306BA7AD"
+          }
+        },
+        {
+          "client_id": "136672532812-pmi1cg4fjsd3263ovmpi2b9un7usmt60.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.calander",
+            "certificate_hash": "53267654F955CED8B446EA89BF5774CD0630C1A9"
+          }
+        },
+        {
+          "client_id": "136672532812-pmi1cg4fjsd3263ovmpi2b9un7usmt60.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.calander",
+            "certificate_hash": "90BC20D10C9E9DB1A841FDDAE259DA1F1D23B8D1"
+          }
+        },
+        {
           "client_id": "136672532812-l68jp0oksbqklll208vbgth8v7trs1no.apps.googleusercontent.com",
           "client_type": 3
         }

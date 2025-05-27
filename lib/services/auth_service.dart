@@ -8,30 +8,48 @@ class AuthService {
   // 서버 URL (chat_service.dart와 동일하게 맞추는 것이 좋습니다)
   final String baseUrl = 'https://847e-218-158-75-120.ngrok-free.app';
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  // GoogleSignIn 설정을 명시적으로 구성
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      'profile',
+    ],
+  );
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // 토큰 저장 키
   static const String _tokenKey = 'auth_token';
   static const String _userIdKey = 'user_id';
 
-  // Google 로그인 메서드
+  // Google 로그인 메서드 (개선된 버전)
   Future<bool> signInWithGoogle() async {
     try {
+      print('Google 로그인 시작...');
+      
       // Google 로그인 다이얼로그 표시
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        return false; // 사용자가 로그인을 취소함
+        print('사용자가 로그인을 취소했습니다.');
+        return false;
       }
+      
+      print('Google 계정 선택 완료: ${googleUser.email}');
 
       // 인증 세부 정보 가져오기
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
+      
+      print('Google 인증 토큰 획득 완료');
+      print('Access Token 존재: ${googleAuth.accessToken != null}');
+      print('ID Token 존재: ${googleAuth.idToken != null}');
+
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
+      print('Firebase 인증 시작...');
+      
       // Firebase에 로그인
       final UserCredential userCredential = await _auth.signInWithCredential(
         credential,
@@ -39,29 +57,38 @@ class AuthService {
       final User? user = userCredential.user;
 
       if (user != null) {
-        // 서버에 토큰 검증 요청
-        final response = await http.post(
-          Uri.parse('$baseUrl/api/v1/auth/google'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'id_token': googleAuth.idToken}),
-        );
+        print('Firebase 로그인 성공: ${user.email}');
+        
+        // Firebase 토큰을 직접 사용
+        final String? token = await user.getIdToken();
+        final String userId = user.uid;
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final token = data['token'];
-          final userId = data['user_id'] ?? user.uid;
+        print('Firebase 토큰 획득: ${token != null}');
 
+        // token이 null이 아닌 경우에만 저장
+        if (token != null) {
           // 토큰과 사용자 ID 저장
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_tokenKey, token);
           await prefs.setString(_userIdKey, userId);
 
+          print('로그인 성공 및 토큰 저장 완료');
           return true;
+        } else {
+          print('Firebase 토큰을 가져올 수 없습니다.');
+          return false;
         }
+      } else {
+        print('Firebase 사용자 정보를 가져올 수 없습니다.');
+        return false;
       }
-      return false;
     } catch (e) {
-      print('Google 로그인 중 오류 발생: $e');
+      print('Google 로그인 중 상세 오류: $e');
+      print('오류 타입: ${e.runtimeType}');
+      if (e is FirebaseAuthException) {
+        print('Firebase 오류 코드: ${e.code}');
+        print('Firebase 오류 메시지: ${e.message}');
+      }
       return false;
     }
   }
@@ -77,15 +104,19 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final token = data['token'];
-        final userId = data['user_id'];
+        final String? token = data['token']?.toString();
+        final String? userId = data['user_id']?.toString();
 
-        // 토큰과 사용자 ID 저장
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_tokenKey, token);
-        await prefs.setString(_userIdKey, userId);
+        if (token != null && userId != null) {
+          // 토큰과 사용자 ID 저장
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_tokenKey, token);
+          await prefs.setString(_userIdKey, userId);
 
-        return true;
+          return true;
+        } else {
+          return false;
+        }
       } else {
         return false;
       }
