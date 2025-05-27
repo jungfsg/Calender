@@ -21,8 +21,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Calender vs250515_2',
       theme: ThemeData(primarySwatch: Colors.blue),
-      // home: const LoginScreen(),
-      home: const PixelArtCalendarScreen(),
+      home: const LoginScreen(),
+      // home: const PixelArtCalendarScreen(),
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         return MediaQuery(
