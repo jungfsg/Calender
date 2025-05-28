@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 
 class CommonNavigationBar extends StatelessWidget {
   final int selectedIndex;
@@ -12,51 +14,54 @@ class CommonNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final screenHeight = MediaQuery.of(context).size.height;
-        final navBarHeight = (screenHeight * 0.1).clamp(60.0, 150.0);
+    // 시스템 네비게이션 바 설정
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        systemNavigationBarColor: Color.fromARGB(255, 162, 222, 141),
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
 
-        // 화면 별 네비게이션 바 색상 설정 가능: selectedIndex 0, 1
-        // selectedIndex == 0일 때 : ? -> 조건이 참인 경우, : -> 조건이 거짓인 경우
-        return Container(
-          height: navBarHeight,
-          decoration: BoxDecoration(
+    return SafeArea(
+      bottom: true,
+      child: CurvedNavigationBar(
+        index: selectedIndex,
+        height: 70.0,
+        backgroundColor:
+            selectedIndex == 0
+                ? const Color.fromARGB(255, 255, 255, 255)
+                : const Color.fromARGB(255, 255, 255, 255),
+        color: const Color.fromARGB(255, 162, 222, 141),
+        buttonBackgroundColor: const Color.fromARGB(255, 162, 222, 141),
+        animationDuration: const Duration(milliseconds: 300),
+        onTap: onItemTapped,
+        items: [
+          Icon(
+            Icons.calendar_today,
+            size: 30,
             color:
                 selectedIndex == 0
-                    ? const Color.fromARGB(255, 162, 222, 141) // 캘린더 화면의 색상
-                    : Colors.white, // 채팅 화면의 색상
-            boxShadow: [
-              BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 0),
-            ],
+                    ? const Color.fromARGB(255, 255, 255, 255)
+                    : Colors.grey,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                iconSize: navBarHeight * 0.5,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.calendar_today,
-                  color: selectedIndex == 0 ? Colors.blue[800] : Colors.grey,
-                ),
-                onPressed: () => onItemTapped(0),
-              ),
-              IconButton(
-                iconSize: navBarHeight * 0.5,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.chat,
-                  color: selectedIndex == 1 ? Colors.blue[800] : Colors.grey,
-                ),
-                onPressed: () => onItemTapped(1),
-              ),
-            ],
+          Icon(
+            Icons.mic,
+            size: 35,
+            color:
+                selectedIndex == 1
+                    ? const Color.fromARGB(255, 255, 255, 255)
+                    : Colors.grey,
           ),
-        );
-      },
+          Icon(
+            Icons.chat,
+            size: 30,
+            color:
+                selectedIndex == 2
+                    ? const Color.fromARGB(255, 255, 255, 255)
+                    : Colors.grey,
+          ),
+        ],
+      ),
     );
   }
 }
