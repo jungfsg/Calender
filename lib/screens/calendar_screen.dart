@@ -22,6 +22,8 @@ import '../widgets/weather_icon.dart';
 import '../widgets/weather_summary_popup.dart';
 import '../widgets/side_menu.dart';
 import '../widgets/common_navigation_bar.dart';
+import '../services/auth_service.dart';
+import 'login_screen.dart';
 
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
@@ -71,6 +73,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   final Set<String> _loadingDates = {};
   // 현재 타임슬롯 로드 중인 날짜를 추적하기 위한 세트
   final Set<String> _loadingTimeSlots = {};
+
+  // AuthService 인스턴스 추가
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -851,6 +856,35 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
+  // 로그아웃 처리 메서드 추가
+  Future<void> _handleLogout() async {
+    try {
+      // AuthService를 통해 로그아웃 실행
+      await _authService.logout();
+      
+      // 로그인 화면으로 이동 (모든 이전 화면 제거)
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const LoginScreen(),
+          ),
+          (route) => false, // 모든 이전 라우트 제거
+        );
+      }
+    } catch (e) {
+      print('로그아웃 중 오류 발생: $e');
+      // 오류가 발생해도 로그인 화면으로 이동
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const LoginScreen(),
+          ),
+          (route) => false,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 현재 월의 주 수 계산
@@ -875,6 +909,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       drawer: CalendarSideMenu(
         onWeatherForecastTap: _showWeatherForecastDialog,
         onGoogleCalendarSyncTap: _syncWithGoogleCalendar,
+        onLogoutTap: _handleLogout, // 로그아웃 콜백 추가
         isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
       ),
       body: SafeArea(

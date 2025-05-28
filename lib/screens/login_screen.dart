@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20), // 고정 간격
                     // 고정 크기 텍스트
                     const Text(
-                      '퀵 캘린더',
+                      'A.M.A.T.T.A. \n– Your Memory Assistant',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24, // 고정 크기
