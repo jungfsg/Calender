@@ -66,16 +66,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // 고정 크기 아이콘
-                    const Icon(
-                      Icons.calendar_month,
-                      size: 80, // 고정 크기
-                      color: Colors.blue,
+                    // Amatta 아이콘 이미지 (그림자 효과 제거)
+                    Container(
+                      width: 240, // 고정 너비
+                      height: 240, // 고정 높이
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12), // 모서리 둥글게
+                        // boxShadow 제거하여 그림자 효과 삭제
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.asset(
+                          'assets/images/amatta_transparent.png',
+                          width: 240,
+                          height: 240,
+                          fit: BoxFit.cover, // 이미지가 컨테이너에 맞게 조정
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20), // 고정 간격
                     // 고정 크기 텍스트
                     const Text(
-                      'A.M.A.T.T.A. \n– Your Memory Assistant',
+                      // 'A.M.A.T.T.A.\n– Your Memory Assistant',
+                      '– Your Memory Assistant',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24, // 고정 크기
