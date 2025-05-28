@@ -15,8 +15,10 @@ class CommonNavigationBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenHeight = MediaQuery.of(context).size.height;
-        final navBarHeight = (screenHeight * 0.1).clamp(60.0, 100.0);
+        final navBarHeight = (screenHeight * 0.1).clamp(60.0, 150.0);
 
+        // 화면 별 네비게이션 바 색상 설정 가능: selectedIndex 0, 1
+        // selectedIndex == 0일 때 : ? -> 조건이 참인 경우, : -> 조건이 거짓인 경우
         return Container(
           height: navBarHeight,
           decoration: BoxDecoration(
@@ -32,7 +34,7 @@ class CommonNavigationBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               IconButton(
-                iconSize: navBarHeight * 0.2,
+                iconSize: navBarHeight * 0.5,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: Icon(
@@ -42,7 +44,7 @@ class CommonNavigationBar extends StatelessWidget {
                 onPressed: () => onItemTapped(0),
               ),
               IconButton(
-                iconSize: navBarHeight * 0.2,
+                iconSize: navBarHeight * 0.5,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: Icon(
