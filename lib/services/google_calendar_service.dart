@@ -210,6 +210,72 @@ class GoogleCalendarService {
     }
   }
 
+  // Google Calendar에서 한국 공휴일 가져오기
+  Future<List<Event>> getKoreanHolidays({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    if (!_isInitialized || _calendarApi == null) {
+      // 초기화되지 않은 경우 초기화 시도
+      final initialized = await initialize();
+      if (!initialized) {
+        print('Google Calendar 서비스 초기화 실패 - 공휴일을 가져올 수 없습니다.');
+        return [];
+      }
+    }
+
+    try {
+      final DateTime start = startDate ?? DateTime.now().subtract(const Duration(days: 30));
+      final DateTime end = endDate ?? DateTime.now().add(const Duration(days: 365));
+
+      // 한국 공휴일 캘린더 ID
+      const String koreanHolidayCalendarId = 'ko.south_korea#holiday@group.v.calendar.google.com';
+
+      final events = await _calendarApi!.events.list(
+        koreanHolidayCalendarId,
+        timeMin: start.toUtc(),
+        timeMax: end.toUtc(),
+        singleEvents: true,
+        orderBy: 'startTime',
+      );
+
+      List<Event> holidays = [];
+      
+      if (events.items != null) {
+        for (var googleEvent in events.items!) {
+          if (googleEvent.summary != null) {
+            DateTime eventDate;
+
+            // 공휴일은 보통 종일 이벤트
+            if (googleEvent.start?.date != null) {
+              eventDate = googleEvent.start!.date!;
+            } else if (googleEvent.start?.dateTime != null) {
+              eventDate = googleEvent.start!.dateTime!.toLocal();
+            } else {
+              continue; // 시작 날짜가 없는 이벤트는 건너뛰기
+            }
+
+            final holiday = Event(
+              title: '🎌 ${googleEvent.summary!}', // 공휴일 표시를 위한 이모지 추가
+              time: '종일',
+              date: eventDate,
+              description: '한국 공휴일',
+            );
+
+            holidays.add(holiday);
+          }
+        }
+      }
+
+      print('한국 공휴일 ${holidays.length}개를 가져왔습니다.');
+      return holidays;
+    } catch (e) {
+      print('한국 공휴일 가져오기 오류: $e');
+      // 오류가 발생해도 빈 리스트 반환 (앱 사용에 지장 없도록)
+      return [];
+    }
+  }
+
   // Google Calendar와 동기화
   Future<List<Event>> syncWithGoogleCalendar({
     DateTime? startDate,
@@ -226,6 +292,39 @@ class GoogleCalendarService {
       startDate: startDate,
       endDate: endDate,
     );
+  }
+
+  // Google Calendar와 동기화 (공휴일 포함)
+  Future<List<Event>> syncWithGoogleCalendarIncludingHolidays({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      // 일반 이벤트 가져오기
+      final regularEvents = await syncWithGoogleCalendar(
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      // 공휴일 가져오기
+      final holidays = await getKoreanHolidays(
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      // 두 리스트 합치기
+      final allEvents = [...regularEvents, ...holidays];
+      
+      print('총 ${allEvents.length}개의 이벤트를 가져왔습니다. (일반: ${regularEvents.length}, 공휴일: ${holidays.length})');
+      return allEvents;
+    } catch (e) {
+      print('공휴일 포함 동기화 오류: $e');
+      // 오류 발생 시 일반 이벤트만 반환
+      return await syncWithGoogleCalendar(
+        startDate: startDate,
+        endDate: endDate,
+      );
+    }
   }
 
   // 로그아웃

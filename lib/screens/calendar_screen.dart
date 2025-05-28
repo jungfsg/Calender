@@ -105,10 +105,72 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       if (_googleCalendarService.hasSignedInUser) {
         await _googleCalendarService.initialize();
         print('Google Calendar 서비스가 자동으로 초기화되었습니다.');
+        
+        // 초기화 성공 시 공휴일 자동 로드
+        _loadHolidaysInBackground();
       }
     } catch (e) {
       print('Google Calendar 자동 초기화 실패: $e');
       // 실패해도 앱 사용에는 문제없으므로 에러 메시지는 표시하지 않음
+    }
+  }
+
+  // 백그라운드에서 공휴일 로드
+  Future<void> _loadHolidaysInBackground() async {
+    try {
+      print('백그라운드에서 공휴일을 로드합니다...');
+      
+      // 현재 년도의 공휴일 로드
+      final DateTime startOfYear = DateTime(_focusedDay.year, 1, 1);
+      final DateTime endOfYear = DateTime(_focusedDay.year, 12, 31);
+      
+      final holidays = await _googleCalendarService.getKoreanHolidays(
+        startDate: startOfYear,
+        endDate: endOfYear,
+      );
+
+      // 공휴일을 로컬 캐시에 추가
+      for (var holiday in holidays) {
+        final normalizedDay = DateTime(holiday.date.year, holiday.date.month, holiday.date.day);
+        final dateKey = _getKey(normalizedDay);
+
+        // 중복 체크
+        final existingEvents = _events[dateKey] ?? [];
+        final isDuplicate = existingEvents.any((e) => 
+          e.title == holiday.title && 
+          e.time == holiday.time &&
+          e.date.day == holiday.date.day &&
+          e.date.month == holiday.date.month &&
+          e.date.year == holiday.date.year
+        );
+
+        if (!isDuplicate) {
+          // 로컬 저장소에 저장
+          await EventStorageService.addEvent(normalizedDay, holiday);
+          
+          // 캐시에 직접 추가
+          if (!_events.containsKey(dateKey)) {
+            _events[dateKey] = [];
+          }
+          _events[dateKey]!.add(holiday);
+
+          // 공휴일 색상 할당 (빨간색 계열)
+          if (!_eventColors.containsKey(holiday.title)) {
+            _eventColors[holiday.title] = Colors.red;
+          }
+        }
+      }
+
+      if (holidays.isNotEmpty) {
+        print('${holidays.length}개의 공휴일이 백그라운드에서 로드되었습니다.');
+        // UI 갱신
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    } catch (e) {
+      print('백그라운드 공휴일 로드 실패: $e');
+      // 실패해도 앱 사용에는 문제없음
     }
   }
 
@@ -785,8 +847,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       final DateTime startOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
       final DateTime endOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
 
-      // Google Calendar에서 이벤트 가져오기
-      final List<Event> googleEvents = await _googleCalendarService.syncWithGoogleCalendar(
+      // Google Calendar에서 이벤트 가져오기 (공휴일 포함)
+      final List<Event> googleEvents = await _googleCalendarService.syncWithGoogleCalendarIncludingHolidays(
         startDate: startOfMonth,
         endDate: endOfMonth,
       );

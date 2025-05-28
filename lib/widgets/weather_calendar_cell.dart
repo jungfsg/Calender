@@ -28,10 +28,15 @@ class WeatherCalendarCell extends StatelessWidget {
 
   // 셀 배경 색상 결정
   Color _getBackgroundColor() {
+    // 공휴일 체크
+    final isHoliday = _isHoliday();
+    
     if (isSelected) {
       return const Color.fromARGB(255, 68, 138, 218)!;
     } else if (isToday) {
       return Colors.amber[300]!;
+    } else if (isHoliday) {
+      return const Color.fromARGB(255, 255, 240, 240); // 연한 빨간색 배경
     } else if (day.weekday == DateTime.saturday ||
         day.weekday == DateTime.sunday) {
       return const Color.fromARGB(255, 255, 255, 255);
@@ -41,14 +46,24 @@ class WeatherCalendarCell extends StatelessWidget {
 
   // 날짜 색상 결정
   Color _getDateColor() {
+    // 공휴일 체크
+    final isHoliday = _isHoliday();
+    
     if (isSelected) {
       return Colors.white;
+    } else if (isHoliday) {
+      return Colors.red; // 공휴일은 빨간색
     } else if (day.weekday == DateTime.saturday) {
       return const Color.fromARGB(255, 54, 184, 244);
     } else if (day.weekday == DateTime.sunday) {
       return Colors.red;
     }
     return Colors.black;
+  }
+
+  // 공휴일 여부 확인
+  bool _isHoliday() {
+    return events.any((event) => event.startsWith('🎌'));
   }
 
   @override
