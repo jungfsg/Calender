@@ -134,7 +134,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
           await _loadEventsForDay(date);
           if (_events.containsKey(dateKey)) {
             final events = _events[dateKey]!;
-            if (events.any((e) => e.title.startsWith('🎌'))) {
+            if (events.any((e) => e.title.startsWith('🇰🇷'))) {
               hasExistingHolidays = true;
               break;
             }

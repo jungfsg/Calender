@@ -92,7 +92,7 @@ class CalendarSideMenu extends StatelessWidget {
                   style: getTextStyle(fontSize: 12, color: Colors.black),
                 ),
                 subtitle: Text(
-                  '🎌 표시로 공휴일 확인 가능',
+                  '🇰🇷 표시로 공휴일 확인 가능',
                   style: getTextStyle(fontSize: 10, color: Colors.grey),
                 ),
                 enabled: false, // 정보 표시용이므로 비활성화

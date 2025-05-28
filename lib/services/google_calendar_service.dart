@@ -256,7 +256,7 @@ class GoogleCalendarService {
             }
 
             final holiday = Event(
-              title: '🎌 ${googleEvent.summary!}', // 공휴일 표시를 위한 이모지 추가
+              title: '🇰🇷 ${googleEvent.summary!}', // 한국 태극기로 변경
               time: '종일',
               date: eventDate,
               description: '한국 공휴일',

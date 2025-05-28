@@ -63,7 +63,7 @@ class WeatherCalendarCell extends StatelessWidget {
 
   // 공휴일 여부 확인
   bool _isHoliday() {
-    return events.any((event) => event.startsWith('🎌'));
+    return events.any((event) => event.startsWith('🇰🇷'));
   }
 
   @override
