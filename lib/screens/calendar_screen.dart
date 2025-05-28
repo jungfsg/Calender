@@ -13,6 +13,7 @@ import '../models/event.dart';
 import '../models/weather_info.dart';
 import '../services/event_storage_service.dart';
 import '../services/weather_service.dart';
+import '../services/google_calendar_service.dart';
 import '../widgets/event_popup.dart';
 import '../widgets/time_table_popup.dart';
 import '../widgets/moving_button.dart';
@@ -39,6 +40,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   bool _showWeatherPopup = false; // 날씨 예보 팝업 표시 여부
   int _selectedIndex = 0; // 현재 선택된 네비게이션 바 인덱스
   final Random _random = Random(); // Random 객체 추가
+
+  // Google Calendar 서비스
+  final GoogleCalendarService _googleCalendarService = GoogleCalendarService();
+  bool _isSyncing = false; // 동기화 진행 상태
 
   // 날씨 정보 캐시
   final Map<String, WeatherInfo> _weatherCache = {};
@@ -83,6 +88,23 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
     // 날씨 정보 로드 (딱 한 번만 실행)
     _loadWeatherData();
+
+    // Google Calendar 서비스 초기화 시도 (백그라운드에서)
+    _initializeGoogleCalendarService();
+  }
+
+  // Google Calendar 서비스 초기화 (백그라운드)
+  Future<void> _initializeGoogleCalendarService() async {
+    try {
+      // 이미 로그인된 사용자가 있는지 확인
+      if (_googleCalendarService.hasSignedInUser) {
+        await _googleCalendarService.initialize();
+        print('Google Calendar 서비스가 자동으로 초기화되었습니다.');
+      }
+    } catch (e) {
+      print('Google Calendar 자동 초기화 실패: $e');
+      // 실패해도 앱 사용에는 문제없으므로 에러 메시지는 표시하지 않음
+    }
   }
 
   // 애플리케이션 시작 시 초기 데이터 로드
@@ -139,29 +161,62 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     );
     final dateKey = _getKey(normalizedDay);
 
-    // 이벤트 저장
-    await EventStorageService.addEvent(normalizedDay, event);
+    try {
+      // 로컬에 이벤트 저장
+      await EventStorageService.addEvent(normalizedDay, event);
 
-    // 캐시에 직접 이벤트 추가
-    if (!_events.containsKey(dateKey)) {
-      _events[dateKey] = [];
+      // 캐시에 직접 이벤트 추가
+      if (!_events.containsKey(dateKey)) {
+        _events[dateKey] = [];
+      }
+      _events[dateKey]!.add(event);
+
+      // 이벤트 색상 할당
+      if (!_eventColors.containsKey(event.title)) {
+        _eventColors[event.title] = _colors[_eventColors.length % _colors.length];
+      }
+
+      // Google Calendar에도 이벤트 추가 시도
+      try {
+        if (_googleCalendarService.isSignedIn) {
+          final success = await _googleCalendarService.addEventToGoogleCalendar(event);
+          if (success) {
+            _showSnackBar('일정이 Google Calendar에도 추가되었습니다.');
+          } else {
+            _showSnackBar('Google Calendar 추가에 실패했습니다.');
+          }
+        } else {
+          // Google Calendar에 로그인되어 있지 않은 경우 초기화 시도
+          final initialized = await _googleCalendarService.initialize();
+          if (initialized) {
+            final success = await _googleCalendarService.addEventToGoogleCalendar(event);
+            if (success) {
+              _showSnackBar('일정이 Google Calendar에도 추가되었습니다.');
+            } else {
+              _showSnackBar('Google Calendar 추가에 실패했습니다.');
+            }
+          } else {
+            _showSnackBar('Google Calendar 연동이 필요합니다. 사이드바에서 동기화를 먼저 실행해주세요.');
+          }
+        }
+      } catch (e) {
+        print('Google Calendar 추가 오류: $e');
+        _showSnackBar('Google Calendar 추가 중 오류가 발생했습니다.');
+      }
+
+      // UI 즉시 갱신
+      if (mounted) {
+        setState(() {
+          _focusedDay = normalizedDay;
+          _selectedDay = normalizedDay;
+        });
+      }
+
+      print('이벤트 추가 완료: ${event.title}');
+    } catch (e) {
+      print('이벤트 추가 오류: $e');
+      _showSnackBar('일정 추가에 실패했습니다.');
     }
-    _events[dateKey]!.add(event);
-
-    // 이벤트 색상 할당
-    if (!_eventColors.containsKey(event.title)) {
-      _eventColors[event.title] = _colors[_eventColors.length % _colors.length];
-    }
-
-    // UI 즉시 갱신
-    if (mounted) {
-      setState(() {
-        _focusedDay = normalizedDay;
-        _selectedDay = normalizedDay;
-      });
-    }
-
-    print('이벤트 추가 완료: ${event.title}');
   }
 
   // 이벤트 삭제
@@ -173,29 +228,51 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     );
     final dateKey = _getKey(normalizedDay);
 
-    // 이벤트 삭제
-    await EventStorageService.removeEvent(normalizedDay, event);
+    try {
+      // 로컬에서 이벤트 삭제
+      await EventStorageService.removeEvent(normalizedDay, event);
 
-    // 캐시에서 직접 이벤트 제거
-    if (_events.containsKey(dateKey)) {
-      _events[dateKey]!.removeWhere(
-        (e) =>
-            e.title == event.title &&
-            e.time == event.time &&
-            e.date.year == event.date.year &&
-            e.date.month == event.date.month &&
-            e.date.day == event.date.day,
-      );
+      // 캐시에서 직접 이벤트 제거
+      if (_events.containsKey(dateKey)) {
+        _events[dateKey]!.removeWhere(
+          (e) =>
+              e.title == event.title &&
+              e.time == event.time &&
+              e.date.year == event.date.year &&
+              e.date.month == event.date.month &&
+              e.date.day == event.date.day,
+        );
 
-      // 해당 날짜의 이벤트가 모두 삭제된 경우 빈 배열로 설정
-      if (_events[dateKey]!.isEmpty) {
-        _events[dateKey] = [];
+        // 해당 날짜의 이벤트가 모두 삭제된 경우 빈 배열로 설정
+        if (_events[dateKey]!.isEmpty) {
+          _events[dateKey] = [];
+        }
       }
-    }
 
-    // UI 즉시 갱신
-    if (mounted) {
-      setState(() {});
+      // Google Calendar에서도 이벤트 삭제 시도
+      try {
+        if (_googleCalendarService.isSignedIn) {
+          final success = await _googleCalendarService.deleteEventFromGoogleCalendar(event);
+          if (success) {
+            _showSnackBar('일정이 Google Calendar에서도 삭제되었습니다.');
+          } else {
+            _showSnackBar('Google Calendar에서 해당 일정을 찾을 수 없습니다.');
+          }
+        } else {
+          _showSnackBar('Google Calendar 연동이 필요합니다.');
+        }
+      } catch (e) {
+        print('Google Calendar 삭제 오류: $e');
+        _showSnackBar('Google Calendar 삭제 중 오류가 발생했습니다.');
+      }
+
+      // UI 즉시 갱신
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('이벤트 삭제 오류: $e');
+      _showSnackBar('일정 삭제에 실패했습니다.');
     }
   }
 
@@ -683,6 +760,95 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
+  // Google Calendar 동기화
+  Future<void> _syncWithGoogleCalendar() async {
+    if (_isSyncing) {
+      _showSnackBar('이미 동기화가 진행 중입니다.');
+      return;
+    }
+
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      _showSnackBar('Google Calendar와 동기화 중...');
+
+      // 현재 월의 시작과 끝 날짜 계산
+      final DateTime startOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+      final DateTime endOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+
+      // Google Calendar에서 이벤트 가져오기
+      final List<Event> googleEvents = await _googleCalendarService.syncWithGoogleCalendar(
+        startDate: startOfMonth,
+        endDate: endOfMonth,
+      );
+
+      // 가져온 이벤트들을 로컬에 저장
+      int addedCount = 0;
+      for (var event in googleEvents) {
+        final normalizedDay = DateTime(event.date.year, event.date.month, event.date.day);
+        final dateKey = _getKey(normalizedDay);
+
+        // 중복 체크 (같은 제목과 시간의 이벤트가 이미 있는지 확인)
+        final existingEvents = _events[dateKey] ?? [];
+        final isDuplicate = existingEvents.any((e) => 
+          e.title == event.title && 
+          e.time == event.time &&
+          e.date.day == event.date.day &&
+          e.date.month == event.date.month &&
+          e.date.year == event.date.year
+        );
+
+        if (!isDuplicate) {
+          await EventStorageService.addEvent(normalizedDay, event);
+          
+          // 캐시에 직접 이벤트 추가
+          if (!_events.containsKey(dateKey)) {
+            _events[dateKey] = [];
+          }
+          _events[dateKey]!.add(event);
+
+          // 이벤트 색상 할당
+          if (!_eventColors.containsKey(event.title)) {
+            _eventColors[event.title] = _colors[_eventColors.length % _colors.length];
+          }
+
+          addedCount++;
+        }
+      }
+
+      _showSnackBar('Google Calendar 동기화 완료! ${addedCount}개의 새 이벤트가 추가되었습니다.');
+      
+      // UI 갱신
+      setState(() {});
+
+    } catch (e) {
+      print('Google Calendar 동기화 오류: $e');
+      _showSnackBar('Google Calendar 동기화에 실패했습니다: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isSyncing = false;
+      });
+    }
+  }
+
+  // 스낵바 표시 헬퍼 메서드
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: getTextStyle(fontSize: 12, color: Colors.white),
+          ),
+          backgroundColor: Colors.black87,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 현재 월의 주 수 계산
@@ -705,6 +871,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       backgroundColor: const Color.fromARGB(255, 162, 222, 141),
       drawer: CalendarSideMenu(
         onWeatherForecastTap: _showWeatherForecastDialog,
+        onGoogleCalendarSyncTap: _syncWithGoogleCalendar,
+        isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
       ),
       body: SafeArea(
         bottom: false, // 하단 SafeArea는 적용하지 않음 (네비게이션 바가 차지)

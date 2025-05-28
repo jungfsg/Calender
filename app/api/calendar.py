@@ -3,6 +3,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from app.services.llm_service import LLMService
 from app.services.vector_store import VectorStoreService
+from app.services.google_calendar_service import GoogleCalendarService
 from datetime import datetime
 
 router = APIRouter()
@@ -27,6 +28,264 @@ class CalendarResponse(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     sources: Optional[List[Dict[str, Any]]] = None
+
+# 새로운 AI 캘린더 모델들
+class AICalendarInput(BaseModel):
+    message: str
+    session_id: Optional[str] = "default"
+    chat_history: Optional[List[Dict[str, str]]] = None
+
+class AICalendarResponse(BaseModel):
+    response: str
+    intent: Optional[str] = None
+    extracted_info: Optional[Dict[str, Any]] = None
+    calendar_result: Optional[Dict[str, Any]] = None
+    updated_history: Optional[List[Dict[str, str]]] = None
+
+class EventSearchInput(BaseModel):
+    query: Optional[str] = None
+    time_min: Optional[str] = None
+    time_max: Optional[str] = None
+    max_results: Optional[int] = 10
+
+class EventCreateInput(BaseModel):
+    summary: str
+    start_datetime: str
+    end_datetime: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    attendees: Optional[List[str]] = None
+    timezone: Optional[str] = "Asia/Seoul"
+
+@router.post("/ai-chat", response_model=AICalendarResponse)
+async def ai_calendar_chat(
+    input_data: AICalendarInput,
+    llm_service: LLMService = Depends(lambda: LLMService())
+):
+    """
+    AI 캘린더 워크플로우를 사용하여 자연어로 일정을 관리합니다.
+    의도 분류, 정보 추출, 작업 실행, 응답 생성을 포함한 완전한 워크플로우를 제공합니다.
+    """
+    try:
+        result = await llm_service.process_calendar_input_with_workflow(
+            user_input=input_data.message,
+            chat_history=input_data.chat_history
+        )
+        
+        return AICalendarResponse(
+            response=result["response"],
+            intent=result.get("intent"),
+            extracted_info=result.get("extracted_info"),
+            calendar_result=result.get("calendar_result"),
+            updated_history=result.get("updated_history")
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI 캘린더 처리 중 오류 발생: {str(e)}")
+
+@router.get("/events/search")
+async def search_events(
+    query: Optional[str] = None,
+    time_min: Optional[str] = None,
+    time_max: Optional[str] = None,
+    max_results: Optional[int] = 10,
+    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+):
+    """
+    Google Calendar에서 일정을 검색합니다.
+    """
+    try:
+        events = calendar_service.search_events(
+            query=query,
+            time_min=time_min,
+            time_max=time_max,
+            max_results=max_results
+        )
+        
+        return {
+            "success": True,
+            "events": events,
+            "count": len(events)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"일정 검색 중 오류 발생: {str(e)}")
+
+@router.post("/events/create")
+async def create_event(
+    event_data: EventCreateInput,
+    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+):
+    """
+    Google Calendar에 새로운 일정을 생성합니다.
+    """
+    try:
+        # 입력 데이터를 Google Calendar API 형식으로 변환
+        calendar_event = {
+            'summary': event_data.summary,
+            'description': event_data.description or '',
+            'location': event_data.location or '',
+            'start': {
+                'dateTime': event_data.start_datetime,
+                'timeZone': event_data.timezone
+            },
+            'end': {
+                'dateTime': event_data.end_datetime,
+                'timeZone': event_data.timezone
+            }
+        }
+        
+        if event_data.attendees:
+            calendar_event['attendees'] = [{'email': email} for email in event_data.attendees]
+        
+        result = calendar_service.create_event(calendar_event)
+        
+        if result.get('success'):
+            return {
+                "success": True,
+                "message": "일정이 성공적으로 생성되었습니다.",
+                "event_id": result.get('event_id'),
+                "event_link": result.get('event_link')
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', '일정 생성에 실패했습니다.'))
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"일정 생성 중 오류 발생: {str(e)}")
+
+@router.put("/events/{event_id}")
+async def update_event(
+    event_id: str,
+    event_data: Dict[str, Any],
+    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+):
+    """
+    기존 일정을 수정합니다.
+    """
+    try:
+        result = calendar_service.update_event(event_id, event_data)
+        
+        if result.get('success'):
+            return {
+                "success": True,
+                "message": "일정이 성공적으로 수정되었습니다.",
+                "event_id": result.get('event_id'),
+                "event_link": result.get('event_link')
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', '일정 수정에 실패했습니다.'))
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"일정 수정 중 오류 발생: {str(e)}")
+
+@router.delete("/events/{event_id}")
+async def delete_event(
+    event_id: str,
+    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+):
+    """
+    일정을 삭제합니다.
+    """
+    try:
+        result = calendar_service.delete_event(event_id)
+        
+        if result.get('success'):
+            return {
+                "success": True,
+                "message": "일정이 성공적으로 삭제되었습니다."
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', '일정 삭제에 실패했습니다.'))
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"일정 삭제 중 오류 발생: {str(e)}")
+
+@router.post("/events/{event_id}/copy")
+async def copy_event(
+    event_id: str,
+    destination_calendar_id: Optional[str] = "primary",
+    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+):
+    """
+    일정을 복사합니다.
+    """
+    try:
+        result = calendar_service.copy_event(event_id, destination_calendar_id)
+        
+        if result.get('success'):
+            return {
+                "success": True,
+                "message": "일정이 성공적으로 복사되었습니다.",
+                "new_event_id": result.get('event_id')
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', '일정 복사에 실패했습니다.'))
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"일정 복사 중 오류 발생: {str(e)}")
+
+@router.post("/events/{event_id}/move")
+async def move_event(
+    event_id: str,
+    destination_calendar_id: str,
+    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+):
+    """
+    일정을 다른 캘린더로 이동합니다.
+    """
+    try:
+        result = calendar_service.move_event(event_id, destination_calendar_id)
+        
+        if result.get('success'):
+            return {
+                "success": True,
+                "message": "일정이 성공적으로 이동되었습니다.",
+                "event_id": result.get('event_id')
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get('error', '일정 이동에 실패했습니다.'))
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"일정 이동 중 오류 발생: {str(e)}")
+
+@router.get("/events/{event_id}/conflicts")
+async def check_event_conflicts(
+    event_id: str,
+    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+):
+    """
+    특정 일정의 충돌을 확인합니다.
+    """
+    try:
+        # 먼저 해당 일정 정보를 가져옴
+        events = calendar_service.search_events(query="", max_results=100)
+        target_event = None
+        
+        for event in events:
+            if event['id'] == event_id:
+                target_event = event
+                break
+        
+        if not target_event:
+            raise HTTPException(status_code=404, detail="일정을 찾을 수 없습니다.")
+        
+        # 충돌 검사
+        conflicts = calendar_service.check_conflicts(
+            target_event['start'],
+            target_event['end']
+        )
+        
+        # 자기 자신은 제외
+        conflicts = [c for c in conflicts if c['id'] != event_id]
+        
+        return {
+            "success": True,
+            "conflicts": conflicts,
+            "conflict_count": len(conflicts)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"충돌 검사 중 오류 발생: {str(e)}")
 
 @router.post("/process", response_model=CalendarResponse)
 async def process_calendar_input(
