@@ -55,7 +55,9 @@ class WeatherService {
   }
 
   // 5일간 날씨 예보 가져오기
-  static Future<List<WeatherInfo>> get5DayForecast() async {
+  static Future<List<WeatherInfo>> get5DayForecast({
+    int targetHour = 12,
+  }) async {
     print('날씨 정보 로드 시작...');
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
