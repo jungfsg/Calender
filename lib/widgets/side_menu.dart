@@ -69,7 +69,7 @@ class CalendarSideMenu extends StatelessWidget {
               ),
               subtitle: isGoogleCalendarConnected 
                 ? Text(
-                    '양방향 동기화 + 공휴일 표시',
+                    '1년치 일정 + 공휴일 동기화',
                     style: getTextStyle(fontSize: 10, color: Colors.green),
                   )
                 : Text(
