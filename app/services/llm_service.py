@@ -274,9 +274,9 @@ class LLMService:
                         model="gpt-4o-mini",
                         messages=messages,
                         temperature=0.7
-                )
-                
-                state['current_output'] = response.choices[0].message.content
+                    )
+                    
+                    state['current_output'] = response.choices[0].message.content
                     
                 else:
                     # 캘린더 작업 결과 기반 응답
