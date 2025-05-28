@@ -2,11 +2,13 @@ class Event {
   final String title;
   final String time; // HH:mm 형식의 시간
   final DateTime date;
+  final String description; // 이벤트 설명 추가
 
   Event({
     required this.title,
     required this.time,
     required this.date,
+    this.description = '', // 기본값으로 빈 문자열 설정
   });
 
   // JSON 직렬화를 위한 메서드
@@ -15,6 +17,7 @@ class Event {
       'title': title,
       'time': time,
       'date': date.toIso8601String(),
+      'description': description,
     };
   }
 
@@ -24,6 +27,7 @@ class Event {
       title: json['title'],
       time: json['time'],
       date: DateTime.parse(json['date']),
+      description: json['description'] ?? '',
     );
   }
 

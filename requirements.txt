@@ -20,4 +20,21 @@ google_mlkit_text_recognition==0.11.0
 cupertino_icons==1.0.8
 
 # 개발 의존성
-flutter_lints==5.0.0 
+flutter_lints==5.0.0
+
+# Python 백엔드 의존성
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+openai==1.3.0
+langchain==0.0.350
+langchain-community==0.0.1
+langchain-openai==0.0.2
+langgraph==0.0.20
+chromadb==0.4.18
+google-api-python-client==2.110.0
+google-auth-httplib2==0.1.1
+google-auth-oauthlib==1.1.0
+python-dateutil==2.8.2
+pytz==2023.3 

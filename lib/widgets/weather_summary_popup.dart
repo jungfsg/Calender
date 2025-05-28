@@ -9,10 +9,10 @@ class WeatherSummaryPopup extends StatelessWidget {
   final Function onClose;
 
   const WeatherSummaryPopup({
-    Key? key,
+    super.key,
     required this.weatherList,
     required this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -42,13 +42,26 @@ class WeatherSummaryPopup extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '5일간 날씨 예보',
-                      style: getCustomTextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        text: '5일간 날씨 예보',
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '5일간 날씨 예보',
+                          style: getCustomTextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            text: '5일간 날씨 예보',
+                          ),
+                        ),
+                        Text(
+                          '(정오 12:00 기준)',
+                          style: getCustomTextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600]!,
+                            text: '(정오 12:00 기준)',
+                          ),
+                        ),
+                      ],
                     ),
                     IconButton(
                       icon: Icon(Icons.close),

@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'calendar_screen.dart';
 import 'package:flutter/foundation.dart';
+import '../widgets/common_navigation_bar.dart';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({super.key});
@@ -29,7 +30,7 @@ class _EmptyPageState extends State<EmptyPage> {
     script: TextRecognitionScript.korean,
   );
   bool _isLoading = false;
-  int _selectedIndex = 1;
+  int _selectedIndex = 2;
 
   @override
   void initState() {
@@ -287,17 +288,18 @@ class _EmptyPageState extends State<EmptyPage> {
       _selectedIndex = index;
     });
 
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const PixelArtCalendarScreen(),
-          ),
-        );
-        break;
-      case 1:
-        break;
+    if (index == 0) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder:
+              (context, animation, secondaryAnimation) =>
+                  const PixelArtCalendarScreen(),
+          transitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
     }
   }
 
@@ -311,6 +313,7 @@ class _EmptyPageState extends State<EmptyPage> {
         return true;
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: true, // 채팅 화면에서는 키보드에 따라 리사이즈 허용
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -382,39 +385,9 @@ class _EmptyPageState extends State<EmptyPage> {
             ),
           ],
         ),
-        bottomNavigationBar: Container(
-          height: 100.0,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 0),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.calendar_today,
-                  color: _selectedIndex == 0 ? Colors.blue[800] : Colors.grey,
-                ),
-                onPressed: () => _onItemTapped(0),
-              ),
-              IconButton(
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.chat,
-                  color: _selectedIndex == 1 ? Colors.blue[800] : Colors.grey,
-                ),
-                onPressed: () => _onItemTapped(1),
-              ),
-            ],
-          ),
+        bottomNavigationBar: CommonNavigationBar(
+          selectedIndex: _selectedIndex,
+          onItemTapped: _onItemTapped,
         ),
       ),
     );

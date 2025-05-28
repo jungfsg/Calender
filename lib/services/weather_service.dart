@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
@@ -56,7 +55,9 @@ class WeatherService {
   }
 
   // 5일간 날씨 예보 가져오기
-  static Future<List<WeatherInfo>> get5DayForecast() async {
+  static Future<List<WeatherInfo>> get5DayForecast({
+    int targetHour = 12,
+  }) async {
     print('날씨 정보 로드 시작...');
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
@@ -81,14 +82,12 @@ class WeatherService {
           );
         }).toList();
       }
-    }
-
-    // 현재 위치 가져오기
+    } // 현재 위치 가져오기
     print('위치 정보 요청 중...');
     final position = await getCurrentLocation();
     if (position == null) {
       print('위치 정보를 가져올 수 없습니다.');
-      return _generateDummyForecast(); // 위치 정보가 없을 경우 더미 데이터 반환
+      return _generateDummyForecast(null, null); // 위치 정보가 없을 경우 더미 데이터 반환
     }
 
     print('위치: ${position.latitude}, ${position.longitude}');
@@ -100,43 +99,59 @@ class WeatherService {
     try {
       print('날씨 API 요청: $url');
       final response = await http.get(Uri.parse(url));
+      print('API 응답 상태 코드: ${response.statusCode}');
+      print('API 응답 내용: ${response.body}');
+
       if (response.statusCode == 200) {
         print('날씨 API 응답 성공!');
-        final data = jsonDecode(response.body);
-
-        // 날씨 데이터 파싱
+        final data = jsonDecode(response.body); // 날씨 데이터 파싱
         final List<dynamic> list = data['list'];
 
-        // 5일간의 날씨 정보 추출
+        // 5일간의 날씨 정보 추출 (정오 12시 기준)
         final List<WeatherInfo> weatherList = [];
         final dateFormat = DateFormat('yyyy-MM-dd');
-        final Map<String, bool> dateProcessed = {}; // 날짜별 처리 여부 체크
+        final Map<String, Map<String, dynamic>> dailyBestForecast =
+            {}; // 날짜별 최적 예보 데이터
 
-        // 각 예보 시간별 데이터에서 5일치 날씨 정보 추출
+        // 각 예보 시간별 데이터에서 정오에 가장 가까운 시간대 찾기
         for (var forecast in list) {
           // 날짜 추출 (yyyy-MM-dd 형식)
           final timestamp = forecast['dt'] * 1000; // 초 단위를 밀리초로 변환
           final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
           final dateStr = dateFormat.format(date);
+          final hour = date.hour;
 
-          // 이미 해당 날짜가 처리되었으면 스킵
-          if (dateProcessed[dateStr] == true) continue;
+          // 정오(12시)에 가장 가까운 시간대를 선택
+          // OpenWeatherMap은 3시간 간격: 00, 03, 06, 09, 12, 15, 18, 21
+          // 우선순위: 12시 > 09시 또는 15시 > 기타
+          if (!dailyBestForecast.containsKey(dateStr) ||
+              _isCloserToNoon(hour, dailyBestForecast[dateStr]!['hour'])) {
+            dailyBestForecast[dateStr] = {'forecast': forecast, 'hour': hour};
+          }
+        }
 
-          // 아직 5일치가 차지 않았으면 추가
+        // 날짜순으로 정렬하여 최대 5일치 weatherList에 추가
+        final sortedDates = dailyBestForecast.keys.toList()..sort();
+        for (final dateStr in sortedDates) {
           if (weatherList.length < 5) {
-            dateProcessed[dateStr] = true;
+            final bestForecast = dailyBestForecast[dateStr]!['forecast'];
+            final hour = dailyBestForecast[dateStr]!['hour'];
 
             weatherList.add(
               WeatherInfo(
                 date: dateStr,
-                condition: _mapWeatherCondition(forecast['weather'][0]['main']),
-                temperature: forecast['main']['temp'].toDouble(),
+                condition: _mapWeatherCondition(
+                  bestForecast['weather'][0]['main'],
+                ),
+                temperature: bestForecast['main']['temp'].toDouble(),
                 lat: position.latitude,
                 lon: position.longitude,
               ),
             );
 
-            print('날씨 정보 추가: $dateStr, ${forecast['weather'][0]['main']}');
+            print(
+              '날씨 정보 추가: $dateStr ($hour시), ${bestForecast['weather'][0]['main']}',
+            );
           }
         }
 
@@ -172,21 +187,28 @@ class WeatherService {
         print('날씨 정보 캐시 저장 완료: ${weatherList.length}개');
         return weatherList;
       } else {
-        print('날씨 API 응답 오류: ${response.statusCode}, ${response.body}');
-        return _generateDummyForecast();
+        print('❌ API 호출 실패 - 상태코드: ${response.statusCode}');
+        print('❌ 오류 메시지: ${response.body}');
+        return _generateDummyForecast(position.latitude, position.longitude);
       }
     } catch (e) {
-      print('날씨 API 오류: $e');
-      return _generateDummyForecast();
+      print('❌ API 호출 예외 발생: $e');
+      return _generateDummyForecast(position.latitude, position.longitude);
     }
   }
 
   // 5일 더미 날씨 데이터 생성
-  static List<WeatherInfo> _generateDummyForecast() {
+  static List<WeatherInfo> _generateDummyForecast([double? lat, double? lon]) {
     print('더미 날씨 데이터 생성');
     final List<WeatherInfo> dummyList = [];
     final dateFormat = DateFormat('yyyy-MM-dd');
     final now = DateTime.now();
+
+    // 실제 위치가 있으면 사용, 없으면 서울 기본값
+    final double useLat = lat ?? 37.5665;
+    final double useLon = lon ?? 126.9780;
+
+    print('더미 데이터 위치: 위도=$useLat, 경도=$useLon');
 
     // 날씨 상태를 snowy로 고정, 온도를 99도로 설정(디버깅 용 더미)
     const String weatherCondition = 'snowy';
@@ -202,8 +224,8 @@ class WeatherService {
           date: dateStr,
           condition: weatherCondition,
           temperature: weatherTemperature,
-          lat: 37.5665, // 서울 기준 위치
-          lon: 126.9780,
+          lat: useLat, // 실제 위치 사용
+          lon: useLon,
         ),
       );
     }
@@ -252,7 +274,7 @@ class WeatherService {
     }
   }
 
-  // ub0a0uc528 uc0c1ud0dc ub9e4ud551
+  // 날씨 상태 매핑
   static String _mapWeatherCondition(String condition) {
     final lowerCondition = condition.toLowerCase();
 
@@ -271,60 +293,49 @@ class WeatherService {
     }
   }
 
-  // ub124uc774ubc84 uc9c0ub3c4 URL uc0dduc131
+  // 네이버 지도 URL 생성
   static String getNaverMapUrl(double lat, double lon) {
     return 'https://m.map.naver.com/map.naver?lat=$lat&lng=$lon&level=12';
   }
 
-  // 네이버 날씨 URL 생성
   static Future<String> getNaverWeatherUrl() async {
     try {
-      // 현재 위치 가져오기
       final position = await getCurrentLocation();
       if (position != null) {
-        try {
-          // 위도/경도로 주소 얻기 (지오코딩)
-          final placemarks = await placemarkFromCoordinates(
-            position.latitude,
-            position.longitude,
-            localeIdentifier: 'ko_KR', // 한글 주소 요청
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+          localeIdentifier: 'ko_KR',
+        );
+
+        if (placemarks.isNotEmpty) {
+          final placemark = placemarks.first;
+          String location =
+              placemark.locality ?? placemark.administrativeArea ?? '서울';
+
+          print('날씨 검색 지역: $location');
+          print(
+            '위치 -> 주소 변환: ${placemark.administrativeArea} ${placemark.locality} (위도=${position.latitude}, 경도=${position.longitude})',
           );
 
-          if (placemarks.isNotEmpty) {
-            final placemark = placemarks.first;
-
-            // 시/도 정보만 사용
-            String? administrativeArea = placemark.administrativeArea;
-
-            // 시/도 정보가 있는 경우에만 사용
-            if (administrativeArea != null && administrativeArea.isNotEmpty) {
-              print(
-                '위치 -> 주소 변환: $administrativeArea (위도=${position.latitude}, 경도=${position.longitude})',
-              );
-
-              // 네이버 날씨 검색 URL 생성
-              final encodedQuery = Uri.encodeComponent(administrativeArea);
-              return 'https://weather.naver.com/today/$encodedQuery';
-            } else {
-              print('시/도 정보를 찾을 수 없습니다. 기본 URL 사용');
-            }
-          } else {
-            print('placemarks가 비어 있습니다.');
-          }
-        } catch (geocodingError) {
-          print('위치 -> 주소 변환 오류: $geocodingError');
+          // 네이버 검색으로 날씨 찾기
+          final query = Uri.encodeComponent('$location 날씨');
+          return 'https://search.naver.com/search.naver?query=$query';
         }
-
-        // 주소를 찾을 수 없는 경우 기본 URL 반환
-        return 'https://weather.naver.com/';
-      } else {
-        print('위치 정보를 가져올 수 없습니다.');
       }
     } catch (e) {
-      print('위치 정보 변환 오류: $e');
-    }
-
-    // 위치 정보를 가져올 수 없는 경우 기본 URL 반환
+      print('위치 정보 오류: $e');
+    } // 위치 정보를 가져올 수 없는 경우 네이버 날씨 메인 페이지
     return 'https://weather.naver.com/';
+  }
+
+  // 정오(12시)에 더 가까운 시간인지 확인하는 헬퍼 함수
+  static bool _isCloserToNoon(int newHour, int currentHour) {
+    // 정오(12시)를 기준으로 거리 계산
+    final newDistance = (newHour - 12).abs();
+    final currentDistance = (currentHour - 12).abs();
+
+    // 새로운 시간이 정오에 더 가까우면 true
+    return newDistance < currentDistance;
   }
 }

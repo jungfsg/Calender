@@ -46,6 +46,11 @@ dependencies:
   firebase_auth: ^4.17.9
   firebase_database: ^10.4.10
   google_sign_in: ^6.1.6
+  # Google Calendar API 관련 패키지
+  googleapis: ^13.2.0
+  googleapis_auth: ^1.6.0
+  extension_google_sign_in_as_googleapis_auth: ^2.0.12
+  curved_navigation_bar: ^1.0.6
   # MLKIT OCR
   google_mlkit_text_recognition: ^0.11.0
   
@@ -57,6 +62,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  water_drop_nav_bar: ^2.2.2
 
 dev_dependencies:
   flutter_test:
