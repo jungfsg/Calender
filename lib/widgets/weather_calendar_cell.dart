@@ -68,6 +68,18 @@ class WeatherCalendarCell extends StatelessWidget {
             color: _getBackgroundColor(),
             child: Stack(
               children: [
+                // 날씨 아이콘 (있는 경우에만 표시) - 우상단 유지
+                if (weatherInfo != null)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: EdgeInsets.all(1),
+                      child: WeatherIcon(weatherInfo: weatherInfo!, size: 18),
+                    ),
+                  ),
+
+                // 날짜를 날씨 아이콘 위에 표시
                 Positioned(
                   top: 8,
                   left: 0,
@@ -76,28 +88,12 @@ class WeatherCalendarCell extends StatelessWidget {
                     child: Text(
                       '${day.day}',
                       style: getTextStyle(
-                        fontSize: fontSize, // 동적으로 계산된 폰트 크기 사용
+                        fontSize: fontSize,
                         color: _getDateColor(),
                       ),
                     ),
                   ),
                 ),
-
-                // 날씨 아이콘 (있는 경우에만 표시) - 우상단 유지
-                if (weatherInfo != null)
-                  Positioned(
-                    top: 3,
-                    right: 3,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.black, width: 1),
-                      ),
-                      padding: EdgeInsets.all(2),
-                      child: WeatherIcon(weatherInfo: weatherInfo!, size: 16),
-                    ),
-                  ),
 
                 // 이벤트 리스트 - 하단 유지
                 if (events.isNotEmpty)
@@ -111,7 +107,6 @@ class WeatherCalendarCell extends StatelessWidget {
                       children:
                           events.take(6).map((event) {
                             final bgColor = eventColors[event] ?? Colors.blue;
-
                             return Container(
                               margin: const EdgeInsets.only(bottom: 1),
                               padding: const EdgeInsets.symmetric(

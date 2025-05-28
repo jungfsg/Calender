@@ -50,6 +50,7 @@ dependencies:
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
   extension_google_sign_in_as_googleapis_auth: ^2.0.12
+  curved_navigation_bar: ^1.0.6
   # MLKIT OCR
   google_mlkit_text_recognition: ^0.11.0
   

@@ -64,14 +64,7 @@ class WeatherIcon extends StatelessWidget {
       child: Tooltip(
         message:
             '${weatherInfo.condition} ${weatherInfo.temperature.toStringAsFixed(1)}°C\n${_getDateText()}\n네이버 날씨 열기',
-        child: Container(
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            color: _getWeatherColor().withOpacity(0.2),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Icon(_getWeatherIcon(), color: _getWeatherColor(), size: size),
-        ),
+        child: Icon(_getWeatherIcon(), color: _getWeatherColor(), size: size),
       ),
     );
   }

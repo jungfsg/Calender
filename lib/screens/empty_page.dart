@@ -30,7 +30,7 @@ class _EmptyPageState extends State<EmptyPage> {
     script: TextRecognitionScript.korean,
   );
   bool _isLoading = false;
-  int _selectedIndex = 1;
+  int _selectedIndex = 2;
 
   @override
   void initState() {
@@ -312,6 +312,7 @@ class _EmptyPageState extends State<EmptyPage> {
         return true;
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: true, // 채팅 화면에서는 키보드에 따라 리사이즈 허용
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),

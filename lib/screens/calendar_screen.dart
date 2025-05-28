@@ -754,7 +754,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     switch (index) {
       case 0: // 캘린더 - 현재 화면이므로 아무 작업 없음
         break;
-      case 1: // 설정 또는 빈 페이지
+      case 1: // 가운데 버튼 - 아직 기능 미정
+        break;
+      case 2: // 채팅 화면
         _navigateToEmptyPage();
         break;
     }
@@ -868,6 +870,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     final int totalWeeks = ((firstWeekday + lastDate) / 7).ceil();
 
     return Scaffold(
+      resizeToAvoidBottomInset: false, // 키보드가 올라올 때 화면 리사이즈 방지
       backgroundColor: const Color.fromARGB(255, 162, 222, 141),
       drawer: CalendarSideMenu(
         onWeatherForecastTap: _showWeatherForecastDialog,
