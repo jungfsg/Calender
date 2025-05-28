@@ -30,7 +30,7 @@ class GoogleCalendarService:
             if self._try_oauth():
                 return
             
-            print("❌ Google Calendar 서비스 초기화에 실패했습니다.")
+            print("❌ Google Calendar 서비스 초기화에 실패했습니다. (google_calendar_service.py)")
             print("서비스 계정 또는 OAuth 자격 증명을 확인해주세요.")
                 
         except Exception as e:
