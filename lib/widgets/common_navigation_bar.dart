@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:water_drop_nav_bar/water_drop_nav_bar.dart';
 
 class CommonNavigationBar extends StatelessWidget {
   final int selectedIndex;
@@ -24,42 +24,21 @@ class CommonNavigationBar extends StatelessWidget {
 
     return SafeArea(
       bottom: true,
-      child: CurvedNavigationBar(
-        index: selectedIndex,
-        height: 70.0,
-        backgroundColor:
-            selectedIndex == 0
-                ? const Color.fromARGB(255, 255, 255, 255)
-                : const Color.fromARGB(255, 255, 255, 255),
-        color: const Color.fromARGB(255, 162, 222, 141),
-        buttonBackgroundColor: const Color.fromARGB(255, 162, 222, 141),
-        animationDuration: const Duration(milliseconds: 300),
-        onTap: onItemTapped,
-        items: [
-          Icon(
-            Icons.calendar_today,
-            size: 30,
-            color:
-                selectedIndex == 0
-                    ? const Color.fromARGB(255, 255, 255, 255)
-                    : Colors.grey,
+      child: WaterDropNavBar(
+        backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+        onItemSelected: onItemTapped,
+        selectedIndex: selectedIndex,
+        waterDropColor: Colors.white,
+        inactiveIconColor: Colors.white.withOpacity(0.5),
+        iconSize: 25,
+        bottomPadding: 10.0,
+        barItems: [
+          BarItem(
+            filledIcon: Icons.calendar_today,
+            outlinedIcon: Icons.calendar_today_outlined,
           ),
-          Icon(
-            Icons.mic,
-            size: 35,
-            color:
-                selectedIndex == 1
-                    ? const Color.fromARGB(255, 255, 255, 255)
-                    : Colors.grey,
-          ),
-          Icon(
-            Icons.chat,
-            size: 30,
-            color:
-                selectedIndex == 2
-                    ? const Color.fromARGB(255, 255, 255, 255)
-                    : Colors.grey,
-          ),
+          BarItem(filledIcon: Icons.mic, outlinedIcon: Icons.mic_outlined),
+          BarItem(filledIcon: Icons.chat, outlinedIcon: Icons.chat_outlined),
         ],
       ),
     );
