@@ -104,41 +104,54 @@ class WeatherService {
 
       if (response.statusCode == 200) {
         print('날씨 API 응답 성공!');
-        final data = jsonDecode(response.body);
-
-        // 날씨 데이터 파싱
+        final data = jsonDecode(response.body); // 날씨 데이터 파싱
         final List<dynamic> list = data['list'];
 
-        // 5일간의 날씨 정보 추출
+        // 5일간의 날씨 정보 추출 (정오 12시 기준)
         final List<WeatherInfo> weatherList = [];
         final dateFormat = DateFormat('yyyy-MM-dd');
-        final Map<String, bool> dateProcessed = {}; // 날짜별 처리 여부 체크
+        final Map<String, Map<String, dynamic>> dailyBestForecast =
+            {}; // 날짜별 최적 예보 데이터
 
-        // 각 예보 시간별 데이터에서 5일치 날씨 정보 추출
+        // 각 예보 시간별 데이터에서 정오에 가장 가까운 시간대 찾기
         for (var forecast in list) {
           // 날짜 추출 (yyyy-MM-dd 형식)
           final timestamp = forecast['dt'] * 1000; // 초 단위를 밀리초로 변환
           final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
           final dateStr = dateFormat.format(date);
+          final hour = date.hour;
 
-          // 이미 해당 날짜가 처리되었으면 스킵
-          if (dateProcessed[dateStr] == true) continue;
+          // 정오(12시)에 가장 가까운 시간대를 선택
+          // OpenWeatherMap은 3시간 간격: 00, 03, 06, 09, 12, 15, 18, 21
+          // 우선순위: 12시 > 09시 또는 15시 > 기타
+          if (!dailyBestForecast.containsKey(dateStr) ||
+              _isCloserToNoon(hour, dailyBestForecast[dateStr]!['hour'])) {
+            dailyBestForecast[dateStr] = {'forecast': forecast, 'hour': hour};
+          }
+        }
 
-          // 아직 5일치가 차지 않았으면 추가
+        // 날짜순으로 정렬하여 최대 5일치 weatherList에 추가
+        final sortedDates = dailyBestForecast.keys.toList()..sort();
+        for (final dateStr in sortedDates) {
           if (weatherList.length < 5) {
-            dateProcessed[dateStr] = true;
+            final bestForecast = dailyBestForecast[dateStr]!['forecast'];
+            final hour = dailyBestForecast[dateStr]!['hour'];
 
             weatherList.add(
               WeatherInfo(
                 date: dateStr,
-                condition: _mapWeatherCondition(forecast['weather'][0]['main']),
-                temperature: forecast['main']['temp'].toDouble(),
+                condition: _mapWeatherCondition(
+                  bestForecast['weather'][0]['main'],
+                ),
+                temperature: bestForecast['main']['temp'].toDouble(),
                 lat: position.latitude,
                 lon: position.longitude,
               ),
             );
 
-            print('날씨 정보 추가: $dateStr, ${forecast['weather'][0]['main']}');
+            print(
+              '날씨 정보 추가: $dateStr ($hour시), ${bestForecast['weather'][0]['main']}',
+            );
           }
         }
 
@@ -312,9 +325,17 @@ class WeatherService {
       }
     } catch (e) {
       print('위치 정보 오류: $e');
-    }
-
-    // 위치 정보를 가져올 수 없는 경우 네이버 날씨 메인 페이지
+    } // 위치 정보를 가져올 수 없는 경우 네이버 날씨 메인 페이지
     return 'https://weather.naver.com/';
+  }
+
+  // 정오(12시)에 더 가까운 시간인지 확인하는 헬퍼 함수
+  static bool _isCloserToNoon(int newHour, int currentHour) {
+    // 정오(12시)를 기준으로 거리 계산
+    final newDistance = (newHour - 12).abs();
+    final currentDistance = (currentHour - 12).abs();
+
+    // 새로운 시간이 정오에 더 가까우면 true
+    return newDistance < currentDistance;
   }
 }
