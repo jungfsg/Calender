@@ -791,7 +791,18 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         endDate: endOfMonth,
       );
 
-      // 가져온 이벤트들을 로컬에 저장
+      // 현재 월의 모든 로컬 이벤트 수집
+      Map<String, List<Event>> currentMonthEvents = {};
+      for (int day = 1; day <= endOfMonth.day; day++) {
+        final date = DateTime(_focusedDay.year, _focusedDay.month, day);
+        final dateKey = _getKey(date);
+        await _loadEventsForDay(date); // 해당 날짜의 이벤트 로드
+        if (_events.containsKey(dateKey) && _events[dateKey]!.isNotEmpty) {
+          currentMonthEvents[dateKey] = List.from(_events[dateKey]!);
+        }
+      }
+
+      // 1. Google Calendar에서 가져온 이벤트를 로컬에 추가 (기존 로직)
       int addedCount = 0;
       for (var event in googleEvents) {
         final normalizedDay = DateTime(event.date.year, event.date.month, event.date.day);
@@ -825,7 +836,68 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         }
       }
 
-      _showSnackBar('Google Calendar 동기화 완료! ${addedCount}개의 새 이벤트가 추가되었습니다.');
+      // 2. Google Calendar에서 삭제된 이벤트를 로컬에서도 삭제 (새로운 로직)
+      int deletedCount = 0;
+      for (var dateKey in currentMonthEvents.keys) {
+        final localEvents = currentMonthEvents[dateKey]!;
+        final eventsToDelete = <Event>[];
+
+        for (var localEvent in localEvents) {
+          // Google Calendar에 동일한 이벤트가 있는지 확인
+          final existsInGoogle = googleEvents.any((googleEvent) =>
+            googleEvent.title == localEvent.title &&
+            googleEvent.time == localEvent.time &&
+            googleEvent.date.day == localEvent.date.day &&
+            googleEvent.date.month == localEvent.date.month &&
+            googleEvent.date.year == localEvent.date.year
+          );
+
+          // Google Calendar에 없으면 로컬에서 삭제 대상으로 표시
+          if (!existsInGoogle) {
+            eventsToDelete.add(localEvent);
+          }
+        }
+
+        // 삭제 대상 이벤트들을 실제로 삭제
+        for (var eventToDelete in eventsToDelete) {
+          final normalizedDay = DateTime(
+            eventToDelete.date.year,
+            eventToDelete.date.month,
+            eventToDelete.date.day,
+          );
+          
+          // 로컬 저장소에서 삭제
+          await EventStorageService.removeEvent(normalizedDay, eventToDelete);
+          
+          // 캐시에서도 삭제
+          if (_events.containsKey(dateKey)) {
+            _events[dateKey]!.removeWhere((e) =>
+              e.title == eventToDelete.title &&
+              e.time == eventToDelete.time &&
+              e.date.year == eventToDelete.date.year &&
+              e.date.month == eventToDelete.date.month &&
+              e.date.day == eventToDelete.date.day
+            );
+          }
+          
+          deletedCount++;
+          print('Google Calendar에서 삭제된 이벤트를 로컬에서도 삭제: ${eventToDelete.title}');
+        }
+      }
+
+      // 결과 메시지 표시
+      String resultMessage = 'Google Calendar 동기화 완료!';
+      if (addedCount > 0 && deletedCount > 0) {
+        resultMessage += ' ${addedCount}개 추가, ${deletedCount}개 삭제되었습니다.';
+      } else if (addedCount > 0) {
+        resultMessage += ' ${addedCount}개의 새 이벤트가 추가되었습니다.';
+      } else if (deletedCount > 0) {
+        resultMessage += ' ${deletedCount}개의 이벤트가 삭제되었습니다.';
+      } else {
+        resultMessage += ' 변경사항이 없습니다.';
+      }
+      
+      _showSnackBar(resultMessage);
       
       // UI 갱신
       setState(() {});
