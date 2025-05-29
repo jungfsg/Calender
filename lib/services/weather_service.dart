@@ -318,9 +318,8 @@ class WeatherService {
             '위치 -> 주소 변환: ${placemark.administrativeArea} ${placemark.locality} (위도=${position.latitude}, 경도=${position.longitude})',
           );
 
-          // 네이버 검색으로 날씨 찾기
-          final query = Uri.encodeComponent('$location 날씨');
-          return 'https://search.naver.com/search.naver?query=$query';
+          // 네이버 날씨 홈페이지로 직접 이동
+          return 'https://weather.naver.com/';
         }
       }
     } catch (e) {
