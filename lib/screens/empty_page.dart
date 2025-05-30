@@ -15,11 +15,8 @@ import 'package:gal/gal.dart';
 
 class EmptyPage extends StatefulWidget {
   final VoidCallback? onCalendarUpdate;
-  
-  const EmptyPage({
-    super.key,
-    this.onCalendarUpdate,
-  });
+
+  const EmptyPage({super.key, this.onCalendarUpdate});
 
   @override
   State createState() => _EmptyPageState();
@@ -28,7 +25,7 @@ class EmptyPage extends StatefulWidget {
 class _EmptyPageState extends State<EmptyPage> {
   final List<types.Message> _messages = [];
   final _user = types.User(id: 'user');
-  final _botUser = types.User(id: 'bot', firstName: 'AI 어시스턴트');
+  final _botUser = types.User(id: 'bot', firstName: 'AMATTA');
   final _uuid = Uuid();
   final ChatService _chatService = ChatService();
   final ImagePicker _picker = ImagePicker();
@@ -80,7 +77,7 @@ class _EmptyPageState extends State<EmptyPage> {
           // 일정이 추가되었을 때 사용자에게 알림
           print('🎉 캘린더 업데이트 콜백이 호출되었습니다!');
           _showCalendarUpdateNotification();
-          
+
           // 부모 위젯(캘린더 화면)의 콜백도 호출
           if (widget.onCalendarUpdate != null) {
             widget.onCalendarUpdate!();
@@ -211,7 +208,7 @@ class _EmptyPageState extends State<EmptyPage> {
                 // 일정이 추가되었을 때 사용자에게 알림
                 print('🎉 캘린더 업데이트 콜백이 호출되었습니다! (OCR)');
                 _showCalendarUpdateNotification();
-                
+
                 // 부모 위젯(캘린더 화면)의 콜백도 호출
                 if (widget.onCalendarUpdate != null) {
                   widget.onCalendarUpdate!();
@@ -451,20 +448,15 @@ class _EmptyPageState extends State<EmptyPage> {
         return true;
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: true, // 입력시에도 네비게이션 바 위치 고정(화면 리사이즈 false)
+        resizeToAvoidBottomInset: true, // 입력시 네비게이션 바 위치 고정 여부(false시 고정)
         backgroundColor: const Color.fromARGB(255, 154, 96, 207),
         appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
+          automaticallyImplyLeading: false,
           title: Text(
             'AI 채팅',
             style: getCustomTextStyle(
-              fontSize: 14,
-              color: Colors.white,
+              fontSize: 16,
+              color: const Color.fromARGB(255, 255, 255, 255),
               text: 'AI 채팅',
             ),
           ),
