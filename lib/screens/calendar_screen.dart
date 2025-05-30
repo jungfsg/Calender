@@ -224,9 +224,30 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
     if (!_events.containsKey(dateKey)) {
       final events = await EventStorageService.getEvents(normalizedDay);
-      _events[dateKey] = events;
+      
+      // 🔥 중복 이벤트 제거 로직 추가
+      final uniqueEvents = <Event>[];
+      final Set<String> seenEvents = {};
+      
+      for (final event in events) {
+        // 이벤트의 고유 식별자 생성 (제목 + 시간 + 날짜)
+        final eventId = '${event.title}_${event.time}_${event.date.year}_${event.date.month}_${event.date.day}';
+        
+        if (!seenEvents.contains(eventId)) {
+          seenEvents.add(eventId);
+          uniqueEvents.add(event);
+        } else {
+          print('🚫 중복 이벤트 제거: ${event.title} (${event.time})');
+        }
+      }
+      
+      _events[dateKey] = uniqueEvents;
       // 이벤트 색상 할당
-      _assignColorsToEvents(events);
+      _assignColorsToEvents(uniqueEvents);
+      
+      if (uniqueEvents.length != events.length) {
+        print('🧹 ${dateKey}: ${events.length}개 -> ${uniqueEvents.length}개로 중복 제거');
+      }
     }
   }
 
@@ -462,37 +483,66 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   }
 
   Future<void> _refreshCurrentMonthEvents() async {
-  try {
-    print('🔄 현재 월 이벤트 새로고침 시작...');
-    
-    // 현재 월의 범위 계산
-    final DateTime startOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
-    final DateTime endOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
-    
-    // 🔥 현재 월의 모든 날짜에 대해 순차적으로 처리
-    for (int day = 1; day <= endOfMonth.day; day++) {
-      final date = DateTime(_focusedDay.year, _focusedDay.month, day);
-      final dateKey = _getKey(date);
+    try {
+      print('🔄 현재 월 이벤트 새로고침 시작: ${_focusedDay.year}년 ${_focusedDay.month}월');
       
-      // 캐시 정리
-      _events.remove(dateKey);
-      _timeSlots.remove(dateKey);
+      // 현재 월의 범위 계산
+      final DateTime startOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+      final DateTime endOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
       
-      // 🔥 기존 로딩 메서드 재활용
-      await _loadEventsForDay(date);
-      await _loadTimeSlotsForDay(date);
+      // 🔥 현재 월의 모든 날짜에 대해 캐시 정리 및 로딩 상태 제거
+      for (int day = 1; day <= endOfMonth.day; day++) {
+        final date = DateTime(_focusedDay.year, _focusedDay.month, day);
+        final dateKey = _getKey(date);
+        
+        // 캐시와 로딩 상태 모두 정리
+        _events.remove(dateKey);
+        _timeSlots.remove(dateKey);
+        _loadingDates.remove(dateKey);
+        _loadingTimeSlots.remove(dateKey);
+      }
+      
+      // 🔥 현재 표시되는 날짜들에 대해서만 미리 로드 (성능 최적화)
+      final List<DateTime> visibleDates = [];
+      
+      // 현재 월의 모든 날짜 추가
+      for (int day = 1; day <= endOfMonth.day; day++) {
+        visibleDates.add(DateTime(_focusedDay.year, _focusedDay.month, day));
+      }
+      
+      // 이전 월의 마지막 주 날짜들 (캘린더에 표시되는 경우)
+      final firstDayWeekday = startOfMonth.weekday % 7; // 0: 일, 1: 월, ..., 6: 토
+      for (int i = 1; i <= firstDayWeekday; i++) {
+        final prevDate = startOfMonth.subtract(Duration(days: i));
+        visibleDates.add(prevDate);
+      }
+      
+      // 다음 월의 첫 주 날짜들 (캘린더에 표시되는 경우)
+      final lastDayWeekday = endOfMonth.weekday % 7;
+      final remainingDays = 6 - lastDayWeekday;
+      for (int i = 1; i <= remainingDays; i++) {
+        final nextDate = endOfMonth.add(Duration(days: i));
+        visibleDates.add(nextDate);
+      }
+      
+      // 병렬로 이벤트 로드 (성능 향상)
+      final futures = visibleDates.map((date) async {
+        await _loadEventsForDay(date);
+        await _loadTimeSlotsForDay(date);
+      });
+      
+      await Future.wait(futures);
+      
+      // UI 갱신
+      if (mounted) {
+        setState(() {});
+      }
+      
+      print('✅ 현재 월 이벤트 새로고침 완료: ${visibleDates.length}일 로드됨');
+    } catch (e) {
+      print('⚠️ 현재 월 이벤트 새로고침 실패: $e');
     }
-    
-    // UI 갱신
-    if (mounted) {
-      setState(() {});
-    }
-    
-    print('✅ 현재 월 이벤트 새로고침 완료');
-  } catch (e) {
-    print('⚠️ 현재 월 이벤트 새로고침 실패: $e');
   }
-} 
 
   // 빈 페이지로 이동
   void _navigateToEmptyPage() async {
@@ -1324,6 +1374,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                           _showEventPopup = false;
                           _showTimeTablePopup = false;
                         });
+                        
+                        // 🔥 월이 변경되었을 때 해당 월의 이벤트 캐시 새로고침
+                        _refreshCurrentMonthEvents();
                       },
                       eventLoader:
                           (day) =>

@@ -12,13 +12,29 @@ class EventStorageService {
     final prefs = await SharedPreferences.getInstance();
     final dateKey = _getEventKey(date);
     final events = await getEvents(date);
-    events.add(event);
     
-    // 시간순으로 정렬
-    events.sort((a, b) => a.compareTo(b));
+    // 🔥 중복 이벤트 확인 로직 추가
+    final isDuplicate = events.any((e) => 
+      e.title == event.title && 
+      e.time == event.time &&
+      e.date.year == event.date.year &&
+      e.date.month == event.date.month &&
+      e.date.day == event.date.day
+    );
     
-    final eventStrings = events.map((e) => jsonEncode(e.toJson())).toList();
-    await prefs.setStringList(dateKey, eventStrings);
+    if (!isDuplicate) {
+      events.add(event);
+      
+      // 시간순으로 정렬
+      events.sort((a, b) => a.compareTo(b));
+      
+      final eventStrings = events.map((e) => jsonEncode(e.toJson())).toList();
+      await prefs.setStringList(dateKey, eventStrings);
+      
+      print('✅ 이벤트 저장됨: ${event.title} (${event.time})');
+    } else {
+      print('🚫 중복 이벤트로 저장하지 않음: ${event.title} (${event.time})');
+    }
   }
 
   // 이벤트 가져오기

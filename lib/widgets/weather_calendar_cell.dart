@@ -65,29 +65,16 @@ class WeatherCalendarCell extends StatelessWidget {
   // 공휴일 여부 확인 - 실제 휴무인 공휴일만
   bool _isHoliday() {
     // 실제로 쉬는 공휴일만 포함
-    final actualHolidays = [
-      '신정',
-      '설날',
-      '삼일절',
-      '석가탄신일',
-      '부처님오신날',
-      '어린이날',
-      '현충일',
-      '광복절',
-      '추석',
-      '개천절',
-      '한글날',
-      '크리스마스',
-      '대체공휴일',
-      '임시공휴일',
-    ];
+    final actualHolidays = {
+      '신정', '설날', '삼일절', '석가탄신일', '부처님오신날',
+      '어린이날', '현충일', '광복절', '추석', '개천절', 
+      '한글날', '크리스마스', '대체공휴일', '임시공휴일'
+    };
 
-    return events.any(
-      (event) =>
-          event.startsWith('🇰🇷') &&
-          actualHolidays.any((holiday) => event.contains(holiday)),
+    return events.any((event) =>
+      event.title.startsWith('🇰🇷') &&
+      actualHolidays.any((holiday) => event.title.contains(holiday))
     );
-    return events.any((event) => event.title.startsWith('🇰🇷'));
   }
 
   // 이벤트 색상 가져오기 - Event 객체 우선 시스템
