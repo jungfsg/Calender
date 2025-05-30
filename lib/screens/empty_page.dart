@@ -11,6 +11,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'calendar_screen.dart';
 import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
+import 'package:gal/gal.dart';
 
 class EmptyPage extends StatefulWidget {
   const EmptyPage({super.key});
@@ -99,81 +100,124 @@ class _EmptyPageState extends State<EmptyPage> {
 
   Future _handleCameraCapture() async {
     if (kIsWeb) return; // 웹에서는 기능을 호출하지 않음
-    final XFile? result = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 70,
-      maxWidth: 1440,
-    );
-    if (result != null) {
-      final File imageFile = File(result.path);
 
-      // 이미지 메시지 생성
-      final imageMessage = types.ImageMessage(
-        author: _user,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        id: _uuid.v4(),
-        name: imageFile.path.split('/').last,
-        size: await imageFile.length(),
-        uri: imageFile.path,
+    try {
+      final XFile? result = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+        maxWidth: 1440,
       );
 
-      setState(() {
-        _messages.insert(0, imageMessage);
-        _isLoading = true;
-      });
+      if (result != null) {
+        // 갤러리에 저장
+        try {
+          await Gal.putImage(result.path);
 
-      try {
-        // OCR 처리
-        final inputImage = InputImage.fromFilePath(imageFile.path);
-        final RecognizedText recognizedText = await _textRecognizer
-            .processImage(inputImage);
-        if (recognizedText.text.isNotEmpty) {
-          // 인식된 텍스트 메시지 생성
-          final textMessage = types.TextMessage(
-            author: _user,
-            createdAt: DateTime.now().millisecondsSinceEpoch,
-            id: _uuid.v4(),
-            text: recognizedText.text,
-          );
-
-          setState(() {
-            _messages.insert(0, textMessage);
-          });
-
-          try {
-            // 인식된 텍스트를 ChromaDB에 저장
-            await _chatService.storeOcrText(
-              recognizedText.text,
-              metadata: {
-                'source': 'camera_ocr',
-                'timestamp': DateTime.now().toIso8601String(),
-                'user_id': _user.id,
-              },
+          // 저장 성공 메시지
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('📸 사진이 갤러리에 저장되었습니다.'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Colors.green,
+              ),
             );
-          } catch (e) {
-            print('OCR 텍스트 저장 중 오류 발생: $e');
-            // 저장 실패해도 계속 진행
           }
+        } catch (e) {
+          print('갤러리 저장 실패: $e');
+          // 저장 실패 시에도 사용자에게 알림
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ 갤러리 저장 실패: $e'),
+                duration: Duration(seconds: 3),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          // 저장 실패해도 OCR 처리는 계속 진행
+        }
 
-          // 인식된 텍스트를 서버로 전송
-          final botResponse = await _chatService.sendMessage(
-            recognizedText.text,
-            _user.id,
-          );
+        final File imageFile = File(result.path);
 
+        // 이미지 메시지 생성
+        final imageMessage = types.ImageMessage(
+          author: _user,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          id: _uuid.v4(),
+          name: imageFile.path.split('/').last,
+          size: await imageFile.length(),
+          uri: imageFile.path,
+        );
+
+        setState(() {
+          _messages.insert(0, imageMessage);
+          _isLoading = true;
+        });
+
+        try {
+          // OCR 처리
+          final inputImage = InputImage.fromFilePath(imageFile.path);
+          final RecognizedText recognizedText = await _textRecognizer
+              .processImage(inputImage);
+          if (recognizedText.text.isNotEmpty) {
+            // 인식된 텍스트 메시지 생성
+            final textMessage = types.TextMessage(
+              author: _user,
+              createdAt: DateTime.now().millisecondsSinceEpoch,
+              id: _uuid.v4(),
+              text: recognizedText.text,
+            );
+
+            setState(() {
+              _messages.insert(0, textMessage);
+            });
+
+            try {
+              // 인식된 텍스트를 ChromaDB에 저장
+              await _chatService.storeOcrText(
+                recognizedText.text,
+                metadata: {
+                  'source': 'camera_ocr',
+                  'timestamp': DateTime.now().toIso8601String(),
+                  'user_id': _user.id,
+                },
+              );
+            } catch (e) {
+              print('OCR 텍스트 저장 중 오류 발생: $e');
+              // 저장 실패해도 계속 진행
+            }
+
+            // 인식된 텍스트를 서버로 전송
+            final botResponse = await _chatService.sendMessage(
+              recognizedText.text,
+              _user.id,
+            );
+
+            setState(() {
+              _messages.insert(0, botResponse);
+              _isLoading = false;
+            });
+          } else {
+            // 텍스트가 인식되지 않은 경우 이미지만 전송
+            await _handleImageUpload(imageFile);
+          }
+        } catch (e) {
           setState(() {
-            _messages.insert(0, botResponse);
             _isLoading = false;
           });
-        } else {
-          // 텍스트가 인식되지 않은 경우 이미지만 전송
-          await _handleImageUpload(imageFile);
+          _addSystemMessage('이미지 처리 중 오류가 발생했습니다: $e');
         }
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-        });
-        _addSystemMessage('이미지 처리 중 오류가 발생했습니다: $e');
+      }
+    } catch (e) {
+      print('카메라 촬영 중 오류 발생: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('카메라 촬영 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -225,17 +269,11 @@ class _EmptyPageState extends State<EmptyPage> {
       child: SafeArea(
         child: Row(
           children: [
-            // 카메라 버튼
+            // 카메라 버튼 (이제 다이얼로그를 보여줌)
             IconButton(
               icon: const Icon(Icons.camera_alt),
-              onPressed: _handleCameraCapture,
-              tooltip: '카메라로 텍스트 인식',
-            ),
-            // 갤러리 버튼
-            IconButton(
-              icon: const Icon(Icons.photo),
-              onPressed: _handleImageSelection,
-              tooltip: '갤러리에서 사진 선택',
+              onPressed: _showImageSourceDialog,
+              tooltip: '이미지 선택',
             ),
             // 메시지 입력 필드
             Expanded(
@@ -301,6 +339,47 @@ class _EmptyPageState extends State<EmptyPage> {
         ),
       );
     }
+  }
+
+  // 이미지 소스 선택 다이얼로그
+  Future<void> _showImageSourceDialog() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('카메라로 촬영'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleCameraCapture();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo),
+                title: const Text('갤러리에서 선택'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleImageSelection();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cancel),
+                title: const Text('취소'),
+                onTap: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override

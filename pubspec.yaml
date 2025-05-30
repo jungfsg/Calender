@@ -2,7 +2,7 @@ name: calander
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -53,7 +53,7 @@ dependencies:
   curved_navigation_bar: ^1.0.6
   # MLKIT OCR
   google_mlkit_text_recognition: ^0.11.0
-  
+
   # 채팅 UI 관련 패키지 (필요하다면 주석 해제)
   # flutter_chat_ui: ^1.6.12
   # flutter_chat_types: ^3.6.2
@@ -63,7 +63,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   water_drop_nav_bar: ^2.2.2
-
+  gal: ^2.3.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -84,10 +84,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-  
+
   assets:
     - assets/images/
-  
+
   fonts:
     - family: KoreanFont
       fonts:
