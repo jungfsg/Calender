@@ -96,6 +96,11 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
     // Google Calendar 서비스 초기화 시도 (백그라운드에서)
     _initializeGoogleCalendarService();
+    
+    // 이벤트 캐시 새로고침 (다른 화면에서 추가된 이벤트를 위해)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshCurrentMonthEvents();
+    });
   }
 
   // Google Calendar 서비스 초기화 (백그라운드)
@@ -885,23 +890,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         endDate: endOfYear,
       );
 
-      // 현재 연도의 모든 로컬 이벤트 수집
-      Map<String, List<Event>> currentYearEvents = {};
-      
-      // 1월부터 12월까지 모든 월의 이벤트 수집
-      for (int month = 1; month <= 12; month++) {
-        final daysInMonth = DateTime(_focusedDay.year, month + 1, 0).day;
-        for (int day = 1; day <= daysInMonth; day++) {
-          final date = DateTime(_focusedDay.year, month, day);
-          final dateKey = _getKey(date);
-          await _loadEventsForDay(date); // 해당 날짜의 이벤트 로드
-          if (_events.containsKey(dateKey) && _events[dateKey]!.isNotEmpty) {
-            currentYearEvents[dateKey] = List.from(_events[dateKey]!);
-          }
-        }
-      }
-
-      // 1. Google Calendar에서 가져온 이벤트를 로컬에 추가 (기존 로직)
+      // 1. Google Calendar에서 가져온 이벤트를 로컬에 추가
       int addedCount = 0;
       for (var event in googleEvents) {
         final normalizedDay = DateTime(event.date.year, event.date.month, event.date.day);
@@ -935,11 +924,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         }
       }
 
-      // 2. Google Calendar에서 삭제된 이벤트를 로컬에서도 삭제 (새로운 로직)
-      int deletedCount = 0;
-      for (var dateKey in currentYearEvents.keys) {
-        final localEvents = currentYearEvents[dateKey]!;
-        final eventsToDelete = <Event>[];
+      // 2. 로컬에만 있는 이벤트를 Google Calendar에 추가 (양방향 동기화)
+      int uploadedCount = 0;
+      for (var dateKey in _events.keys) {
+        final localEvents = _events[dateKey]!;
 
         for (var localEvent in localEvents) {
           // Google Calendar에 동일한 이벤트가 있는지 확인
@@ -951,47 +939,34 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
             googleEvent.date.year == localEvent.date.year
           );
 
-          // Google Calendar에 없으면 로컬에서 삭제 대상으로 표시
+          // Google Calendar에 없으면 추가
           if (!existsInGoogle) {
-            eventsToDelete.add(localEvent);
+            try {
+              // 공휴일은 Google Calendar에 추가하지 않음
+              if (!localEvent.title.startsWith('🇰🇷')) {
+                final success = await _googleCalendarService.addEventToGoogleCalendar(localEvent);
+                if (success) {
+                  uploadedCount++;
+                  print('로컬 이벤트를 Google Calendar에 업로드: ${localEvent.title}');
+                } else {
+                  print('Google Calendar 업로드 실패: ${localEvent.title}');
+                }
+              }
+            } catch (e) {
+              print('Google Calendar 업로드 중 오류: ${localEvent.title} - $e');
+            }
           }
-        }
-
-        // 삭제 대상 이벤트들을 실제로 삭제
-        for (var eventToDelete in eventsToDelete) {
-          final normalizedDay = DateTime(
-            eventToDelete.date.year,
-            eventToDelete.date.month,
-            eventToDelete.date.day,
-          );
-          
-          // 로컬 저장소에서 삭제
-          await EventStorageService.removeEvent(normalizedDay, eventToDelete);
-          
-          // 캐시에서도 삭제
-          if (_events.containsKey(dateKey)) {
-            _events[dateKey]!.removeWhere((e) =>
-              e.title == eventToDelete.title &&
-              e.time == eventToDelete.time &&
-              e.date.year == eventToDelete.date.year &&
-              e.date.month == eventToDelete.date.month &&
-              e.date.day == eventToDelete.date.day
-            );
-          }
-          
-          deletedCount++;
-          print('Google Calendar에서 삭제된 이벤트를 로컬에서도 삭제: ${eventToDelete.title}');
         }
       }
 
       // 결과 메시지 표시
-      String resultMessage = '${_focusedDay.year}년 전체 동기화 완료!';
-      if (addedCount > 0 && deletedCount > 0) {
-        resultMessage += ' ${addedCount}개 추가, ${deletedCount}개 삭제되었습니다.';
+      String resultMessage = '${_focusedDay.year}년 양방향 동기화 완료!';
+      if (addedCount > 0 && uploadedCount > 0) {
+        resultMessage += ' ${addedCount}개 다운로드, ${uploadedCount}개 업로드되었습니다.';
       } else if (addedCount > 0) {
-        resultMessage += ' ${addedCount}개의 새 이벤트가 추가되었습니다.';
-      } else if (deletedCount > 0) {
-        resultMessage += ' ${deletedCount}개의 이벤트가 삭제되었습니다.';
+        resultMessage += ' ${addedCount}개의 새 이벤트가 다운로드되었습니다.';
+      } else if (uploadedCount > 0) {
+        resultMessage += ' ${uploadedCount}개의 이벤트가 업로드되었습니다.';
       } else {
         resultMessage += ' 변경사항이 없습니다.';
       }
@@ -1054,6 +1029,67 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         );
       }
     }
+  }
+
+  // 특정 날짜의 이벤트 캐시 새로고침
+  Future<void> _refreshEventsForDay(DateTime day) async {
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+    final dateKey = _getKey(normalizedDay);
+    
+    // 캐시에서 해당 날짜 제거
+    _events.remove(dateKey);
+    _loadingDates.remove(dateKey);
+    
+    // 다시 로드
+    await _loadEventsForDay(normalizedDay);
+    
+    // UI 갱신
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // 전체 이벤트 캐시 새로고침 (공개 메서드)
+  Future<void> refreshAllEvents() async {
+    _events.clear();
+    _loadingDates.clear();
+    
+    // 현재 표시 중인 달의 모든 날짜 다시 로드
+    final startOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final endOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    
+    for (int day = 1; day <= endOfMonth.day; day++) {
+      final currentDay = DateTime(_focusedDay.year, _focusedDay.month, day);
+      await _loadEventsForDay(currentDay);
+    }
+    
+    // UI 갱신
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // 현재 월의 이벤트만 새로고침하는 최적화된 메서드
+  Future<void> _refreshCurrentMonthEvents() async {
+    print('=== 현재 월 이벤트 새로고침 시작 ===');
+    final startOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final endOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    
+    print('새로고침 범위: ${startOfMonth.toString()} ~ ${endOfMonth.toString()}');
+    
+    // 현재 월의 날짜들만 새로고침
+    for (int day = 1; day <= endOfMonth.day; day++) {
+      final currentDay = DateTime(_focusedDay.year, _focusedDay.month, day);
+      final dateKey = _getKey(currentDay);
+      
+      // 캐시된 데이터가 있으면 다시 로드
+      if (_events.containsKey(dateKey)) {
+        print('날짜 $currentDay 새로고침 중...');
+        await _refreshEventsForDay(currentDay);
+      }
+    }
+    
+    print('=== 현재 월 이벤트 새로고침 완료 ===');
   }
 
   @override

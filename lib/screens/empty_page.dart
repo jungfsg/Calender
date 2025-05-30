@@ -71,6 +71,11 @@ class _EmptyPageState extends State<EmptyPage> {
       final botResponse = await _chatService.sendMessage(
         message.text,
         _user.id,
+        onCalendarUpdate: () {
+          // 일정이 추가되었을 때 사용자에게 알림
+          print('🎉 캘린더 업데이트 콜백이 호출되었습니다!');
+          _showCalendarUpdateNotification();
+        },
       );
 
       if (!mounted) return;
@@ -382,6 +387,40 @@ class _EmptyPageState extends State<EmptyPage> {
     );
   }
 
+  // 캘린더 업데이트 알림 표시
+  void _showCalendarUpdateNotification() {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('일정이 캘린더에 추가되었습니다!'),
+        action: SnackBarAction(
+          label: '캘린더 보기',
+          onPressed: () {
+            // 캘린더 탭으로 이동
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder(
+                pageBuilder:
+                    (context, animation, secondaryAnimation) =>
+                        const PixelArtCalendarScreen(),
+                transitionDuration: const Duration(milliseconds: 300),
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+              ),
+            );
+          },
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -392,7 +431,7 @@ class _EmptyPageState extends State<EmptyPage> {
         return true;
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: false, // 입력시에도 네비게이션 바 위치 고정(화면 리사이즈 false)
+        resizeToAvoidBottomInset: true, // 입력시에도 네비게이션 바 위치 고정(화면 리사이즈 false)
         backgroundColor: const Color.fromARGB(255, 154, 96, 207),
         appBar: AppBar(
           leading: IconButton(

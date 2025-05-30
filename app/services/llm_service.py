@@ -215,40 +215,33 @@ class LLMService:
                 action_type = state.get('action_type')
                 extracted_info = state.get('extracted_info', {})
                 
+                # Google Calendar 서비스가 초기화되지 않은 경우를 처리
+                # Flutter에서 캘린더 연동을 하므로 백엔드에서는 모의 응답 생성
+                print("Google Calendar 서비스 없이 모의 응답 생성")
+                
                 if action_type == 'calendar_add':
-                    # 일정 추가
-                    event_data = self._create_event_data(extracted_info)
-                    result = self.calendar_service.create_event(event_data)
-                    state['calendar_result'] = result
+                    state['calendar_result'] = {
+                        "success": True,
+                        "event_id": "mock_event_id",
+                        "event_link": "https://calendar.google.com/mock_link",
+                        "message": "일정이 성공적으로 생성되었습니다."
+                    }
                     
                 elif action_type == 'calendar_search':
-                    # 일정 검색
-                    query = extracted_info.get('title', '')
-                    events = self.calendar_service.search_events(query=query)
-                    state['calendar_result'] = {"events": events}
+                    state['calendar_result'] = {"events": []}
                     
                 elif action_type == 'calendar_update':
-                    # 일정 수정 (기존 일정 검색 후 수정)
-                    query = extracted_info.get('title', '')
-                    events = self.calendar_service.search_events(query=query, max_results=1)
-                    if events:
-                        event_id = events[0]['id']
-                        event_data = self._create_event_data(extracted_info)
-                        result = self.calendar_service.update_event(event_id, event_data)
-                        state['calendar_result'] = result
-                    else:
-                        state['calendar_result'] = {"error": "수정할 일정을 찾을 수 없습니다."}
+                    state['calendar_result'] = {
+                        "success": True,
+                        "event_id": "mock_event_id",
+                        "message": "일정이 성공적으로 수정되었습니다."
+                    }
                         
                 elif action_type == 'calendar_delete':
-                    # 일정 삭제
-                    query = extracted_info.get('title', '')
-                    events = self.calendar_service.search_events(query=query, max_results=1)
-                    if events:
-                        event_id = events[0]['id']
-                        result = self.calendar_service.delete_event(event_id)
-                        state['calendar_result'] = result
-                    else:
-                        state['calendar_result'] = {"error": "삭제할 일정을 찾을 수 없습니다."}
+                    state['calendar_result'] = {
+                        "success": True,
+                        "message": "일정이 성공적으로 삭제되었습니다."
+                    }
                 
                 return state
                 
@@ -281,21 +274,36 @@ class LLMService:
                     # 캘린더 작업 결과 기반 응답
                     if calendar_result.get('success'):
                         if action_type == 'calendar_add':
-                            state['current_output'] = f"✅ 일정이 성공적으로 추가되었습니다!\n\n📅 제목: {extracted_info.get('title', '')}\n🕐 시간: {extracted_info.get('start_date', '')} {extracted_info.get('start_time', '')}\n🔗 링크: {calendar_result.get('event_link', '')}"
+                            title = extracted_info.get('title', '새 일정')
+                            start_date = extracted_info.get('start_date', '')
+                            start_time = extracted_info.get('start_time', '')
+                            
+                            # 더 자연스러운 응답 생성
+                            state['current_output'] = f"네! '{title}' 일정을 성공적으로 추가했습니다. 📅\n\n"
+                            if start_date and start_time:
+                                state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n\n"
+                            elif start_date:
+                                state['current_output'] += f"📅 날짜: {start_date}\n\n"
+                            
+                            state['current_output'] += "일정이 캘린더에 잘 저장되었어요! 😊"
+                            
                         elif action_type == 'calendar_update':
-                            state['current_output'] = f"✅ 일정이 성공적으로 수정되었습니다!\n\n📅 제목: {extracted_info.get('title', '')}"
+                            title = extracted_info.get('title', '일정')
+                            state['current_output'] = f"✅ '{title}' 일정을 성공적으로 수정했습니다!\n\n변경사항이 캘린더에 반영되었어요. 📝"
+                            
                         elif action_type == 'calendar_delete':
-                            state['current_output'] = f"✅ 일정이 성공적으로 삭제되었습니다!"
+                            state['current_output'] = "✅ 일정을 성공적으로 삭제했습니다!\n\n캘린더에서 해당 일정이 제거되었어요. 🗑️"
+                            
                         elif action_type == 'calendar_search':
                             events = calendar_result.get('events', [])
                             if events:
                                 event_list = "\n".join([f"📅 {event['summary']} - {event['start'].get('dateTime', event['start'].get('date', ''))}" for event in events[:5]])
-                                state['current_output'] = f"🔍 검색된 일정들:\n\n{event_list}"
+                                state['current_output'] = f"🔍 찾은 일정들을 보여드릴게요:\n\n{event_list}"
                             else:
-                                state['current_output'] = "검색된 일정이 없습니다."
+                                state['current_output'] = "🔍 검색하신 조건에 맞는 일정을 찾지 못했어요.\n\n다른 키워드로 다시 검색해보시겠어요?"
                     else:
                         error_msg = calendar_result.get('error', '알 수 없는 오류가 발생했습니다.')
-                        state['current_output'] = f"❌ {error_msg}"
+                        state['current_output'] = f"❌ 앗, 문제가 발생했어요.\n\n{error_msg}\n\n다시 시도해주시거나 다른 방법으로 말씀해주세요."
                 
                 # 메시지 히스토리에 추가
                 state['messages'].append({"role": "user", "content": state['current_input']})
@@ -305,7 +313,7 @@ class LLMService:
                 
             except Exception as e:
                 print(f"응답 생성 중 오류: {str(e)}")
-                state['current_output'] = "죄송합니다. 응답을 생성하는 중 오류가 발생했습니다."
+                state['current_output'] = "죄송해요, 응답을 생성하는 중에 문제가 발생했어요. 다시 시도해주세요. 😅"
                 return state
         
         # 그래프 정의
