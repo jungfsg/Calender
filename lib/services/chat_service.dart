@@ -7,7 +7,7 @@ import 'weather_service.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://892a-183-98-240-203.ngrok-free.app';
+  final String baseUrl = 'https://c1b4-218-158-75-120.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 날씨 관련 키워드 목록

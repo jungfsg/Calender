@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any, TypedDict, Annotated
 from openai import OpenAI
 from langgraph.graph import StateGraph, END
 from app.core.config import get_settings
-from app.services.google_calendar_service import GoogleCalendarService
+# from app.services.google_calendar_service import GoogleCalendarService
 from app.services.vector_store import VectorStoreService
 import json
 import re
@@ -26,7 +26,7 @@ class CalendarState(TypedDict):
 class LLMService:
     def __init__(self):
         self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.calendar_service = GoogleCalendarService()
+        # self.calendar_service = GoogleCalendarService()
         self.vector_store = VectorStoreService()
         self.workflow = self._create_calendar_workflow()
         
@@ -49,8 +49,7 @@ class LLMService:
 3. calendar_delete - 일정 삭제
 4. calendar_search - 일정 조회/검색
 5. calendar_copy - 일정 복사
-6. calendar_move - 일정 이동
-7. general_chat - 일반 대화 (일정과 무관)
+6. general_chat - 일반 대화 (일정과 무관)
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{"intent": "분류결과", "confidence": 0.95, "reason": "분류 이유"}}

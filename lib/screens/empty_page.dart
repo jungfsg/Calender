@@ -285,7 +285,7 @@ class _EmptyPageState extends State<EmptyPage> {
                     hintText: '메시지를 입력하세요',
                     hintStyle: getCustomTextStyle(
                       fontSize: 14,
-                      color: Colors.grey,
+                      color: const Color.fromARGB(255, 0, 0, 0),
                       text: '메시지를 입력하세요',
                     ),
                     border: InputBorder.none,
@@ -392,7 +392,8 @@ class _EmptyPageState extends State<EmptyPage> {
         return true;
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: true, // 채팅 화면에서는 키보드에 따라 리사이즈 허용
+        resizeToAvoidBottomInset: false, // 입력시에도 네비게이션 바 위치 고정(화면 리사이즈 false)
+        backgroundColor: const Color.fromARGB(255, 154, 96, 207),
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -408,13 +409,14 @@ class _EmptyPageState extends State<EmptyPage> {
               text: 'AI 채팅',
             ),
           ),
-          backgroundColor: Colors.black,
+          backgroundColor: const Color.fromARGB(255, 154, 96, 207),
         ),
         body: Column(
           children: [
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(8.0),
+
                 child: LinearProgressIndicator(),
               ),
             Expanded(
