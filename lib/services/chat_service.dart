@@ -173,9 +173,96 @@ class ChatService {
         } else {
           print('❌ startDate가 null입니다');
         }
-      } else {
-        print('일정 추가 조건 불만족:');
+      }
+      
+      // 일정 삭제가 성공한 경우
+      else if (intent == 'calendar_delete' && 
+               calendarResult != null && 
+               calendarResult['success'] == true && 
+               extractedInfo != null) {
+        
+        print('🗑️ 일정 삭제 조건 만족! 이벤트 삭제 시작...');
+        
+        // 추출된 정보로 삭제할 이벤트 찾기
+        final title = extractedInfo['title'] as String? ?? '';
+        final startDate = extractedInfo['start_date'] as String?;
+        final startTime = extractedInfo['start_time'] as String?;
+
+        print('🔍 삭제할 Title: $title');
+        print('🔍 삭제할 StartDate: $startDate');
+        print('🔍 삭제할 StartTime: $startTime');
+
+        if (startDate != null) {
+          try {
+            // 날짜 파싱
+            final eventDate = DateTime.parse(startDate);
+            print('📅 파싱된 삭제 날짜: $eventDate');
+
+            // 해당 날짜의 모든 이벤트 가져오기
+            final existingEvents = await EventStorageService.getEvents(eventDate);
+            print('📋 해당 날짜의 기존 이벤트들 (${existingEvents.length}개):');
+            for (int i = 0; i < existingEvents.length; i++) {
+              print('  $i: ${existingEvents[i].toJson()}');
+            }
+
+            // 삭제할 이벤트 찾기 (제목으로 검색)
+            Event? eventToDelete;
+            print('🔍 삭제할 이벤트 검색 중...');
+            for (int i = 0; i < existingEvents.length; i++) {
+              var event = existingEvents[i];
+              print('  검색 $i: "${event.title}" vs "$title"');
+              
+              bool titleMatch = false;
+              if (title.isNotEmpty) {
+                titleMatch = event.title.toLowerCase().contains(title.toLowerCase()) ||
+                            title.toLowerCase().contains(event.title.toLowerCase());
+                print('    제목 일치: $titleMatch');
+              }
+              
+              // 제목이 일치하면 시간에 상관없이 삭제 (시간 정보가 부정확할 수 있음)
+              if (titleMatch) {
+                eventToDelete = event;
+                print('✅ 삭제할 이벤트 찾음 (제목 기준): ${event.toJson()}');
+                break;
+              }
+            }
+
+            if (eventToDelete != null) {
+              print('🗑️ 이벤트 삭제 실행 중...');
+              // 로컬 캘린더에서 이벤트 삭제
+              await EventStorageService.removeEvent(eventDate, eventToDelete);
+              print('✅ AI 채팅으로 요청된 일정이 로컬 캘린더에서 삭제되었습니다: ${eventToDelete.title}');
+              print('📅 삭제된 날짜: $eventDate');
+              
+              // 삭제 후 확인
+              final remainingEvents = await EventStorageService.getEvents(eventDate);
+              print('🔍 삭제 후 확인 - 남은 이벤트들 (${remainingEvents.length}개):');
+              for (int i = 0; i < remainingEvents.length; i++) {
+                print('  $i: ${remainingEvents[i].toJson()}');
+              }
+              
+              return true; // 캘린더가 업데이트되었음을 반환
+            } else {
+              print('❌ 삭제할 이벤트를 찾을 수 없습니다.');
+              print('   검색한 제목: "$title"');
+              print('   검색한 날짜: $eventDate');
+              print('   검색한 시간: $startTime');
+            }
+            
+          } catch (e) {
+            print('❌ 일정 삭제 중 날짜 파싱 오류: $e');
+          }
+        } else {
+          print('❌ 삭제할 일정의 startDate가 null입니다');
+        }
+      }
+      
+      // 일정 작업 조건 불만족
+      else {
+        print('일정 작업 조건 불만족:');
+        print('- Intent: $intent');
         print('- Intent == calendar_add: ${intent == 'calendar_add'}');
+        print('- Intent == calendar_delete: ${intent == 'calendar_delete'}');
         print('- CalendarResult != null: ${calendarResult != null}');
         print('- CalendarResult[success] == true: ${calendarResult?['success'] == true}');
         print('- ExtractedInfo != null: ${extractedInfo != null}');
