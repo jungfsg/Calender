@@ -14,7 +14,12 @@ import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
 
 class EmptyPage extends StatefulWidget {
-  const EmptyPage({super.key});
+  final VoidCallback? onCalendarUpdate;
+  
+  const EmptyPage({
+    super.key,
+    this.onCalendarUpdate,
+  });
 
   @override
   State createState() => _EmptyPageState();
@@ -75,6 +80,11 @@ class _EmptyPageState extends State<EmptyPage> {
           // 일정이 추가되었을 때 사용자에게 알림
           print('🎉 캘린더 업데이트 콜백이 호출되었습니다!');
           _showCalendarUpdateNotification();
+          
+          // 부모 위젯(캘린더 화면)의 콜백도 호출
+          if (widget.onCalendarUpdate != null) {
+            widget.onCalendarUpdate!();
+          }
         },
       );
 
@@ -197,6 +207,16 @@ class _EmptyPageState extends State<EmptyPage> {
             final botResponse = await _chatService.sendMessage(
               recognizedText.text,
               _user.id,
+              onCalendarUpdate: () {
+                // 일정이 추가되었을 때 사용자에게 알림
+                print('🎉 캘린더 업데이트 콜백이 호출되었습니다! (OCR)');
+                _showCalendarUpdateNotification();
+                
+                // 부모 위젯(캘린더 화면)의 콜백도 호출
+                if (widget.onCalendarUpdate != null) {
+                  widget.onCalendarUpdate!();
+                }
+              },
             );
 
             setState(() {

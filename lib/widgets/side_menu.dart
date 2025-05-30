@@ -3,14 +3,16 @@ import '../utils/font_utils.dart';
 
 class CalendarSideMenu extends StatelessWidget {
   final VoidCallback onWeatherForecastTap;
-  final VoidCallback onGoogleCalendarSyncTap;
+  final VoidCallback onGoogleCalendarDownload; // 다운로드 콜백
+  final VoidCallback onGoogleCalendarUpload; // 업로드 콜백
   final VoidCallback onLogoutTap; // 로그아웃 콜백 추가
   final bool isGoogleCalendarConnected; // Google Calendar 연결 상태
 
   const CalendarSideMenu({
     Key? key, 
     required this.onWeatherForecastTap,
-    required this.onGoogleCalendarSyncTap,
+    required this.onGoogleCalendarDownload, // 다운로드 콜백 필수
+    required this.onGoogleCalendarUpload, // 업로드 콜백 필수
     required this.onLogoutTap, // 필수 매개변수로 추가
     this.isGoogleCalendarConnected = false, // 기본값은 연결되지 않음
   }) : super(key: key);
@@ -55,21 +57,21 @@ class CalendarSideMenu extends StatelessWidget {
                 onWeatherForecastTap();
               },
             ),
-            // Google Calendar 동기화 버튼
+            // Google Calendar 동기화 - 다운로드
             ListTile(
               leading: Icon(
-                Icons.sync, 
+                Icons.download, 
                 color: isGoogleCalendarConnected ? Colors.green : Colors.blue,
               ),
               title: Text(
                 isGoogleCalendarConnected 
-                  ? 'Google Calendar 동기화 (연결됨)'
-                  : 'Google Calendar 동기화',
+                  ? 'Google → 앱으로 다운로드'
+                  : 'Google Calendar 연결',
                 style: getTextStyle(fontSize: 12, color: Colors.black),
               ),
               subtitle: isGoogleCalendarConnected 
                 ? Text(
-                    '1년치 일정 + 공휴일 동기화',
+                    'Google Calendar의 일정을 앱으로 가져오기',
                     style: getTextStyle(fontSize: 10, color: Colors.green),
                   )
                 : Text(
@@ -79,10 +81,30 @@ class CalendarSideMenu extends StatelessWidget {
               onTap: () {
                 // 드로어 닫기
                 Navigator.pop(context);
-                // Google Calendar 동기화 실행
-                onGoogleCalendarSyncTap();
+                // Google Calendar에서 앱으로 다운로드
+                onGoogleCalendarDownload();
               },
             ),
+            
+            // Google Calendar 동기화 - 업로드 (연결된 경우에만 표시)
+            if (isGoogleCalendarConnected)
+              ListTile(
+                leading: const Icon(Icons.upload, color: Colors.orange),
+                title: Text(
+                  '앱 → Google로 업로드',
+                  style: getTextStyle(fontSize: 12, color: Colors.black),
+                ),
+                subtitle: Text(
+                  '앱의 일정을 Google Calendar로 보내기',
+                  style: getTextStyle(fontSize: 10, color: Colors.orange),
+                ),
+                onTap: () {
+                  // 드로어 닫기
+                  Navigator.pop(context);
+                  // 앱에서 Google Calendar로 업로드
+                  onGoogleCalendarUpload();
+                },
+              ),
             // 공휴일 정보 표시
             if (isGoogleCalendarConnected)
               ListTile(
