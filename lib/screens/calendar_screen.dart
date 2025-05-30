@@ -28,15 +28,16 @@ import 'login_screen.dart';
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
 
+
   @override
   _PixelArtCalendarScreenState createState() => _PixelArtCalendarScreenState();
 }
 
 class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
-  late CalendarFormat _calendarFormat;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
   bool _showEventPopup = false; // 이벤트 팝업 표시 여부
   bool _showTimeTablePopup = false; // 타임테이블 팝업 표시 여부
   bool _showWeatherPopup = false; // 날씨 예보 팝업 표시 여부
@@ -56,10 +57,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   final Map<String, List<Event>> _events = {};
   // 현재 날짜별 로드된 타임 테이블 캐시 - 키를 String으로 변경
   final Map<String, List<TimeSlot>> _timeSlots = {};
-  // 이벤트 색상 매핑
-  final Map<String, Color> _eventColors = {};
-  // 색상 목록
-  final List<Color> _colors = [
+  // 이벤트 색상 매핑 - 제목 기반에서 색상 ID 기반으로 변경
+  final Map<String, Color> _eventColors = {}; // 이벤트 제목 -> 색상
+  final Map<String?, Color> _colorIdToColorMap = {}; // 구글 색상 ID -> 실제 색상
+  
+  // 앱 전용 색상 목록 (구글 캘린더 색상과 구분)
+  final List<Color> _appColors = [
     Colors.red,
     Colors.blue,
     Colors.green,
@@ -80,132 +83,128 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   @override
   void initState() {
     super.initState();
-    _focusedDay = DateTime.now();
+    
+    // 🔥 필수 변수들 초기화
     _selectedDay = DateTime.now();
-    _calendarFormat = CalendarFormat.month; // 기본 월 형식으로 고정
-    // 저장된 모든 키 확인
-    EventStorageService.printAllKeys();
-    // 초기 데이터 로드
-    _loadInitialData();
-
+    _focusedDay = _selectedDay;
+    _calendarFormat = CalendarFormat.month;
+    
+    // 🔥 앱 생명주기 관찰자 등록
+    WidgetsBinding.instance.addObserver(this);
+    
     // 위치 권한 요청
     _requestLocationPermission();
 
-    // 날씨 정보 로드 (딱 한 번만 실행)
+    // 날씨 정보 로드
     _loadWeatherData();
 
     // Google Calendar 서비스 초기화 시도 (백그라운드에서)
     _initializeGoogleCalendarService();
-    
-    // 이벤트 캐시 새로고침 (다른 화면에서 추가된 이벤트를 위해)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshCurrentMonthEvents();
-    });
   }
 
   // Google Calendar 서비스 초기화 (백그라운드)
   Future<void> _initializeGoogleCalendarService() async {
     try {
-      // 이미 로그인된 사용자가 있는지 확인
+      print('🚀 앱 시작 시 자동 동기화 시작...');
+      
+      // Google Calendar 로그인 상태 확인
       if (_googleCalendarService.hasSignedInUser) {
-        await _googleCalendarService.initialize();
-        print('Google Calendar 서비스가 자동으로 초기화되었습니다.');
-        
-        // 초기화 성공 시 공휴일 자동 로드
-        _loadHolidaysInBackground();
+        // 로그인된 상태면 자동 동기화
+        await _performSilentSync();
+      } else {
+        // 로그인되지 않은 상태면 로컬 데이터만 로드
+        print('ℹ️ Google Calendar 미연결 상태 - 로컬 데이터만 로드');
+        await _loadInitialData();
       }
     } catch (e) {
-      print('Google Calendar 자동 초기화 실패: $e');
-      // 실패해도 앱 사용에는 문제없으므로 에러 메시지는 표시하지 않음
+      print('⚠️ 자동 동기화 실패 - 로컬 데이터로 대체: $e');
+      await _loadInitialData();
     }
   }
 
-  // 백그라운드에서 공휴일 로드
-  Future<void> _loadHolidaysInBackground() async {
+  // 🔥 조용한 동기화 (UI 로딩 표시 없이)
+  Future<void> _performSilentSync() async {
     try {
-      print('백그라운드에서 공휴일을 로드합니다...');
-      
-      // 현재 년도의 공휴일 로드
-      final DateTime startOfYear = DateTime(_focusedDay.year, 1, 1);
-      final DateTime endOfYear = DateTime(_focusedDay.year, 12, 31);
-      
-      // 이미 로드된 공휴일이 있는지 확인 (성능 최적화)
-      bool hasExistingHolidays = false;
-      for (int month = 1; month <= 12; month++) {
-        final daysInMonth = DateTime(_focusedDay.year, month + 1, 0).day;
-        for (int day = 1; day <= daysInMonth; day++) {
-          final date = DateTime(_focusedDay.year, month, day);
-          final dateKey = _getKey(date);
-          await _loadEventsForDay(date);
-          if (_events.containsKey(dateKey)) {
-            final events = _events[dateKey]!;
-            if (events.any((e) => e.title.startsWith('🇰🇷'))) {
-              hasExistingHolidays = true;
-              break;
-            }
-          }
-        }
-        if (hasExistingHolidays) break;
-      }
-
-      // 이미 공휴일이 로드되어 있으면 스킵
-      if (hasExistingHolidays) {
-        print('공휴일이 이미 로드되어 있습니다. 백그라운드 로드를 스킵합니다.');
+      // Google Calendar 초기화
+      if (!await _googleCalendarService.initialize()) {
+        print('⚠️ Google Calendar 초기화 실패 - 로컬 데이터 로드');
+        await _loadInitialData();
         return;
       }
-      
-      final holidays = await _googleCalendarService.getKoreanHolidays(
+
+      // 색상 정보 로드
+      await _googleCalendarService.fetchColorsFromAPI();
+
+      // 현재 연도의 시작과 끝 날짜 계산
+      final DateTime startOfYear = DateTime(_focusedDay.year, 1, 1);
+      final DateTime endOfYear = DateTime(_focusedDay.year, 12, 31);
+
+      print('🔄 자동 동기화 범위: ${startOfYear.toString()} ~ ${endOfYear.toString()}');
+
+      // Google Calendar에서 이벤트 가져오기 (공휴일 포함)
+      final List<Event> googleEvents = await _googleCalendarService.syncWithGoogleCalendarIncludingHolidays(
         startDate: startOfYear,
         endDate: endOfYear,
       );
 
-      // 공휴일을 로컬 캐시에 추가
-      int addedHolidayCount = 0;
-      for (var holiday in holidays) {
-        final normalizedDay = DateTime(holiday.date.year, holiday.date.month, holiday.date.day);
+      print('📥 자동 동기화로 가져온 이벤트 수: ${googleEvents.length}');
+
+      // 🔥 기존 로컬 공휴일 먼저 정리 (중복 방지)
+      await _cleanupDuplicateHolidays();
+
+      // Google Calendar 이벤트를 로컬에 저장 및 캐시에 추가
+      for (var event in googleEvents) {
+        final normalizedDay = DateTime(event.date.year, event.date.month, event.date.day);
         final dateKey = _getKey(normalizedDay);
 
         // 중복 체크
         final existingEvents = _events[dateKey] ?? [];
         final isDuplicate = existingEvents.any((e) => 
-          e.title == holiday.title && 
-          e.time == holiday.time &&
-          e.date.day == holiday.date.day &&
-          e.date.month == holiday.date.month &&
-          e.date.year == holiday.date.year
+          e.title == event.title && 
+          e.time == event.time &&
+          e.date.day == event.date.day &&
+          e.date.month == event.date.month &&
+          e.date.year == event.date.year
         );
 
         if (!isDuplicate) {
-          // 로컬 저장소에 저장
-          await EventStorageService.addEvent(normalizedDay, holiday);
+          await EventStorageService.addEvent(normalizedDay, event);
           
-          // 캐시에 직접 추가
+          // 캐시에 직접 이벤트 추가
           if (!_events.containsKey(dateKey)) {
             _events[dateKey] = [];
           }
-          _events[dateKey]!.add(holiday);
+          _events[dateKey]!.add(event);
 
-          // 공휴일 색상 할당 (빨간색 계열)
-          if (!_eventColors.containsKey(holiday.title)) {
-            _eventColors[holiday.title] = Colors.red;
+          // 🔥 공휴일과 구글 색상 적용
+          if (event.title.startsWith('🇰🇷')) {
+            _eventColors[event.title] = Colors.red;
+          } else if (event.color != null) {
+            _eventColors[event.title] = event.color!;
+            _ensureColorConsistency(event.colorId, event.color!);
+          } else if (event.colorId != null && _colorIdToColorMap.containsKey(event.colorId)) {
+            final googleColor = _colorIdToColorMap[event.colorId]!;
+            _eventColors[event.title] = googleColor;
+            _ensureColorConsistency(event.colorId, googleColor);
           }
-          
-          addedHolidayCount++;
         }
       }
 
-      if (addedHolidayCount > 0) {
-        print('${addedHolidayCount}개의 공휴일이 백그라운드에서 로드되었습니다.');
-        // UI 갱신
-        if (mounted) {
-          setState(() {});
-        }
-      } else {
-        print('새로 추가된 공휴일이 없습니다.');
+      // 현재 날짜의 이벤트와 타임슬롯도 로드
+      await _loadEventsForDay(_selectedDay);
+      await _loadTimeSlotsForDay(_selectedDay);
+
+      // UI 갱신
+      if (mounted) {
+        setState(() {});
       }
+
+      print('✅ 자동 동기화 완료 - Google Calendar 색상으로 표시됨');
+      
     } catch (e) {
-      print('백그라운드 공휴일 로드 실패: $e');
-      // 실패해도 앱 사용에는 문제없음
+      print('⚠️ 자동 동기화 실패: $e');
+      // 실패 시 로컬 데이터 로드
+      await _loadInitialData();
     }
   }
 
@@ -242,20 +241,62 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
-  // 이벤트에 색상 할당
-  void _assignColorsToEvents(List<Event> events) {
-    int colorIndex = 0;
-    for (var event in events) {
-      if (!_eventColors.containsKey(event.title)) {
-        _eventColors[event.title] = _colors[colorIndex % _colors.length];
-        colorIndex++;
+  // 같은 colorId를 가진 모든 이벤트의 색상 일관성 보장
+  void _ensureColorConsistency(String? colorId, Color color) {
+    if (colorId == null) return;
+    
+    // 모든 캐시된 이벤트에서 같은 colorId를 가진 이벤트들의 색상 업데이트
+    for (var dateKey in _events.keys) {
+      final events = _events[dateKey] ?? [];
+      for (var event in events) {
+        if (event.colorId == colorId) {
+          _eventColors[event.title] = color;
+        }
       }
+    }
+    
+    // colorId 매핑도 업데이트
+    _colorIdToColorMap[colorId] = color;
+    
+    print('🔄 colorId "$colorId" 일관성 보장: ${color} (0x${color.value.toRadixString(16).toUpperCase()})');
+  }
+
+  // 이벤트에 색상 할당 - Google Calendar 색상 최우선 시스템
+  void _assignColorsToEvents(List<Event> events) {
+    for (var event in events) {
+      // 🎯 1순위: Event 객체에 Google Calendar 색상이 있으면 최우선 적용
+      if (event.color != null) {
+        _eventColors[event.title] = event.color!;
+        _ensureColorConsistency(event.colorId, event.color!);
+        print('🎨 ✅ Google Calendar 색상 최우선 적용: "${event.title}" -> ${event.color}');
+        continue; // 다른 로직은 실행하지 않음
+      }
+      
+      // 🎯 2순위: colorId가 있고 매핑된 Google 색상이 있는 경우
+      if (event.colorId != null && _colorIdToColorMap.containsKey(event.colorId)) {
+        final googleColor = _colorIdToColorMap[event.colorId]!;
+        _eventColors[event.title] = googleColor;
+        _ensureColorConsistency(event.colorId, googleColor);
+        print('🎨 ✅ Google colorId 기반 색상 적용: "${event.title}" -> $googleColor');
+        continue;
+      }
+      
+      // 🎯 3순위: 기존에 저장된 색상이 있으면 유지 (로컬 생성 이벤트)
+      if (_eventColors.containsKey(event.title)) {
+        print('🎨 ℹ️ 기존 색상 유지: "${event.title}" -> ${_eventColors[event.title]}');
+        continue;
+      }
+      
+      // 🎯 4순위: 새로운 색상 할당 (완전히 새로운 이벤트)
+      final colorIndex = _eventColors.length % _appColors.length;
+      _eventColors[event.title] = _appColors[colorIndex];
+      print('🎨 🆕 새 색상 할당: "${event.title}" -> ${_appColors[colorIndex]}');
     }
   }
 
-  // 이벤트 추가
+  // 이벤트 추가 - 색상 처리 완전 수정
   Future _addEvent(Event event) async {
-    print('이벤트 추가: ${event.title}, 시간: ${event.time}, 날짜: ${event.date}');
+    print('📝 이벤트 추가: ${event.title}, 시간: ${event.time}, 날짜: ${event.date}');
     final normalizedDay = DateTime(
       event.date.year,
       event.date.month,
@@ -273,9 +314,22 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       }
       _events[dateKey]!.add(event);
 
-      // 이벤트 색상 할당
-      if (!_eventColors.containsKey(event.title)) {
-        _eventColors[event.title] = _colors[_eventColors.length % _colors.length];
+      // 색상 할당 - 구글 캘린더 색상 우선
+      if (event.color != null) {
+        _eventColors[event.title] = event.color!;
+        _ensureColorConsistency(event.colorId, event.color!);
+        print('🎨 새 이벤트에 구글 색상 적용: "${event.title}" -> ${event.color}');
+      } else if (event.colorId != null && _colorIdToColorMap.containsKey(event.colorId)) {
+        // colorId가 있는 경우 매핑된 색상 사용
+        final googleColor = _colorIdToColorMap[event.colorId]!;
+        _eventColors[event.title] = googleColor;
+        _ensureColorConsistency(event.colorId, googleColor);
+        print('🎨 새 이벤트에 colorId 기반 색상 적용: "${event.title}" -> $googleColor');
+      } else if (!_eventColors.containsKey(event.title)) {
+        // 구글 캘린더 색상 정보가 없는 경우만 새 색상 할당
+        final colorIndex = _eventColors.length % _appColors.length;
+        _eventColors[event.title] = _appColors[colorIndex];
+        print('🎨 새 이벤트에 기본 색상 적용: "${event.title}" -> ${_appColors[colorIndex]}');
       }
 
       // Google Calendar에도 이벤트 추가 시도
@@ -295,7 +349,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
             if (success) {
               _showSnackBar('일정이 Google Calendar에도 추가되었습니다.');
             } else {
-              _showSnackBar('Google Calendar 연동이 필요합니다. 사이드바에서 동기화를 먼저 실행해주세요.');
+              _showSnackBar('Google Calendar 추가에 실패했습니다.');
             }
           } else {
             _showSnackBar('Google Calendar 연동이 필요합니다. 사이드바에서 동기화를 먼저 실행해주세요.');
@@ -314,9 +368,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         });
       }
 
-      print('이벤트 추가 완료: ${event.title}');
+      print('✅ 이벤트 추가 완료: ${event.title}');
     } catch (e) {
-      print('이벤트 추가 오류: $e');
+      print('❌ 이벤트 추가 오류: $e');
       _showSnackBar('일정 추가에 실패했습니다.');
     }
   }
@@ -402,8 +456,43 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   @override
   void dispose() {
+    // 🔥 앱 생명주기 관찰자 해제
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
+  Future<void> _refreshCurrentMonthEvents() async {
+  try {
+    print('🔄 현재 월 이벤트 새로고침 시작...');
+    
+    // 현재 월의 범위 계산
+    final DateTime startOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final DateTime endOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    
+    // 🔥 현재 월의 모든 날짜에 대해 순차적으로 처리
+    for (int day = 1; day <= endOfMonth.day; day++) {
+      final date = DateTime(_focusedDay.year, _focusedDay.month, day);
+      final dateKey = _getKey(date);
+      
+      // 캐시 정리
+      _events.remove(dateKey);
+      _timeSlots.remove(dateKey);
+      
+      // 🔥 기존 로딩 메서드 재활용
+      await _loadEventsForDay(date);
+      await _loadTimeSlotsForDay(date);
+    }
+    
+    // UI 갱신
+    if (mounted) {
+      setState(() {});
+    }
+    
+    print('✅ 현재 월 이벤트 새로고침 완료');
+  } catch (e) {
+    print('⚠️ 현재 월 이벤트 새로고침 실패: $e');
+  }
+} 
 
   // 빈 페이지로 이동
   void _navigateToEmptyPage() async {
@@ -467,6 +556,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     setState(() {
       _showEventPopup = true;
       _showTimeTablePopup = false;
+      _showWeatherPopup = false;
     });
   }
 
@@ -481,6 +571,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     setState(() {
       _showTimeTablePopup = true;
       _showEventPopup = false;
+      _showWeatherPopup = false;
     });
   }
 
@@ -623,7 +714,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     final titleController = TextEditingController();
     final startTimeController = TextEditingController();
     final endTimeController = TextEditingController();
-    Color selectedColor = _colors[_random.nextInt(_colors.length)];
+    Color selectedColor = _appColors[_random.nextInt(_appColors.length)];
 
     showDialog(
       context: context,
@@ -659,7 +750,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children:
-                        _colors
+                        _appColors
                             .map(
                               (color) => GestureDetector(
                                 onTap: () {
@@ -876,8 +967,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
-  // Google Calendar에서 앱으로 다운로드 (완전 동기화)
-  Future<void> _downloadFromGoogleCalendar() async {
+  // Google Calendar 동기화 - 중복 방지 로직 강화
+  Future<void> _syncWithGoogleCalendar() async {
     if (_isSyncing) {
       _showSnackBar('이미 동기화가 진행 중입니다.');
       return;
@@ -888,17 +979,13 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     });
 
     try {
-      _showSnackBar('Google Calendar에서 일정을 다운로드 중... (완전 동기화)');
+      _showSnackBar('Google Calendar와 동기화 중... (1년치 데이터)');
 
       // 현재 연도의 시작과 끝 날짜 계산
       final DateTime startOfYear = DateTime(_focusedDay.year, 1, 1);
       final DateTime endOfYear = DateTime(_focusedDay.year, 12, 31);
 
-      print('다운로드 범위: ${startOfYear.toString()} ~ ${endOfYear.toString()}');
-
-      // 먼저 전체 년도의 로컬 이벤트를 모두 로드
-      _showSnackBar('로컬 이벤트를 로드 중...');
-      await _loadAllEventsForYear(_focusedDay.year);
+      print('동기화 범위: ${startOfYear.toString()} ~ ${endOfYear.toString()}');
 
       // Google Calendar에서 이벤트 가져오기 (공휴일 포함)
       final List<Event> googleEvents = await _googleCalendarService.syncWithGoogleCalendarIncludingHolidays(
@@ -906,9 +993,23 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         endDate: endOfYear,
       );
 
-      print('Google에서 가져온 이벤트 수: ${googleEvents.length}');
+      // 현재 연도의 모든 로컬 이벤트 수집
+      Map<String, List<Event>> currentYearEvents = {};
+      
+      // 1월부터 12월까지 모든 월의 이벤트 수집
+      for (int month = 1; month <= 12; month++) {
+        final daysInMonth = DateTime(_focusedDay.year, month + 1, 0).day;
+        for (int day = 1; day <= daysInMonth; day++) {
+          final date = DateTime(_focusedDay.year, month, day);
+          final dateKey = _getKey(date);
+          await _loadEventsForDay(date); // 해당 날짜의 이벤트 로드
+          if (_events.containsKey(dateKey) && _events[dateKey]!.isNotEmpty) {
+            currentYearEvents[dateKey] = List.from(_events[dateKey]!);
+          }
+        }
+      }
 
-      // 1. Google Calendar에서 가져온 이벤트를 로컬에 추가
+      // 1. Google Calendar에서 가져온 이벤트를 로컬에 추가 (기존 로직)
       int addedCount = 0;
       for (var event in googleEvents) {
         final normalizedDay = DateTime(event.date.year, event.date.month, event.date.day);
@@ -935,26 +1036,21 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
           // 이벤트 색상 할당
           if (!_eventColors.containsKey(event.title)) {
-            _eventColors[event.title] = _colors[_eventColors.length % _colors.length];
+            _eventColors[event.title] = _appColors[_eventColors.length % _appColors.length];
           }
 
           addedCount++;
-          print('Google에서 로컬로 추가: ${event.title}');
         }
       }
 
-      // 2. Google에 없지만 로컬에 있는 이벤트 삭제 (공휴일 제외)
+      // 2. Google Calendar에서 삭제된 이벤트를 로컬에서도 삭제 (새로운 로직)
       int deletedCount = 0;
-      for (var dateKey in _events.keys.toList()) {
-        final localEvents = _events[dateKey]!.toList(); // 복사본 생성
+      for (var dateKey in currentYearEvents.keys) {
+        final localEvents = currentYearEvents[dateKey]!;
+        final eventsToDelete = <Event>[];
 
         for (var localEvent in localEvents) {
-          // 공휴일은 삭제하지 않음
-          if (localEvent.title.startsWith('🇰🇷')) {
-            continue;
-          }
-
-          // Google에 동일한 이벤트가 있는지 확인
+          // Google Calendar에 동일한 이벤트가 있는지 확인
           final existsInGoogle = googleEvents.any((googleEvent) =>
             googleEvent.title == localEvent.title &&
             googleEvent.time == localEvent.time &&
@@ -963,36 +1059,47 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
             googleEvent.date.year == localEvent.date.year
           );
 
-          // Google에 없으면 로컬에서 삭제
+          // Google Calendar에 없으면 로컬에서 삭제 대상으로 표시
           if (!existsInGoogle) {
-            try {
-              final normalizedDay = DateTime(localEvent.date.year, localEvent.date.month, localEvent.date.day);
-              
-              // 로컬 저장소에서 삭제
-              await EventStorageService.removeEvent(normalizedDay, localEvent);
-              
-              // 캐시에서도 삭제
-              _events[dateKey]!.removeWhere((e) =>
-                e.title == localEvent.title &&
-                e.time == localEvent.time &&
-                e.date.day == localEvent.date.day &&
-                e.date.month == localEvent.date.month &&
-                e.date.year == localEvent.date.year
-              );
-
-              deletedCount++;
-              print('Google에 없어서 로컬에서 삭제: ${localEvent.title}');
-            } catch (e) {
-              print('로컬 이벤트 삭제 중 오류: ${localEvent.title} - $e');
-            }
+            eventsToDelete.add(localEvent);
           }
+        }
+
+        // 삭제 대상 이벤트들을 실제로 삭제
+        for (var eventToDelete in eventsToDelete) {
+          final normalizedDay = DateTime(
+            eventToDelete.date.year,
+            eventToDelete.date.month,
+            eventToDelete.date.day,
+          );
+          
+          // 로컬 저장소에서 삭제
+          await EventStorageService.removeEvent(normalizedDay, eventToDelete);
+          
+          // 캐시에서도 삭제
+          if (_events.containsKey(dateKey)) {
+            _events[dateKey]!.removeWhere((e) =>
+              e.title == eventToDelete.title &&
+              e.time == eventToDelete.time &&
+              e.date.year == eventToDelete.date.year &&
+              e.date.month == eventToDelete.date.month &&
+              e.date.day == eventToDelete.date.day
+            );
+          }
+          
+          deletedCount++;
+          print('Google Calendar에서 삭제된 이벤트를 로컬에서도 삭제: ${eventToDelete.title}');
         }
       }
 
       // 결과 메시지 표시
-      String resultMessage = '${_focusedDay.year}년 Google Calendar 다운로드 완료!';
-      if (addedCount > 0 || deletedCount > 0) {
+      String resultMessage = '${_focusedDay.year}년 전체 동기화 완료!';
+      if (addedCount > 0 && deletedCount > 0) {
         resultMessage += ' ${addedCount}개 추가, ${deletedCount}개 삭제되었습니다.';
+      } else if (addedCount > 0) {
+        resultMessage += ' ${addedCount}개의 새 이벤트가 추가되었습니다.';
+      } else if (deletedCount > 0) {
+        resultMessage += ' ${deletedCount}개의 이벤트가 삭제되었습니다.';
       } else {
         resultMessage += ' 변경사항이 없습니다.';
       }
@@ -1003,129 +1110,8 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       setState(() {});
 
     } catch (e) {
-      print('Google Calendar 다운로드 오류: $e');
-      _showSnackBar('Google Calendar 다운로드에 실패했습니다: ${e.toString()}');
-    } finally {
-      setState(() {
-        _isSyncing = false;
-      });
-    }
-  }
-
-  // 앱에서 Google Calendar로 업로드 (완전 동기화)
-  Future<void> _uploadToGoogleCalendar() async {
-    if (_isSyncing) {
-      _showSnackBar('이미 동기화가 진행 중입니다.');
-      return;
-    }
-
-    setState(() {
-      _isSyncing = true;
-    });
-
-    try {
-      _showSnackBar('앱의 일정을 Google Calendar로 업로드 중... (완전 동기화)');
-
-      // 현재 연도의 시작과 끝 날짜 계산
-      final DateTime startOfYear = DateTime(_focusedDay.year, 1, 1);
-      final DateTime endOfYear = DateTime(_focusedDay.year, 12, 31);
-
-      // 먼저 전체 년도의 로컬 이벤트를 모두 로드
-      _showSnackBar('로컬 이벤트를 로드 중...');
-      await _loadAllEventsForYear(_focusedDay.year);
-
-      // Google Calendar에서 기존 이벤트 가져오기 (중복 확인용)
-      final List<Event> googleEvents = await _googleCalendarService.syncWithGoogleCalendarIncludingHolidays(
-        startDate: startOfYear,
-        endDate: endOfYear,
-      );
-
-      print('Google에 있는 이벤트 수: ${googleEvents.length}');
-
-      // 로컬 이벤트 수집
-      List<Event> localEvents = [];
-      for (var dateKey in _events.keys) {
-        localEvents.addAll(_events[dateKey]!);
-      }
-      print('로컬에 있는 이벤트 수: ${localEvents.length}');
-
-      // 1. 로컬에만 있는 이벤트를 Google Calendar에 추가
-      int uploadedCount = 0;
-      for (var localEvent in localEvents) {
-        // Google Calendar에 동일한 이벤트가 있는지 확인
-        final existsInGoogle = googleEvents.any((googleEvent) =>
-          googleEvent.title == localEvent.title &&
-          googleEvent.time == localEvent.time &&
-          googleEvent.date.day == localEvent.date.day &&
-          googleEvent.date.month == localEvent.date.month &&
-          googleEvent.date.year == localEvent.date.year
-        );
-
-        // Google Calendar에 없으면 추가
-        if (!existsInGoogle) {
-          try {
-            // 공휴일은 Google Calendar에 추가하지 않음
-            if (!localEvent.title.startsWith('🇰🇷')) {
-              final success = await _googleCalendarService.addEventToGoogleCalendar(localEvent);
-              if (success) {
-                uploadedCount++;
-                print('로컬에서 Google로 추가: ${localEvent.title}');
-              } else {
-                print('Google Calendar 업로드 실패: ${localEvent.title}');
-              }
-            }
-          } catch (e) {
-            print('Google Calendar 업로드 중 오류: ${localEvent.title} - $e');
-          }
-        }
-      }
-
-      // 2. Google에만 있고 로컬에 없는 이벤트를 Google에서 삭제 (공휴일 제외)
-      int deletedCount = 0;
-      for (var googleEvent in googleEvents) {
-        // 공휴일은 삭제하지 않음
-        if (googleEvent.title.startsWith('🇰🇷')) {
-          continue;
-        }
-
-        // 로컬에 동일한 이벤트가 있는지 확인
-        final existsInLocal = localEvents.any((localEvent) =>
-          localEvent.title == googleEvent.title &&
-          localEvent.time == googleEvent.time &&
-          localEvent.date.day == googleEvent.date.day &&
-          localEvent.date.month == googleEvent.date.month &&
-          localEvent.date.year == googleEvent.date.year
-        );
-
-        // 로컬에 없으면 Google에서 삭제
-        if (!existsInLocal) {
-          try {
-            final success = await _googleCalendarService.deleteEventFromGoogleCalendar(googleEvent);
-            if (success) {
-              deletedCount++;
-              print('로컬에 없어서 Google에서 삭제: ${googleEvent.title}');
-            } else {
-              print('Google Calendar 삭제 실패: ${googleEvent.title}');
-            }
-          } catch (e) {
-            print('Google Calendar 삭제 중 오류: ${googleEvent.title} - $e');
-          }
-        }
-      }
-
-      // 결과 메시지 표시
-      String resultMessage = '앱 → Google Calendar 업로드 완료!';
-      if (uploadedCount > 0 || deletedCount > 0) {
-        resultMessage += ' ${uploadedCount}개 추가, ${deletedCount}개 삭제되었습니다.';
-      } else {
-        resultMessage += ' 변경사항이 없습니다.';
-      }
-      
-      _showSnackBar(resultMessage);
-
-    } catch (e) {
-      print('Google Calendar 업로드 오류: $e');
-      _showSnackBar('Google Calendar 업로드에 실패했습니다: ${e.toString()}');
+      print('Google Calendar 동기화 오류: $e');
+      _showSnackBar('Google Calendar 동기화에 실패했습니다: ${e.toString()}');
     } finally {
       setState(() {
         _isSyncing = false;
@@ -1178,79 +1164,85 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
-  // 특정 날짜의 이벤트 캐시 새로고침
-  Future<void> _refreshEventsForDay(DateTime day) async {
-    final normalizedDay = DateTime(day.year, day.month, day.day);
-    final dateKey = _getKey(normalizedDay);
-    
-    // 캐시에서 해당 날짜 제거
-    _events.remove(dateKey);
-    _loadingDates.remove(dateKey);
-    
-    // 다시 로드
-    await _loadEventsForDay(normalizedDay);
-    
-    // UI 갱신
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // 전체 이벤트 캐시 새로고침
-  Future<void> _refreshAllEvents() async {
-    _events.clear();
-    
-    // 현재 화면에 보이는 모든 날짜 다시 로드
-    final firstVisibleDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
-    final lastVisibleDay = DateTime(_focusedDay.year, _focusedDay.month + 2, 0);
-    
-    DateTime currentDay = firstVisibleDay;
-    while (currentDay.isBefore(lastVisibleDay) || currentDay.isAtSameMomentAs(lastVisibleDay)) {
-      await _loadEventsForDay(currentDay);
-      currentDay = currentDay.add(const Duration(days: 1));
-    }
-    
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // 이벤트 캐시 새로고침 (다른 화면에서 추가된 이벤트를 위해)
-  Future<void> _refreshCurrentMonthEvents() async {
-    final DateTime firstDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
-    final DateTime lastDayOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
-    
-    // 해당 월의 모든 날짜에 대해 캐시 새로고침
-    for (int day = 1; day <= lastDayOfMonth.day; day++) {
-      final date = DateTime(_focusedDay.year, _focusedDay.month, day);
-      final dateKey = _getKey(date);
+  // 🔥 누락된 메서드 추가 (파일 끝 부분, 약 1300라인 근처에 추가)
+  Future<void> _cleanupDuplicateHolidays() async {
+    try {
+      print('🧹 중복 공휴일 정리 시작...');
       
-      // 캐시에서 제거
-      _events.remove(dateKey);
-      
-      // 다시 로드
-      await _loadEventsForDay(date);
-    }
-    
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // 전체 년도의 이벤트를 로드하는 메서드
-  Future<void> _loadAllEventsForYear(int year) async {
-    print('=== ${year}년 전체 이벤트 로드 시작 ===');
-    
-    // 년도의 모든 날짜를 순회하며 이벤트 로드
-    for (int month = 1; month <= 12; month++) {
-      final daysInMonth = DateTime(year, month + 1, 0).day;
-      for (int day = 1; day <= daysInMonth; day++) {
-        final date = DateTime(year, month, day);
-        await _loadEventsForDay(date);
+      for (int month = 1; month <= 12; month++) {
+        final daysInMonth = DateTime(_focusedDay.year, month + 1, 0).day;
+        for (int day = 1; day <= daysInMonth; day++) {
+          final date = DateTime(_focusedDay.year, month, day);
+          final events = await EventStorageService.getEvents(date);
+          
+          final holidayEvents = events.where((e) => e.title.startsWith('🇰🇷')).toList();
+          final Map<String, List<Event>> holidayGroups = {};
+          
+          for (final holiday in holidayEvents) {
+            final title = holiday.title;
+            if (!holidayGroups.containsKey(title)) {
+              holidayGroups[title] = [];
+            }
+            holidayGroups[title]!.add(holiday);
+          }
+          
+          for (final entry in holidayGroups.entries) {
+            final holidays = entry.value;
+            if (holidays.length > 1) {
+              for (int i = 1; i < holidays.length; i++) {
+                await EventStorageService.removeEvent(date, holidays[i]);
+                print('중복 공휴일 삭제: ${holidays[i].title}');
+              }
+            }
+          }
+        }
       }
+      
+      print('✅ 중복 공휴일 정리 완료');
+    } catch (e) {
+      print('⚠️ 중복 공휴일 정리 실패: $e');
     }
-    
-    print('=== ${year}년 전체 이벤트 로드 완료 ===');
+  }
+
+  Future<void> _downloadFromGoogleCalendar() async {
+    try {
+      print('📥 Google Calendar에서 다운로드 시작...');
+      await _syncWithGoogleCalendar();
+      _showSnackBar('Google Calendar 동기화가 완료되었습니다.');
+    } catch (e) {
+      print('❌ Google Calendar 다운로드 오류: $e');
+      _showSnackBar('Google Calendar 동기화에 실패했습니다.');
+    }
+  }
+
+  Future<void> _uploadToGoogleCalendar() async {
+    try {
+      print('📤 Google Calendar로 업로드 시작...');
+      
+      int uploadCount = 0;
+      
+      for (final dateKey in _events.keys) {
+        final events = _events[dateKey] ?? [];
+        for (final event in events) {
+          if (!event.title.startsWith('🇰🇷')) {
+            try {
+              final success = await _googleCalendarService.addEventToGoogleCalendar(event);
+              if (success) {
+                uploadCount++;
+              }
+            } catch (e) {
+              print('이벤트 업로드 실패: ${event.title}, 오류: $e');
+            }
+          }
+        }
+      }
+      
+      _showSnackBar('$uploadCount개의 이벤트가 Google Calendar에 업로드되었습니다.');
+      print('✅ Google Calendar 업로드 완료: $uploadCount개');
+    } catch (e) {
+      print('❌ Google Calendar 업로드 오류: $e');
+      _showSnackBar('Google Calendar 업로드에 실패했습니다.');
+    }
   }
 
   @override
@@ -1440,10 +1432,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                                 _showTimeTableDialog();
                               });
                             },
-                            events:
-                                _getEventsForDay(
-                                  day,
-                                ).map((e) => e.title).toList(),
+                            events: _getEventsForDay(day), // Event 객체 직접 전달
                             eventColors: _eventColors,
                             weatherInfo: _getWeatherForDay(day),
                           );
@@ -1460,10 +1449,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                             onLongPress: () {
                               _showTimeTableDialog();
                             },
-                            events:
-                                _getEventsForDay(
-                                  day,
-                                ).map((e) => e.title).toList(),
+                            events: _getEventsForDay(day), // Event 객체 직접 전달
                             eventColors: _eventColors,
                             weatherInfo: _getWeatherForDay(day),
                           );
@@ -1488,10 +1474,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                                 _showTimeTableDialog();
                               });
                             },
-                            events:
-                                _getEventsForDay(
-                                  day,
-                                ).map((e) => e.title).toList(),
+                            events: _getEventsForDay(day), // Event 객체 직접 전달
                             eventColors: _eventColors,
                             weatherInfo: _getWeatherForDay(day),
                           );

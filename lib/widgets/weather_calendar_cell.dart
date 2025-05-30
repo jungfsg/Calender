@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/weather_info.dart';
+import '../models/event.dart';
 import 'weather_icon.dart';
 import '../utils/font_utils.dart';
 
@@ -10,7 +11,7 @@ class WeatherCalendarCell extends StatelessWidget {
   final bool isToday;
   final Function() onTap;
   final Function() onLongPress;
-  final List<String> events;
+  final List<Event> events;
   final Map<String, Color> eventColors;
   final WeatherInfo? weatherInfo;
 
@@ -63,7 +64,23 @@ class WeatherCalendarCell extends StatelessWidget {
 
   // 공휴일 여부 확인
   bool _isHoliday() {
-    return events.any((event) => event.startsWith('🇰🇷'));
+    return events.any((event) => event.title.startsWith('🇰🇷'));
+  }
+
+  // 이벤트 색상 가져오기 - Event 객체 우선 시스템
+  Color _getEventColor(Event event) {
+    // 1. Event 객체의 color 속성 우선
+    if (event.color != null) {
+      return event.color!;
+    }
+    
+    // 2. 제목 기반 색상 매핑 (기존 호환성)
+    if (eventColors.containsKey(event.title)) {
+      return eventColors[event.title]!;
+    }
+    
+    // 3. 기본 색상
+    return Colors.blue;
   }
 
   @override
@@ -110,7 +127,7 @@ class WeatherCalendarCell extends StatelessWidget {
                   ),
                 ),
 
-                // 이벤트 리스트 - 하단 유지
+                // 이벤트 리스트 - 하단 유지, Event 객체 기반으로 변경
                 if (events.isNotEmpty)
                   Positioned(
                     bottom: 2,
@@ -121,7 +138,7 @@ class WeatherCalendarCell extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children:
                           events.take(6).map((event) {
-                            final bgColor = eventColors[event] ?? Colors.blue;
+                            final bgColor = _getEventColor(event);
                             return Container(
                               margin: const EdgeInsets.only(bottom: 1),
                               padding: const EdgeInsets.symmetric(
@@ -136,7 +153,7 @@ class WeatherCalendarCell extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                event,
+                                event.title,
                                 style: getCustomTextStyle(
                                   fontSize: 10,
                                   color: Colors.white,
