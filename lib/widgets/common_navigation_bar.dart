@@ -12,12 +12,56 @@ class CommonNavigationBar extends StatelessWidget {
     required this.onItemTapped,
   }) : super(key: key);
 
+  // 인덱스별 색상 정의 (다양한 옵션들)
+  Color _getBackgroundColor(int index) {
+    switch (index) {
+      case 0: // Calendar
+        return const Color.fromARGB(255, 162, 222, 141);
+      // case 1: // Mic
+      //   return const Color.fromARGB(255, 255, 152, 0);
+      case 2: // Chat
+        return const Color.fromARGB(255, 154, 96, 207);
+      default:
+        return const Color.fromARGB(255, 162, 222, 141);
+    }
+  }
+
+  // 물방울 색상 (배경색과 대비되는 색상)
+  Color _getWaterDropColor(int index) {
+    switch (index) {
+      case 0: // Calendar
+        return Colors.white;
+      case 1: // Mic
+        return Colors.white;
+      case 2: // Chat
+        return Colors.white;
+      default:
+        return Colors.white;
+    }
+  }
+
+  // 비활성 아이콘 색상
+  Color _getInactiveIconColor(int index) {
+    switch (index) {
+      case 0: // Calendar
+        return Colors.white.withOpacity(0.6);
+      case 1: // Mic
+        return Colors.white.withOpacity(0.6);
+      case 2: // Chat
+        return Colors.white.withOpacity(0.6);
+      default:
+        return Colors.white.withOpacity(0.6);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 시스템 네비게이션 바 설정
+    final backgroundColor = _getBackgroundColor(selectedIndex);
+
+    // 시스템 네비게이션 바 색상도 동적으로 변경
     SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        systemNavigationBarColor: Color.fromARGB(255, 162, 222, 141),
+      SystemUiOverlayStyle(
+        systemNavigationBarColor: backgroundColor,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
     );
@@ -25,11 +69,11 @@ class CommonNavigationBar extends StatelessWidget {
     return SafeArea(
       bottom: true,
       child: WaterDropNavBar(
-        backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+        backgroundColor: backgroundColor,
         onItemSelected: onItemTapped,
         selectedIndex: selectedIndex,
-        waterDropColor: Colors.white,
-        inactiveIconColor: Colors.white.withOpacity(0.5),
+        waterDropColor: _getWaterDropColor(selectedIndex),
+        inactiveIconColor: _getInactiveIconColor(selectedIndex),
         iconSize: 25,
         bottomPadding: 10.0,
         barItems: [

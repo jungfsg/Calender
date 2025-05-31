@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from app.services.llm_service import LLMService
 from app.services.vector_store import VectorStoreService
-from app.services.google_calendar_service import GoogleCalendarService
+from app.services.event_storage_service import EventStorageService
 from datetime import datetime
 
 router = APIRouter()
@@ -29,7 +29,6 @@ class ChatResponse(BaseModel):
     response: str
     sources: Optional[List[Dict[str, Any]]] = None
 
-# 새로운 AI 캘린더 모델들
 class AICalendarInput(BaseModel):
     message: str
     session_id: Optional[str] = "default"
@@ -89,18 +88,31 @@ async def search_events(
     time_min: Optional[str] = None,
     time_max: Optional[str] = None,
     max_results: Optional[int] = 10,
-    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+    calendar_service: EventStorageService = Depends(lambda: EventStorageService())
 ):
     """
-    Google Calendar에서 일정을 검색합니다.
+    로컬 저장소에서 일정을 검색합니다.
     """
     try:
-        events = calendar_service.search_events(
-            query=query,
-            time_min=time_min,
-            time_max=time_max,
-            max_results=max_results
-        )
+        events = calendar_service.search_events(query=query)
+        
+        # 시간 범위 필터링
+        if time_min or time_max:
+            filtered_events = []
+            for event in events:
+                event_start = event.get("start_date")
+                event_end = event.get("end_date")
+                
+                if time_min and event_start < time_min:
+                    continue
+                if time_max and event_end > time_max:
+                    continue
+                    
+                filtered_events.append(event)
+            events = filtered_events
+        
+        # 결과 수 제한
+        events = events[:max_results]
         
         return {
             "success": True,
@@ -114,41 +126,31 @@ async def search_events(
 @router.post("/events/create")
 async def create_event(
     event_data: EventCreateInput,
-    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+    calendar_service: EventStorageService = Depends(lambda: EventStorageService())
 ):
     """
-    Google Calendar에 새로운 일정을 생성합니다.
+    로컬 저장소에 새로운 일정을 생성합니다.
     """
     try:
-        # 입력 데이터를 Google Calendar API 형식으로 변환
+        # 입력 데이터를 로컬 저장소 형식으로 변환
         calendar_event = {
-            'summary': event_data.summary,
+            'title': event_data.summary,
             'description': event_data.description or '',
             'location': event_data.location or '',
-            'start': {
-                'dateTime': event_data.start_datetime,
-                'timeZone': event_data.timezone
-            },
-            'end': {
-                'dateTime': event_data.end_datetime,
-                'timeZone': event_data.timezone
-            }
+            'start_date': event_data.start_datetime,
+            'end_date': event_data.end_datetime,
+            'timezone': event_data.timezone,
+            'attendees': event_data.attendees or []
         }
-        
-        if event_data.attendees:
-            calendar_event['attendees'] = [{'email': email} for email in event_data.attendees]
         
         result = calendar_service.create_event(calendar_event)
         
-        if result.get('success'):
-            return {
-                "success": True,
-                "message": "일정이 성공적으로 생성되었습니다.",
-                "event_id": result.get('event_id'),
-                "event_link": result.get('event_link')
-            }
-        else:
-            raise HTTPException(status_code=400, detail=result.get('error', '일정 생성에 실패했습니다.'))
+        return {
+            "success": True,
+            "message": "일정이 성공적으로 생성되었습니다.",
+            "event_id": result.get('id'),
+            "event": result
+        }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"일정 생성 중 오류 발생: {str(e)}")
@@ -157,7 +159,7 @@ async def create_event(
 async def update_event(
     event_id: str,
     event_data: Dict[str, Any],
-    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+    calendar_service: EventStorageService = Depends(lambda: EventStorageService())
 ):
     """
     기존 일정을 수정합니다.
@@ -165,15 +167,15 @@ async def update_event(
     try:
         result = calendar_service.update_event(event_id, event_data)
         
-        if result.get('success'):
+        if result:
             return {
                 "success": True,
                 "message": "일정이 성공적으로 수정되었습니다.",
-                "event_id": result.get('event_id'),
-                "event_link": result.get('event_link')
+                "event_id": result.get('id'),
+                "event": result
             }
         else:
-            raise HTTPException(status_code=400, detail=result.get('error', '일정 수정에 실패했습니다.'))
+            raise HTTPException(status_code=404, detail='일정을 찾을 수 없습니다.')
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"일정 수정 중 오류 발생: {str(e)}")
@@ -181,21 +183,21 @@ async def update_event(
 @router.delete("/events/{event_id}")
 async def delete_event(
     event_id: str,
-    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+    calendar_service: EventStorageService = Depends(lambda: EventStorageService())
 ):
     """
     일정을 삭제합니다.
     """
     try:
-        result = calendar_service.delete_event(event_id)
+        success = calendar_service.delete_event(event_id)
         
-        if result.get('success'):
+        if success:
             return {
                 "success": True,
                 "message": "일정이 성공적으로 삭제되었습니다."
             }
         else:
-            raise HTTPException(status_code=400, detail=result.get('error', '일정 삭제에 실패했습니다.'))
+            raise HTTPException(status_code=404, detail='일정을 찾을 수 없습니다.')
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"일정 삭제 중 오류 발생: {str(e)}")
@@ -204,7 +206,7 @@ async def delete_event(
 async def copy_event(
     event_id: str,
     destination_calendar_id: Optional[str] = "primary",
-    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+    calendar_service: EventStorageService = Depends(lambda: EventStorageService())
 ):
     """
     일정을 복사합니다.
@@ -228,7 +230,7 @@ async def copy_event(
 async def move_event(
     event_id: str,
     destination_calendar_id: str,
-    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+    calendar_service: EventStorageService = Depends(lambda: EventStorageService())
 ):
     """
     일정을 다른 캘린더로 이동합니다.
@@ -251,7 +253,7 @@ async def move_event(
 @router.get("/events/{event_id}/conflicts")
 async def check_event_conflicts(
     event_id: str,
-    calendar_service: GoogleCalendarService = Depends(lambda: GoogleCalendarService())
+    calendar_service: EventStorageService = Depends(lambda: EventStorageService())
 ):
     """
     특정 일정의 충돌을 확인합니다.
