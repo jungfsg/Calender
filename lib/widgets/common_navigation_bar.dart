@@ -32,7 +32,7 @@ class CommonNavigationBar extends StatelessWidget {
       case 0: // Calendar
         return Colors.white;
       case 1: // Mic
-        return Colors.white;
+        return const Color.fromARGB(255, 255, 0, 0);
       case 2: // Chat
         return Colors.white;
       default:
