@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
-import 'empty_page.dart';
+import 'chat_page.dart';
 import '../utils/font_utils.dart';
 import 'dart:ui';
 
@@ -17,7 +17,6 @@ import '../services/weather_service.dart';
 import '../services/google_calendar_service.dart';
 import '../widgets/event_popup.dart';
 import '../widgets/time_table_popup.dart';
-import '../widgets/moving_button.dart';
 import '../widgets/weather_calendar_cell.dart';
 import '../widgets/weather_icon.dart';
 import '../widgets/weather_summary_popup.dart';
@@ -25,6 +24,8 @@ import '../widgets/side_menu.dart';
 import '../widgets/common_navigation_bar.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import '../widgets/animated_popup.dart';
+import '../widgets/center_popup.dart';
 
 class PixelArtCalendarScreen extends StatefulWidget {
   const PixelArtCalendarScreen({Key? key}) : super(key: key);
@@ -577,27 +578,6 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
-  // 빈 페이지로 이동
-  void _navigateToEmptyPage() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => EmptyPage(
-              onCalendarUpdate: () {
-                // 채팅에서 일정 추가/삭제 시 호출될 콜백
-                _refreshCurrentMonthEvents();
-              },
-            ),
-      ),
-    );
-
-    // 채팅화면에서 돌아왔을 때도 새로고침
-    if (result == true || result == null) {
-      _refreshCurrentMonthEvents();
-    }
-  }
-
   // 날짜별 이벤트 가져오기
   List<Event> _getEventsForDay(DateTime day) {
     final normalizedDay = DateTime(day.year, day.month, day.day);
@@ -1036,11 +1016,9 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
 
   // 네비게이션 바 아이템 탭 처리
   void _onItemTapped(int index) {
+    // 가운데 버튼(index 1)을 눌렀을 때는 팝업을 표시
     if (index == 1) {
-      // 가운데 버튼: 인덱스 변경 없이 팝업만 띄움
-      if (_selectedIndex == 0) {
-        _showAnimatedPopup(context);
-      }
+      _showAnimatedPopup();
       return;
     }
 
@@ -1048,12 +1026,17 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       _selectedIndex = index;
     });
 
-    switch (index) {
-      case 0:
-        break;
-      case 2:
-        _navigateToEmptyPage();
-        break;
+    if (index == 2) {
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder:
+              (context, animation, secondaryAnimation) => const ChatPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
     }
   }
 
@@ -1341,88 +1324,20 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
-  void _showAnimatedPopup(BuildContext context) {
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final buttonPosition = button.localToGlobal(Offset.zero);
-    final buttonSize = button.size;
-    final screenSize = MediaQuery.of(context).size;
-    final popupWidth = screenSize.width * 0.95;
-    final popupHeight = 166.0; // 고정 높이, 필요시 screenSize.height * 0.20
-    final popupTop =
-        MediaQuery.of(context).padding.top + 12; // 상단 safe area + 여백
-    final popupLeft = (screenSize.width - popupWidth) / 2;
-
+  void _showAnimatedPopup() {
     final overlay = Overlay.of(context);
     late final OverlayEntry overlayEntry;
 
     overlayEntry = OverlayEntry(
       builder:
-          (context) => Material(
-            color: Colors.transparent,
-            child: Stack(
-              children: [
-                // 전체 화면을 차지하는 반투명 배경
-                // Positioned.fill(
-                //   child: GestureDetector(
-                //     behavior: HitTestBehavior.opaque,
-                //     onTap: () => overlayEntry.remove(),
-                //     child: Container(color: Colors.black.withOpacity(0.16)),
-                //   ),
-                // ),
-                // 팝업
-                TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 300),
-                  tween: Tween<double>(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    // top만 버튼 위치에서 상단으로 애니메이션, width/height는 고정
-                    final double top =
-                        buttonPosition.dy +
-                        (popupTop - buttonPosition.dy) * value;
-                    return Positioned(
-                      top: top,
-                      left: popupLeft,
-                      width: popupWidth,
-                      height: popupHeight,
-                      child: Opacity(opacity: value, child: child!),
-                    );
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(26),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(26),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              child: const Text(
-                                '팝업 내용',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const Divider(height: 1),
-                            TextButton(
-                              onPressed: () {
-                                overlayEntry.remove();
-                              },
-                              child: const Text('닫기'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          (context) => CenterPopup(
+            onClose: () {
+              overlayEntry.remove();
+              // 팝업이 닫힐 때 네비게이션 바 선택 상태를 캘린더로 되돌림
+              setState(() {
+                _selectedIndex = 0;
+              });
+            },
           ),
     );
 
@@ -1440,7 +1355,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     );
 
     // 주 시작일에 맞는 요일 오프셋 계산
-    final int firstWeekday = (firstDay.weekday % 7); // 0: 일, 1: 월, ... 6: 토
+    final int firstWeekday = (firstDay.weekday % 7); // 0: 일, 1: 월, ..., 6: 토
     // 마지막 날의 날짜
     final int lastDate = lastDay.day;
 

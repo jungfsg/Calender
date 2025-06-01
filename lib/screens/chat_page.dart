@@ -13,16 +13,16 @@ import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
 
-class EmptyPage extends StatefulWidget {
+class ChatPage extends StatefulWidget {
   final VoidCallback? onCalendarUpdate;
 
-  const EmptyPage({super.key, this.onCalendarUpdate});
+  const ChatPage({super.key, this.onCalendarUpdate});
 
   @override
-  State createState() => _EmptyPageState();
+  State createState() => _ChatPageState();
 }
 
-class _EmptyPageState extends State<EmptyPage> {
+class _ChatPageState extends State<ChatPage> {
   final List<types.Message> _messages = [];
   final _user = types.User(id: 'user');
   final _botUser = types.User(id: 'bot', firstName: 'AMATTA');
@@ -344,11 +344,16 @@ class _EmptyPageState extends State<EmptyPage> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    // 가운데 버튼은 무시하고 채팅 탭 선택 상태 유지
+    if (index == 1) {
+      setState(() {
+        _selectedIndex = 2; // 채팅 탭 선택 상태 유지
+      });
+      return;
+    }
 
     if (index == 0) {
+      // 캘린더 화면으로 이동
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder:
@@ -361,6 +366,11 @@ class _EmptyPageState extends State<EmptyPage> {
         ),
       );
     }
+
+    // 네비게이션 바 선택 상태 업데이트
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   // 이미지 소스 선택 다이얼로그
@@ -467,7 +477,6 @@ class _EmptyPageState extends State<EmptyPage> {
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(8.0),
-
                 child: LinearProgressIndicator(),
               ),
             Expanded(
