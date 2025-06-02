@@ -42,13 +42,14 @@ dependencies:
   permission_handler: ^11.0.1
   geocoding: ^2.1.0
   image_picker: ^1.0.4
-  firebase_core: ^2.27.1
-  firebase_auth: ^4.17.9
-  firebase_database: ^10.4.10
+  firebase_core: ^3.13.1
+  firebase_auth: ^5.3.3
+  firebase_database: ^11.1.8
   google_sign_in: ^6.1.6
   # Google Calendar API 관련 패키지
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
+  speech_to_text: ^7.0.0
   extension_google_sign_in_as_googleapis_auth: ^2.0.12
   curved_navigation_bar: ^1.0.6
   # MLKIT OCR
