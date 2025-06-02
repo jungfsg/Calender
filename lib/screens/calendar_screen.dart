@@ -18,9 +18,7 @@ import '../services/google_calendar_service.dart';
 import '../services/chat_service.dart';
 import '../widgets/event_popup.dart';
 import '../widgets/time_table_popup.dart';
-import '../widgets/moving_button.dart';
 import '../widgets/weather_calendar_cell.dart';
-import '../widgets/weather_icon.dart';
 import '../widgets/weather_summary_popup.dart';
 import '../widgets/side_menu.dart';
 import '../widgets/common_navigation_bar.dart';
@@ -35,10 +33,10 @@ class PixelArtCalendarScreen extends StatefulWidget {
 }
 
 class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
-  late CalendarFormat _calendarFormat;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
   bool _showEventPopup = false; // 이벤트 팝업 표시 여부
   bool _showTimeTablePopup = false; // 타임테이블 팝업 표시 여부
   bool _showWeatherPopup = false; // 날씨 예보 팝업 표시 여부
@@ -58,10 +56,12 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   final Map<String, List<Event>> _events = {};
   // 현재 날짜별 로드된 타임 테이블 캐시 - 키를 String으로 변경
   final Map<String, List<TimeSlot>> _timeSlots = {};
-  // 이벤트 색상 매핑
-  final Map<String, Color> _eventColors = {};
-  // 색상 목록
-  final List<Color> _colors = [
+  // 이벤트 색상 매핑 - 제목 기반에서 색상 ID 기반으로 변경
+  final Map<String, Color> _eventColors = {}; // 이벤트 제목 -> 색상
+  final Map<String?, Color> _colorIdToColorMap = {}; // 구글 색상 ID -> 실제 색상
+
+  // 앱 전용 색상 목록 (구글 캘린더 색상과 구분)
+  final List<Color> _appColors = [
     Colors.red,
     Colors.blue,
     Colors.green,
@@ -84,101 +84,110 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
   String _recognizedText = '';
   final ChatService _chatService = ChatService();
   bool _isProcessingSTT = false;
-  StateSetter? _dialogSetState; // 다이얼로그 실시간 업데이트용
-
+  StateSetter? _dialogSetState; // 다이얼로그 실시간 업데이트용  @override
   @override
   void initState() {
     super.initState();
-    _focusedDay = DateTime.now();
+
+    // 🔥 필수 변수들 초기화
     _selectedDay = DateTime.now();
-    _calendarFormat = CalendarFormat.month; // 기본 월 형식으로 고정
-    // 저장된 모든 키 확인
-    EventStorageService.printAllKeys();
-    // 초기 데이터 로드
-    _loadInitialData();
+    _focusedDay = _selectedDay;
+    _calendarFormat = CalendarFormat.month;
 
-    // 위치 권한 요청
-    _requestLocationPermission();
+    // 🔥 앱 생명주기 관찰자 등록
+    WidgetsBinding.instance.addObserver(this);
 
-    // 날씨 정보 로드 (딱 한 번만 실행)
-    _loadWeatherData();
-
-    // Google Calendar 서비스 초기화 시도 (백그라운드에서)
-    _initializeGoogleCalendarService();
-
-    // STT 초기화
+    // 🔥 STT 객체만 생성 (초기화는 나중에)
     _speech = stt.SpeechToText();
-    _initializeSpeech();
 
-    // 이벤트 캐시 새로고침 (다른 화면에서 추가된 이벤트를 위해)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshCurrentMonthEvents();
+    // 🔥 위젯 빌드 후에 앱 초기화 (위치 권한 먼저)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeApp(); // 위치 권한 먼저 요청
+      _initializeSpeech(); // 그 다음에 STT 초기화
     });
   }
 
-  // Google Calendar 서비스 초기화 (백그라운드)
+  // Google Calendar 서비스 초기화 (자동 로그인 포함)
   Future<void> _initializeGoogleCalendarService() async {
     try {
-      // 이미 로그인된 사용자가 있는지 확인
-      if (_googleCalendarService.hasSignedInUser) {
-        await _googleCalendarService.initialize();
-        print('Google Calendar 서비스가 자동으로 초기화되었습니다.');
+      print('🚀 Google Calendar 자동 연결 시작...');
 
-        // 초기화 성공 시 공휴일 자동 로드
-        _loadHolidaysInBackground();
+      // Google Calendar 초기화 시도 (자동 로그인 포함)
+      final isInitialized = await _googleCalendarService.initialize();
+
+      if (isInitialized) {
+        print('✅ Google Calendar 자동 연결 성공!');
+
+        // 자동 연결 성공 시 동기화 수행
+        await _performSilentSync();
+
+        // 사용자에게 알림
+        if (mounted) {
+          _showSnackBar('Google Calendar가 자동으로 연결되었습니다! 📅');
+        }
+      } else {
+        print('ℹ️ Google Calendar 자동 연결 실패 - 로컬 데이터만 로드');
+
+        // 연결 실패 시 로컬 데이터만 로드
+        await _loadInitialData();
+
+        // 사용자에게 알림
+        if (mounted) {
+          _showSnackBar('Google Calendar 연결이 필요합니다. 사이드바에서 연결할 수 있습니다.');
+        }
       }
     } catch (e) {
-      print('Google Calendar 자동 초기화 실패: $e');
-      // 실패해도 앱 사용에는 문제없으므로 에러 메시지는 표시하지 않음
+      print('⚠️ Google Calendar 자동 연결 중 오류: $e');
+
+      // 오류 발생 시 로컬 데이터 로드
+      await _loadInitialData();
+
+      // 사용자에게 알림
+      if (mounted) {
+        _showSnackBar('Google Calendar 연결 중 오류가 발생했습니다.');
+      }
     }
   }
 
-  // 백그라운드에서 공휴일 로드
-  Future<void> _loadHolidaysInBackground() async {
+  // 🔥 조용한 동기화 (UI 로딩 표시 없이)
+  Future<void> _performSilentSync() async {
     try {
-      print('백그라운드에서 공휴일을 로드합니다...');
-
-      // 현재 년도의 공휴일 로드
-      final DateTime startOfYear = DateTime(_focusedDay.year, 1, 1);
-      final DateTime endOfYear = DateTime(_focusedDay.year, 12, 31);
-
-      // 이미 로드된 공휴일이 있는지 확인 (성능 최적화)
-      bool hasExistingHolidays = false;
-      for (int month = 1; month <= 12; month++) {
-        final daysInMonth = DateTime(_focusedDay.year, month + 1, 0).day;
-        for (int day = 1; day <= daysInMonth; day++) {
-          final date = DateTime(_focusedDay.year, month, day);
-          final dateKey = _getKey(date);
-          await _loadEventsForDay(date);
-          if (_events.containsKey(dateKey)) {
-            final events = _events[dateKey]!;
-            if (events.any((e) => e.title.startsWith('🇰🇷'))) {
-              hasExistingHolidays = true;
-              break;
-            }
-          }
-        }
-        if (hasExistingHolidays) break;
-      }
-
-      // 이미 공휴일이 로드되어 있으면 스킵
-      if (hasExistingHolidays) {
-        print('공휴일이 이미 로드되어 있습니다. 백그라운드 로드를 스킵합니다.');
+      // Google Calendar 초기화
+      if (!await _googleCalendarService.initialize()) {
+        print('⚠️ Google Calendar 초기화 실패 - 로컬 데이터 로드');
+        await _loadInitialData();
         return;
       }
 
-      final holidays = await _googleCalendarService.getKoreanHolidays(
-        startDate: startOfYear,
-        endDate: endOfYear,
+      // 색상 정보 로드
+      await _googleCalendarService.fetchColorsFromAPI();
+
+      // 현재 연도의 시작과 끝 날짜 계산
+      final DateTime startOfYear = DateTime(_focusedDay.year, 1, 1);
+      final DateTime endOfYear = DateTime(_focusedDay.year, 12, 31);
+
+      print(
+        '🔄 자동 동기화 범위: ${startOfYear.toString()} ~ ${endOfYear.toString()}',
       );
 
-      // 공휴일을 로컬 캐시에 추가
-      int addedHolidayCount = 0;
-      for (var holiday in holidays) {
+      // Google Calendar에서 이벤트 가져오기 (공휴일 포함)
+      final List<Event> googleEvents = await _googleCalendarService
+          .syncWithGoogleCalendarIncludingHolidays(
+            startDate: startOfYear,
+            endDate: endOfYear,
+          );
+
+      print('📥 자동 동기화로 가져온 이벤트 수: ${googleEvents.length}');
+
+      // 🔥 기존 로컬 공휴일 먼저 정리 (중복 방지)
+      await _cleanupDuplicateHolidays();
+
+      // Google Calendar 이벤트를 로컬에 저장 및 캐시에 추가
+      for (var event in googleEvents) {
         final normalizedDay = DateTime(
-          holiday.date.year,
-          holiday.date.month,
-          holiday.date.day,
+          event.date.year,
+          event.date.month,
+          event.date.day,
         );
         final dateKey = _getKey(normalizedDay);
 
@@ -186,44 +195,52 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
         final existingEvents = _events[dateKey] ?? [];
         final isDuplicate = existingEvents.any(
           (e) =>
-              e.title == holiday.title &&
-              e.time == holiday.time &&
-              e.date.day == holiday.date.day &&
-              e.date.month == holiday.date.month &&
-              e.date.year == holiday.date.year,
+              e.title == event.title &&
+              e.time == event.time &&
+              e.date.day == event.date.day &&
+              e.date.month == event.date.month &&
+              e.date.year == event.date.year,
         );
 
         if (!isDuplicate) {
           // 로컬 저장소에 저장
-          await EventStorageService.addEvent(normalizedDay, holiday);
+          await EventStorageService.addEvent(normalizedDay, event);
 
-          // 캐시에 직접 추가
+          // 캐시에 직접 이벤트 추가
           if (!_events.containsKey(dateKey)) {
             _events[dateKey] = [];
           }
-          _events[dateKey]!.add(holiday);
+          _events[dateKey]!.add(event);
 
-          // 공휴일 색상 할당 (빨간색 계열)
-          if (!_eventColors.containsKey(holiday.title)) {
-            _eventColors[holiday.title] = Colors.red;
+          // 🔥 공휴일과 구글 색상 적용
+          if (event.title.startsWith('🇰🇷')) {
+            _eventColors[event.title] = Colors.red;
+          } else if (event.color != null) {
+            _eventColors[event.title] = event.color!;
+            _ensureColorConsistency(event.colorId, event.color!);
+          } else if (event.colorId != null &&
+              _colorIdToColorMap.containsKey(event.colorId)) {
+            final googleColor = _colorIdToColorMap[event.colorId]!;
+            _eventColors[event.title] = googleColor;
+            _ensureColorConsistency(event.colorId, googleColor);
           }
-
-          addedHolidayCount++;
         }
       }
 
-      if (addedHolidayCount > 0) {
-        print('$addedHolidayCount개의 공휴일이 백그라운드에서 로드되었습니다.');
-        // UI 갱신
-        if (mounted) {
-          setState(() {});
-        }
-      } else {
-        print('새로 추가된 공휴일이 없습니다.');
+      // 현재 날짜의 이벤트와 타임슬롯도 로드
+      await _loadEventsForDay(_selectedDay);
+      await _loadTimeSlotsForDay(_selectedDay);
+
+      // UI 갱신
+      if (mounted) {
+        setState(() {});
       }
+
+      print('✅ 자동 동기화 완료 - Google Calendar 색상으로 표시됨');
     } catch (e) {
-      print('백그라운드 공휴일 로드 실패: $e');
-      // 실패해도 앱 사용에는 문제없음
+      print('⚠️ 자동 동기화 실패: $e');
+      // 실패 시 로컬 데이터 로드
+      await _loadInitialData();
     }
   }
 
@@ -284,14 +301,71 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
-  // 이벤트에 색상 할당
-  void _assignColorsToEvents(List<Event> events) {
-    int colorIndex = 0;
-    for (var event in events) {
-      if (!_eventColors.containsKey(event.title)) {
-        _eventColors[event.title] = _colors[colorIndex % _colors.length];
-        colorIndex++;
+  @override
+  void dispose() {
+    // 🔥 앱 생명주기 관찰자 해제
+    WidgetsBinding.instance.removeObserver(this);
+    _speech.stop();
+    super.dispose();
+  }
+
+  // 같은 colorId를 가진 모든 이벤트의 색상 일관성 보장
+  void _ensureColorConsistency(String? colorId, Color color) {
+    if (colorId == null) return;
+
+    // 모든 캐시된 이벤트에서 같은 colorId를 가진 이벤트들의 색상 업데이트
+    for (var dateKey in _events.keys) {
+      final events = _events[dateKey] ?? [];
+      for (var event in events) {
+        if (event.colorId == colorId) {
+          _eventColors[event.title] = color;
+        }
       }
+    }
+
+    // colorId 매핑도 업데이트
+    _colorIdToColorMap[colorId] = color;
+
+    print(
+      '🔄 colorId "$colorId" 일관성 보장: $color (0x${color.value.toRadixString(16).toUpperCase()})',
+    );
+  }
+
+  // 이벤트에 색상 할당 - Google Calendar 색상 최우선 시스템
+  void _assignColorsToEvents(List<Event> events) {
+    for (var event in events) {
+      // 🎯 1순위: Event 객체에 Google Calendar 색상이 있으면 최우선 적용
+      if (event.color != null) {
+        _eventColors[event.title] = event.color!;
+        _ensureColorConsistency(event.colorId, event.color!);
+        print(
+          '🎨 ✅ Google Calendar 색상 최우선 적용: "${event.title}" -> ${event.color}',
+        );
+        continue; // 다른 로직은 실행하지 않음
+      }
+
+      // 🎯 2순위: colorId가 있고 매핑된 Google 색상이 있는 경우
+      if (event.colorId != null &&
+          _colorIdToColorMap.containsKey(event.colorId)) {
+        final googleColor = _colorIdToColorMap[event.colorId]!;
+        _eventColors[event.title] = googleColor;
+        _ensureColorConsistency(event.colorId, googleColor);
+        print('🎨 ✅ Google colorId 기반 색상 적용: "${event.title}" -> $googleColor');
+        continue;
+      }
+
+      // 🎯 3순위: 기존에 저장된 색상이 있으면 유지 (로컬 생성 이벤트)
+      if (_eventColors.containsKey(event.title)) {
+        print(
+          '🎨 ℹ️ 기존 색상 유지: "${event.title}" -> ${_eventColors[event.title]}',
+        );
+        continue;
+      }
+
+      // 🎯 4순위: 새로운 색상 할당 (완전히 새로운 이벤트)
+      final colorIndex = _eventColors.length % _appColors.length;
+      _eventColors[event.title] = _appColors[colorIndex];
+      print('🎨 🆕 새 색상 할당: "${event.title}" -> ${_appColors[colorIndex]}');
     }
   }
 
@@ -318,7 +392,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       // 이벤트 색상 할당
       if (!_eventColors.containsKey(event.title)) {
         _eventColors[event.title] =
-            _colors[_eventColors.length % _colors.length];
+            _appColors[_eventColors.length % _appColors.length];
       }
 
       // Google Calendar에도 이벤트 추가 시도
@@ -439,74 +513,70 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
       _selectedDay.month,
       _selectedDay.day,
     );
-    final dateKey = _getKey(normalizedDay);
     final timeSlot = TimeSlot(title, startTime, endTime, color);
     // 타임슬롯 저장
     await EventStorageService.addTimeSlot(normalizedDay, timeSlot);
     // 캐시 업데이트
-    await _loadTimeSlotsForDay(normalizedDay);
-    // UI 갱신
+    await _loadTimeSlotsForDay(normalizedDay); // UI 갱신
     setState(() {});
   }
 
-  @override
-  void dispose() {
-    _speech.stop();
-    super.dispose();
-  }
-
-  // STT 초기화
+  // STT 초기화 (권한 요청 없이 객체만 준비)
   void _initializeSpeech() async {
-    bool available = await _speech.initialize(
-      onStatus: (val) => print('STT onStatus: $val'),
-      onError: (val) => print('STT onError: $val'),
-    );
-    if (available) {
-      print('STT 초기화 성공');
-    } else {
-      print('STT를 사용할 수 없습니다');
-    }
+    print('STT 객체 초기화 (권한 요청 없음)');
+    // 🔥 권한 요청 없이 STT 객체만 준비
+    // initialize()를 호출하지 않고, 마이크 버튼 클릭 시에만 초기화
   }
 
   // STT 시작
   void _startListening() async {
-    // 마이크 권한 확인
-    PermissionStatus permission = await Permission.microphone.request();
+    print('마이크 권한 요청 시작 (STT 사용을 위해)');
 
-    if (permission != PermissionStatus.granted) {
-      _showSnackBar('마이크 권한이 필요합니다.');
-      return;
-    }
+    // 마이크 권한 상세 처리
+    await _requestMicrophonePermission();
 
-    if (!_isListening) {
-      bool available = await _speech.initialize();
-      if (available) {
-        setState(() {
-          _isListening = true;
-          _recognizedText = '';
-        });
+    // 권한 확인 후 STT 시작
+    PermissionStatus permission = await Permission.microphone.status;
 
-        _speech.listen(
-          onResult: (val) {
-            setState(() {
-              _recognizedText = val.recognizedWords;
-            });
-            // 다이얼로그가 열려있다면 실시간 업데이트
-            if (_dialogSetState != null) {
-              _dialogSetState!(() {});
-            }
-          },
-          listenFor: Duration(seconds: 30),
-          pauseFor: Duration(seconds: 5), // 더 긴 일시정지 허용
-          partialResults: true, // 부분 결과 활성화
-          cancelOnError: true,
-          listenMode: stt.ListenMode.confirmation,
-          localeId: "ko_KR", // 한국어 설정
-        );
+    if (permission.isGranted) {
+      print('마이크 권한 허용됨 - STT 시작');
 
-        // 음성 인식 중임을 사용자에게 알림
-        _showSTTDialog();
+      if (!_isListening) {
+        bool available = await _speech.initialize();
+        if (available) {
+          setState(() {
+            _isListening = true;
+            _recognizedText = '';
+          });
+
+          _speech.listen(
+            onResult: (val) {
+              setState(() {
+                _recognizedText = val.recognizedWords;
+              });
+              // 다이얼로그가 열려있다면 실시간 업데이트
+              if (_dialogSetState != null) {
+                _dialogSetState!(() {});
+              }
+            },
+            listenFor: Duration(seconds: 30),
+            pauseFor: Duration(seconds: 5), // 더 긴 일시정지 허용
+            partialResults: true, // 부분 결과 활성화
+            cancelOnError: true,
+            listenMode: stt.ListenMode.confirmation,
+            localeId: "ko_KR", // 한국어 설정
+          );
+
+          // 음성 인식 중임을 사용자에게 알림
+          _showSTTDialog();
+        } else {
+          _showSnackBar('음성 인식을 사용할 수 없습니다.');
+        }
       }
+    } else {
+      print('마이크 권한 거부됨 - STT 사용 불가');
+      _showSnackBar('음성 인식을 사용하려면 마이크 권한이 필요합니다.');
+      return;
     }
   }
 
@@ -1091,7 +1161,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     final titleController = TextEditingController();
     final startTimeController = TextEditingController();
     final endTimeController = TextEditingController();
-    Color selectedColor = _colors[_random.nextInt(_colors.length)];
+    Color selectedColor = _appColors[_random.nextInt(_appColors.length)];
 
     showDialog(
       context: context,
@@ -1127,7 +1197,7 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children:
-                        _colors
+                        _appColors
                             .map(
                               (color) => GestureDetector(
                                 onTap: () {
@@ -1202,42 +1272,142 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
-  // uc704uce58 uad8cud55c uc694uccad
-  Future<void> _requestLocationPermission() async {
-    print('위치 권한 요청 시작');
-    final permission = await Geolocator.checkPermission();
+  // 앱 시작 시 필수 권한만 요청하는 메소드 (위치 권한만)
+  Future<void> _requestEssentialPermissions() async {
+    print('필수 권한 요청 시작 (위치 권한)');
 
-    if (permission == LocationPermission.denied) {
-      print('위치 권한 요청하는 중...');
-      final result = await Geolocator.requestPermission();
-      print('위치 권한 요청 결과: $result');
+    // 위치 권한 요청 (개선된 버전)
+    await _requestLocationPermissionProper();
 
-      if (result == LocationPermission.denied ||
-          result == LocationPermission.deniedForever) {
-        // 사용자에게 권한이 필요하다고 알림
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')));
-      } else {
-        // 권한을 얻었으니 날씨 로드 재시도
-        _loadWeatherData();
+    print('필수 권한 요청 완료');
+  }
+
+  // 마이크 권한을 요청하는 메소드
+  Future<void> _requestMicrophonePermission() async {
+    print('마이크 권한 요청 시작');
+
+    try {
+      final status = await Permission.microphone.request();
+
+      if (status.isGranted) {
+        print('마이크 권한 허용됨');
+      } else if (status.isDenied) {
+        print('마이크 권한 거부됨');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('음성 인식 기능을 사용하려면 마이크 권한이 필요합니다')),
+          );
+        }
+      } else if (status.isPermanentlyDenied) {
+        print('마이크 권한 영구 거부됨');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('마이크 권한이 영구적으로 거부되었습니다. 설정에서 변경해주세요.'),
+              action: SnackBarAction(
+                label: '설정',
+                onPressed: () async {
+                  await openAppSettings();
+                },
+              ),
+            ),
+          );
+        }
       }
-    } else if (permission == LocationPermission.deniedForever) {
-      print('위치 권한이 영구 거부됨');
-      // 설정으로 이동하도록 안내
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 변경해주세요.'),
-          action: SnackBarAction(
-            label: '설정',
-            onPressed: () async {
-              await Geolocator.openAppSettings();
-            },
-          ),
-        ),
-      );
-    } else {
-      print('위치 권한 이미 있음: $permission');
+    } catch (e) {
+      print('마이크 권한 요청 중 오류: $e');
+    }
+  }
+
+  // 위치 권한을 요청하는 개선된 메소드
+  Future<void> _requestLocationPermissionProper() async {
+    print('위치 권한 요청 시작 (개선된 버전)');
+
+    try {
+      // 위치 서비스 활성화 확인
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('위치 서비스가 비활성화됨');
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('위치 서비스를 활성화해주세요')));
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        print('위치 권한 요청하는 중...');
+        permission = await Geolocator.requestPermission();
+        print('위치 권한 요청 결과: $permission');
+      }
+
+      if (permission == LocationPermission.denied) {
+        print('위치 권한 거부됨');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('날씨 정보를 받으려면 위치 권한이 필요합니다')),
+          );
+        }
+      } else if (permission == LocationPermission.deniedForever) {
+        print('위치 권한 영구 거부됨');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 변경해주세요.'),
+              action: SnackBarAction(
+                label: '설정',
+                onPressed: () async {
+                  await Geolocator.openAppSettings();
+                },
+              ),
+            ),
+          );
+        }
+      } else {
+        print('위치 권한 허용됨: $permission');
+        // 권한을 얻었음을 로그로만 기록 (날씨 로드는 _initializeApp()에서 처리)
+      }
+    } catch (e) {
+      print('위치 권한 요청 중 오류: $e');
+    }
+  } // 앱 초기화를 처리하는 메소드
+
+  Future<void> _initializeApp() async {
+    print('🚀 앱 초기화 시작');
+
+    try {
+      // 1단계: 위치 권한 먼저 요청
+      print('1️⃣ 위치 권한 요청 시작...');
+      await _requestEssentialPermissions();
+
+      // 잠시 대기 (권한 요청 완료를 위해)
+      await Future.delayed(Duration(milliseconds: 500));
+
+      // 2단계: 실제 위치 권한 상태 확인
+      final locationPermission = await Geolocator.checkPermission();
+      print('📍 위치 권한 최종 상태: $locationPermission');
+
+      // 3단계: Google Calendar 서비스 초기화
+      print('2️⃣ Google Calendar 초기화 시작...');
+      await _initializeGoogleCalendarService();
+
+      // 4단계: 위치 권한이 있으면 날씨 데이터 로드
+      if (locationPermission == LocationPermission.always ||
+          locationPermission == LocationPermission.whileInUse) {
+        print('3️⃣ 위치 권한 있음 - 날씨 데이터 로드 시작');
+        await _loadWeatherData();
+      } else {
+        print('3️⃣ 위치 권한 없음 - 날씨 데이터 로드 건너뛰기');
+      }
+
+      print('✅ 앱 초기화 완료');
+    } catch (e) {
+      print('⚠️ 앱 초기화 중 오류: $e');
+      // 실패해도 기본 데이터는 로드
+      await _loadInitialData();
     }
   }
 
@@ -1406,12 +1576,10 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
           if (!_events.containsKey(dateKey)) {
             _events[dateKey] = [];
           }
-          _events[dateKey]!.add(event);
-
-          // 이벤트 색상 할당
+          _events[dateKey]!.add(event); // 이벤트 색상 할당
           if (!_eventColors.containsKey(event.title)) {
             _eventColors[event.title] =
-                _colors[_eventColors.length % _colors.length];
+                _appColors[_eventColors.length % _appColors.length];
           }
 
           addedCount++;
@@ -1659,48 +1827,6 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
   }
 
-  // 특정 날짜의 이벤트 캐시 새로고침
-  Future<void> _refreshEventsForDay(DateTime day) async {
-    final normalizedDay = DateTime(day.year, day.month, day.day);
-    final dateKey = _getKey(normalizedDay);
-
-    // 캐시에서 해당 날짜 제거
-    _events.remove(dateKey);
-    _loadingDates.remove(dateKey);
-
-    // 다시 로드
-    await _loadEventsForDay(normalizedDay);
-
-    // UI 갱신
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // 전체 이벤트 캐시 새로고침
-  Future<void> _refreshAllEvents() async {
-    _events.clear();
-
-    // 현재 화면에 보이는 모든 날짜 다시 로드
-    final firstVisibleDay = DateTime(
-      _focusedDay.year,
-      _focusedDay.month - 1,
-      1,
-    );
-    final lastVisibleDay = DateTime(_focusedDay.year, _focusedDay.month + 2, 0);
-
-    DateTime currentDay = firstVisibleDay;
-    while (currentDay.isBefore(lastVisibleDay) ||
-        currentDay.isAtSameMomentAs(lastVisibleDay)) {
-      await _loadEventsForDay(currentDay);
-      currentDay = currentDay.add(const Duration(days: 1));
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   // 이벤트 캐시 새로고침 (다른 화면에서 추가된 이벤트를 위해)
   Future<void> _refreshCurrentMonthEvents() async {
     try {
@@ -1794,6 +1920,49 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     }
 
     print('=== $year년 전체 이벤트 로드 완료 ===');
+  }
+
+  // 중복된 공휴일 정리 메서드
+  Future<void> _cleanupDuplicateHolidays() async {
+    try {
+      print('🧹 중복 공휴일 정리 시작...');
+
+      // 전체 이벤트를 순회하며 공휴일 중복 제거
+      for (var dateKey in _events.keys.toList()) {
+        final events = _events[dateKey];
+        if (events == null) continue;
+
+        // 공휴일인 이벤트들만 필터링
+        final holidays =
+            events.where((e) => e.title.startsWith('🇰🇷')).toList();
+
+        if (holidays.length > 1) {
+          // 중복된 공휴일이 있으면 하나만 남기고 제거
+          final uniqueHolidays = <Event>[];
+          final Set<String> seenTitles = {};
+
+          for (final holiday in holidays) {
+            if (!seenTitles.contains(holiday.title)) {
+              seenTitles.add(holiday.title);
+              uniqueHolidays.add(holiday);
+            } else {
+              // 중복된 공휴일을 로컬 스토리지에서 삭제
+              await EventStorageService.removeEvent(holiday.date, holiday);
+              print('중복 공휴일 삭제: ${holiday.title}');
+            }
+          }
+
+          // 캐시 업데이트: 공휴일이 아닌 이벤트 + 유니크한 공휴일
+          final nonHolidays =
+              events.where((e) => !e.title.startsWith('🇰🇷')).toList();
+          _events[dateKey] = [...nonHolidays, ...uniqueHolidays];
+        }
+      }
+
+      print('✅ 중복 공휴일 정리 완료');
+    } catch (e) {
+      print('⚠️ 중복 공휴일 정리 실패: $e');
+    }
   }
 
   @override
