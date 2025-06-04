@@ -88,7 +88,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         onGoogleCalendarUpload: () async {
           try {
             await widget.eventManager.uploadToGoogleCalendar();
-            _showSnackBar('Google Calendar 업로드 완료');
+            _showSnackBar('앱 → Google Calendar 업로드 완료! (중복 방지 적용)');
           } catch (e) {
             _showSnackBar('업로드 실패: $e');
           }
@@ -133,10 +133,23 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         widget.popupManager.showEventDialog();
                         setState(() {});
                       },
-                      onPageChanged: (focusedDay) {
+                      onPageChanged: (focusedDay) async {
+                        print(
+                          '📅 월 변경됨: ${focusedDay.year}년 ${focusedDay.month}월',
+                        );
+
                         widget.controller.setFocusedDay(focusedDay);
                         widget.controller.hideAllPopups();
-                        widget.eventManager.refreshCurrentMonthEvents();
+
+                        // 🔥 월 변경 시 해당 월의 이벤트만 로드 (중복 없이)
+                        try {
+                          await widget.eventManager.loadEventsForMonth(
+                            focusedDay,
+                          );
+                        } catch (e) {
+                          print('❌ 월 변경 시 이벤트 로드 실패: $e');
+                        }
+
                         setState(() {});
                       },
                       eventLoader:
@@ -233,9 +246,23 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             day: day,
                             isSelected: false,
                             isToday: false,
-                            onTap: () {
+                            onTap: () async {
                               widget.controller.setSelectedDay(day);
                               widget.controller.setFocusedDay(focusedDay);
+
+                              // 🔥 날짜 선택 시에도 중복 로드 방지
+                              if (widget.controller.shouldLoadEventsForDay(
+                                day,
+                              )) {
+                                try {
+                                  await widget.eventManager.loadEventsForDay(
+                                    day,
+                                  );
+                                } catch (e) {
+                                  print('❌ 날짜 선택 시 이벤트 로드 실패: $e');
+                                }
+                              }
+
                               widget.popupManager.showEventDialog();
                               setState(() {});
                             },
@@ -272,16 +299,29 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                               day,
                             ),
                           );
-                        },
-                        // 오늘 날짜 셀 빌더
+                        }, // 오늘 날짜 셀 빌더
                         todayBuilder: (context, day, focusedDay) {
                           return WeatherCalendarCell(
                             day: day,
                             isSelected: false,
                             isToday: true,
-                            onTap: () {
+                            onTap: () async {
                               widget.controller.setSelectedDay(day);
                               widget.controller.setFocusedDay(focusedDay);
+
+                              // 🔥 날짜 선택 시에도 중복 로드 방지
+                              if (widget.controller.shouldLoadEventsForDay(
+                                day,
+                              )) {
+                                try {
+                                  await widget.eventManager.loadEventsForDay(
+                                    day,
+                                  );
+                                } catch (e) {
+                                  print('❌ 오늘 날짜 선택 시 이벤트 로드 실패: $e');
+                                }
+                              }
+
                               widget.popupManager.showEventDialog();
                               setState(() {});
                             },
@@ -541,12 +581,21 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   void _showVoiceInput() {
     VoiceCommandService.instance.showVoiceInput(
       context: context,
+      eventManager: widget.eventManager, // EventManager 전달
       onCommandProcessed: _handleVoiceCommandResponse,
+      onCalendarUpdate: () {
+        print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음');
+        // AI가 캘린더를 업데이트한 경우 UI 새로고침
+        setState(() {});
+        // 현재 선택된 날짜의 이벤트 다시 로드
+        widget.eventManager.loadEventsForDay(widget.controller.selectedDay);
+      },
     );
   }
-
   /// 음성 명령 처리 결과에 따른 액션
   void _handleVoiceCommandResponse(String response, String command) {
+    print('🎤 CalendarWidget: STT 명령 처리 - 명령: "$command", 응답: "$response"');
+
     // 스낵바로 응답 표시
     _showSnackBar(response);
 
@@ -558,16 +607,10 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       widget.eventManager,
       () => setState(() {}),
     );
-
-    // 일정 추가 명령어는 컨텍스트가 필요하므로 여기서 처리
-    final lowerCommand = command.toLowerCase();
-    if (lowerCommand.contains('일정 추가') ||
-        lowerCommand.contains('일정추가') ||
-        lowerCommand.contains('새 일정') ||
-        lowerCommand.contains('새일정')) {
-      widget.popupManager.showAddEventDialog(context).then((_) {
-        setState(() {});
-      });
+    
+    // 일정 관련 자동 팝업 기능 비활성화
+    // final lowerCommand = command.toLowerCase();
+    // 일정 추가 및 삭제 자동 팝업 기능은 사용자 요청으로 비활성화되었습니다
     }
 
     // AI 응답이 있는 경우

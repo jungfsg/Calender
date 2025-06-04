@@ -20,6 +20,8 @@ class VoiceCommandService {
   Future<void> showVoiceInput({
     required BuildContext context,
     required Function(String, String) onCommandProcessed,
+    VoidCallback? onCalendarUpdate, // 캘린더 업데이트 콜백 추가
+    EventManager? eventManager, // EventManager 추가
   }) async {
     showModalBottomSheet(
       context: context,
@@ -30,7 +32,12 @@ class VoiceCommandService {
       builder: (BuildContext context) {
         return VoiceInputWidget(
           onVoiceCommand: (command) {
-            _processCommand(command, onCommandProcessed);
+            _processCommand(
+              command,
+              onCommandProcessed,
+              onCalendarUpdate,
+              eventManager,
+            );
           },
           onClose: () => Navigator.of(context).pop(),
         );
@@ -42,29 +49,42 @@ class VoiceCommandService {
   Future<void> _processCommand(
     String command,
     Function(String, String) onCommandProcessed,
+    VoidCallback? onCalendarUpdate, // 캘린더 업데이트 콜백 추가
+    EventManager? eventManager, // EventManager 추가
   ) async {
+    print('🎯 VoiceCommandService: 음성 명령 처리 시작 - "$command"');
+
     // 즉시 처리 중 메시지 표시
     onCommandProcessed("명령어 처리 중...", command);
-
     try {
       // 간단한 명령어는 로컬에서 처리
       if (_isSimpleCommand(command)) {
+        print('🔧 VoiceCommandService: 간단한 명령어로 분류됨 - 로컬 처리');
         final response = _processSimpleCommand(command);
         onCommandProcessed(response, command);
         return;
       }
 
+      print('🤖 VoiceCommandService: 복잡한 명령어 - AI로 전달');
       // 복잡한 명령어는 AI로 전달
       final userid =
           'voice_command_user_${DateTime.now().millisecondsSinceEpoch}';
+      print('🌐 VoiceCommandService: ChatService.sendMessage 호출 중...');
       final response = await _chatService.sendMessage(
         command,
         userid,
+        eventManager: eventManager, // EventManager 전달
         onCalendarUpdate: () {
-          // AI가 일정을 추가/수정/삭제한 경우 콜백으로 알림
+          print('🔄 VoiceCommandService: AI가 캘린더를 업데이트했습니다');
+          // AI가 일정을 추가/수정/삭제한 경우 UI 새로고침
+          if (onCalendarUpdate != null) {
+            onCalendarUpdate();
+          }
+          onCommandProcessed('✅ AI 응답 완료 (캘린더가 업데이트되었습니다)', command);
         },
       );
 
+      print('✅ VoiceCommandService: AI 응답 받음 - "${response.text}"');
       onCommandProcessed('AI: ${response.text}', command);
     } catch (e) {
       print('AI 처리 오류: $e');
@@ -152,22 +172,31 @@ class VoiceCommandService {
     } else if (_checkForDateMovement(lowerCommand, controller)) {
       // 연도/월 이동 처리됨
       onStateUpdate();
-    }
-    // 일정 관리 명령어
+    } // 일정 관리 명령어
     else if (lowerCommand.contains('일정 추가') ||
         lowerCommand.contains('일정추가') ||
         lowerCommand.contains('새 일정') ||
         lowerCommand.contains('새일정')) {
       // 컨텍스트가 필요한 작업은 콜백으로 처리
+    } else if (lowerCommand.contains('일정 삭제') ||
+        lowerCommand.contains('일정삭제') ||
+        lowerCommand.contains('삭제') ||
+        lowerCommand.contains('지워') ||
+        lowerCommand.contains('제거')) {
+      // 일정 삭제 명령어 처리 - 복잡한 처리는 AI로 넘김
+      print('🗑️ STT에서 일정 삭제 명령어 감지: $command');
     } else if (lowerCommand.contains('일정 보기') ||
         lowerCommand.contains('일정보기')) {
-      popupManager.showEventDialog();
-      onStateUpdate();
-    }
-    // 타임테이블 관련 명령어
+      // 일정 보기 명령어 - 팝업 비활성화 (사용자 요청)
+      // popupManager.showEventDialog();
+      // onStateUpdate();
+      print('일정 보기 명령어가 감지되었지만 팝업 표시가 비활성화되어 있습니다.');
+    } // 타임테이블 관련 명령어
     else if (lowerCommand.contains('타임테이블') || lowerCommand.contains('시간표')) {
-      popupManager.showTimeTableDialog();
-      onStateUpdate();
+      // 타임테이블 명령어 - 팝업 비활성화 (사용자 요청)
+      // popupManager.showTimeTableDialog();
+      // onStateUpdate();
+      print('타임테이블/시간표 명령어가 감지되었지만 팝업 표시가 비활성화되어 있습니다.');
     }
     // 날씨 정보 명령어 처리
     else if (lowerCommand.contains('날씨')) {

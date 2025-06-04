@@ -1,3 +1,9 @@
+// ========================================
+// 🔴 이 파일은 참고용으로 보관됩니다.
+// 실제 사용되는 파일은 refactored_calendar_screen.dart입니다.
+// ========================================
+
+/*
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
@@ -6,7 +12,7 @@ import 'dart:math';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'empty_page.dart';
+import 'chat_screen.dart';
 import '../utils/font_utils.dart';
 
 import '../models/time_slot.dart';
@@ -2339,3 +2345,4 @@ class _PixelArtCalendarScreenState extends State<PixelArtCalendarScreen>
     );
   }
 }
+*/

@@ -24,14 +24,23 @@ class EventManager {
 
   EventManager(this._controller);
 
-  /// 특정 날짜의 이벤트 로드
+  /// 특정 날짜의 이벤트 로드 (중복 방지)
   Future<void> loadEventsForDay(DateTime day) async {
-    if (_controller.isDateLoading(day)) return;
+    final normalizedDay = DateTime(day.year, day.month, day.day);
 
-    _controller.setDateLoading(day, true);
+    // 🔥 핵심 수정: 중복 로드 방지
+    if (!_controller.shouldLoadEventsForDay(normalizedDay)) {
+      print('📋 이미 로드됨 또는 로딩 중, 스킵: ${normalizedDay.toString()}');
+      return;
+    }
+
+    _controller.setDateLoading(normalizedDay, true);
 
     try {
-      final events = await EventStorageService.getEvents(day);
+      final events = await EventStorageService.getEvents(normalizedDay);
+
+      // 🔥 중복 방지: 기존 이벤트 완전 교체 (추가가 아닌 교체)
+      _controller.clearEventsForDay(normalizedDay);
 
       // 캐시에 이벤트 저장
       for (var event in events) {
@@ -39,35 +48,99 @@ class EventManager {
 
         // 색상이 없는 이벤트에 색상 할당
         if (_controller.getEventColor(event.title) == null) {
-          final color = _appColors[_random.nextInt(_appColors.length)];
-          _controller.setEventColor(event.title, color);
+          Color eventColor;
+          if (event.source == 'holiday') {
+            eventColor = Colors.deepOrange; // 공휴일은 주황색
+          } else if (event.source == 'google') {
+            eventColor = Colors.lightBlue; // Google 이벤트는 연한 파란색
+          } else {
+            eventColor = _appColors[_random.nextInt(_appColors.length)];
+          }
+          _controller.setEventColor(event.title, eventColor);
         }
       }
+
+      print('✅ 날짜별 이벤트 로드 완료: ${normalizedDay.toString()} - ${events.length}개');
     } catch (e) {
-      print('이벤트 로드 중 오류: $e');
+      print('❌ 이벤트 로드 실패: ${normalizedDay.toString()} - $e');
     } finally {
-      _controller.setDateLoading(day, false);
+      _controller.setDateLoading(normalizedDay, false);
     }
   }
 
-  /// 이벤트 추가
+  /// 월 변경 시 호출되는 메서드 - 전체 월의 이벤트를 한번에 로드 (중복 방지)
+  Future<void> loadEventsForMonth(DateTime month) async {
+    try {
+      print('📅 월별 이벤트 로딩 시작: ${month.year}년 ${month.month}월');
+
+      final firstDay = DateTime(month.year, month.month, 1);
+      final lastDay = DateTime(month.year, month.month + 1, 0);
+
+      // 🔥 핵심: 해당 월의 모든 이벤트를 한번에 로드하되, 중복 방지
+      for (
+        DateTime day = firstDay;
+        day.isBefore(lastDay.add(Duration(days: 1)));
+        day = day.add(Duration(days: 1))
+      ) {
+        await loadEventsForDay(day);
+      }
+
+      print('✅ 월별 이벤트 로딩 완료: ${month.year}년 ${month.month}월');
+    } catch (e) {
+      print('❌ 월별 이벤트 로딩 실패: $e');
+    }
+  }
+
+  /// 이벤트 추가 (중복 체크 강화)
   Future<void> addEvent(Event event) async {
     try {
-      // 로컬 스토리지에 저장
+      // 1. 기존 이벤트와 중복 체크
+      final existingEvents = await EventStorageService.getEvents(event.date);
+      final isDuplicate = existingEvents.any(
+        (e) =>
+            e.title.trim().toLowerCase() == event.title.trim().toLowerCase() &&
+            e.time == event.time &&
+            e.date.year == event.date.year &&
+            e.date.month == event.date.month &&
+            e.date.day == event.date.day,
+      );
+
+      if (isDuplicate) {
+        print('🚫 중복 이벤트로 추가하지 않음: ${event.title} (${event.time})');
+        throw Exception('이미 동일한 일정이 존재합니다');
+      }
+
+      // 2. 컨트롤러 캐시에서도 중복 체크
+      final cachedEvents = _controller.getEventsForDay(event.date);
+      final isCacheDuplicate = cachedEvents.any(
+        (e) =>
+            e.title.trim().toLowerCase() == event.title.trim().toLowerCase() &&
+            e.time == event.time &&
+            e.date.year == event.date.year &&
+            e.date.month == event.date.month &&
+            e.date.day == event.date.day,
+      );
+
+      if (isCacheDuplicate) {
+        print('🚫 캐시에 중복 이벤트 존재: ${event.title} (${event.time})');
+        throw Exception('이미 동일한 일정이 존재합니다');
+      }
+
+      // 3. 중복이 없으면 저장
       await EventStorageService.addEvent(event.date, event);
 
-      // 컨트롤러에 추가
+      // 4. 컨트롤러에 추가
       _controller.addEvent(event);
 
-      // 색상 할당
+      // 5. 색상 할당
       if (_controller.getEventColor(event.title) == null) {
         final color = _appColors[_random.nextInt(_appColors.length)];
         _controller.setEventColor(event.title, color);
       }
 
-      print('이벤트 추가됨: ${event.title}');
+      print('✅ 이벤트 추가됨: ${event.title}');
     } catch (e) {
-      print('이벤트 추가 중 오류: $e');
+      print('❌ 이벤트 추가 중 오류: $e');
       rethrow;
     }
   }
@@ -88,6 +161,28 @@ class EventManager {
     }
   }
 
+  /// 특정 이벤트 삭제 후 컨트롤러 갱신
+  Future<void> removeEventAndRefresh(DateTime date, Event event) async {
+    try {
+      print('🗑️ EventManager: 이벤트 삭제 및 새로고침 시작...');
+      print('   삭제할 이벤트: ${event.title} (${date.toString().substring(0, 10)})');
+
+      // 1. 스토리지에서 이벤트 삭제
+      await EventStorageService.removeEvent(date, event);
+
+      // 2. 컨트롤러에서도 이벤트 제거
+      _controller.removeEvent(event);
+
+      // 3. 해당 날짜 이벤트 다시 로드하여 동기화
+      await loadEventsForDay(date);
+
+      print('✅ EventManager: 이벤트 삭제 및 새로고침 완료');
+    } catch (e) {
+      print('❌ EventManager: 이벤트 삭제 중 오류: $e');
+      rethrow;
+    }
+  }
+
   /// 현재 월의 모든 이벤트 새로고침
   Future<void> refreshCurrentMonthEvents() async {
     final currentMonth = _controller.focusedDay;
@@ -100,9 +195,12 @@ class EventManager {
       await loadEventsForDay(date);
     }
   }
+
   /// Google 캘린더와 동기화 (중복 방지 시스템 적용)
   Future<void> syncWithGoogleCalendar() async {
     try {
+      print('🔄 EventManager: Google Calendar 동기화 시작...');
+
       if (!await _googleCalendarService.initialize()) {
         throw Exception('Google Calendar 초기화 실패');
       }
@@ -111,55 +209,129 @@ class EventManager {
       final DateTime startOfYear = DateTime(_controller.focusedDay.year, 1, 1);
       final DateTime endOfYear = DateTime(_controller.focusedDay.year, 12, 31);
 
-      // Google Calendar에서 이벤트 가져오기
+      // 1단계: 기존 Google/공휴일 이벤트들을 먼저 정리
+      print('🧹 기존 Google/공휴일 이벤트 정리 중...');
+      await _clearGoogleEventsFromStorage(startOfYear, endOfYear);
+      _controller.removeEventsBySource('google');
+      _controller.removeEventsBySource('holiday');
+
+      // 2단계: Google Calendar에서 새로운 이벤트 가져오기
+      print('📥 Google Calendar에서 새 이벤트 가져오기...');
       final List<Event> googleEvents = await _googleCalendarService
           .syncWithGoogleCalendarIncludingHolidays(
             startDate: startOfYear,
             endDate: endOfYear,
+          ); // 3단계: 새로운 Google 이벤트들을 스토리지에 저장 (중복 체크 강화)
+      print('💾 새 Google 이벤트들 저장 중...');
+      int addedCount = 0;
+      int skippedCount = 0;
+
+      for (var event in googleEvents) {
+        final dateKey = DateTime(
+          event.date.year,
+          event.date.month,
+          event.date.day,
+        );
+
+        // 🔥 기존 로컬 이벤트와 중복 체크
+        final existingEvents = await EventStorageService.getEvents(dateKey);
+        final isDuplicateWithLocal = existingEvents.any(
+          (existingEvent) =>
+              existingEvent.title.trim().toLowerCase() ==
+                  event.title.trim().toLowerCase() &&
+              existingEvent.time == event.time &&
+              existingEvent.source != 'google' &&
+              existingEvent.source != 'holiday',
+        );
+
+        if (isDuplicateWithLocal) {
+          print(
+            '🚫 로컬 이벤트와 중복되어 Google 이벤트 제외: ${event.title} (${event.time})',
           );
+          skippedCount++;
+          continue;
+        }
 
-      // 날짜별로 Google 이벤트 그룹화
-      final Map<DateTime, List<Event>> googleEventsByDate = {};
-      for (var event in googleEvents) {
-        final dateKey = DateTime(event.date.year, event.date.month, event.date.day);
-        googleEventsByDate.putIfAbsent(dateKey, () => []).add(event);
-      }
-
-      // EventStorageService를 통해 중복 방지하며 동기화
-      await EventStorageService.syncGoogleEventsForRange(
-        startOfYear, 
-        endOfYear, 
-        googleEventsByDate
-      );
-
-      // 컨트롤러에서 기존 Google 이벤트 제거 후 새 이벤트 추가
-      _controller.removeEventsBySource('google');
-      
-      for (var event in googleEvents) {
-        _controller.addEvent(event);
+        // Google 소스로 명시하여 저장
+        final googleEvent = Event(
+          title: event.title,
+          time: event.time,
+          date: event.date,
+          source: event.source == 'holiday' ? 'holiday' : 'google',
+          description: event.description,
+          colorId: event.colorId,
+          color: event.color,
+        );
+        await EventStorageService.addEvent(dateKey, googleEvent);
+        _controller.addEvent(googleEvent);
+        addedCount++;
 
         // Google 이벤트는 특별한 색상 처리
-        if (_controller.getEventColor(event.title) == null) {
+        if (_controller.getEventColor(googleEvent.title) == null) {
           Color eventColor;
-          if (event.source == 'holiday') {
+          if (googleEvent.source == 'holiday') {
             eventColor = Colors.deepOrange; // 공휴일은 주황색
           } else {
             eventColor = Colors.lightBlue; // Google 이벤트는 연한 파란색
           }
-          _controller.setEventColor(event.title, eventColor);
+          _controller.setEventColor(googleEvent.title, eventColor);
         }
       }
 
-      print('Google Calendar 동기화 완료: ${googleEvents.length}개 이벤트');
+      print(
+        '✅ EventManager: Google Calendar 동기화 완료 - 추가: $addedCount개, 중복 제외: $skippedCount개',
+      );
     } catch (e) {
-      print('Google Calendar 동기화 중 오류: $e');
+      print('❌ EventManager: Google Calendar 동기화 중 오류: $e');
       rethrow;
     }
   }
 
-  /// 로컬 이벤트를 Google Calendar에 업로드
+  /// 스토리지에서 Google/공휴일 이벤트들을 제거하는 메서드
+  Future<void> _clearGoogleEventsFromStorage(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      // 지정된 기간의 모든 날짜에 대해 Google/공휴일 이벤트 삭제
+      DateTime currentDate = startDate;
+      while (currentDate.isBefore(endDate) ||
+          currentDate.isAtSameMomentAs(endDate)) {
+        final events = await EventStorageService.getEventsForDate(currentDate);
+        final localEvents =
+            events
+                .where(
+                  (event) =>
+                      event.source != 'google' && event.source != 'holiday',
+                )
+                .toList();
+
+        // 로컬 이벤트만 남기고 다시 저장
+        if (localEvents.length != events.length) {
+          await EventStorageService.clearEventsForDate(currentDate);
+          for (var localEvent in localEvents) {
+            await EventStorageService.addEvent(currentDate, localEvent);
+          }
+        }
+
+        final nextDate = DateTime(
+          currentDate.year,
+          currentDate.month,
+          currentDate.day + 1,
+        );
+        if (nextDate == currentDate) break; // 무한 루프 방지
+        currentDate = nextDate;
+      }
+    } catch (e) {
+      print('❌ 기존 Google 이벤트 정리 실패: $e');
+    }
+  }
+
+  /// 로컬 이벤트를 Google Calendar에 업로드 (중복 방지 포함)
   Future<void> uploadToGoogleCalendar() async {
     try {
+      print('🔄 EventManager: Google Calendar 업로드 시작...');
+
       if (!await _googleCalendarService.initialize()) {
         throw Exception('Google Calendar 초기화 실패');
       }
@@ -169,43 +341,105 @@ class EventManager {
       final startOfMonth = DateTime(currentMonth.year, currentMonth.month, 1);
       final endOfMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0);
 
-      List<Event> allEvents = [];
+      List<Event> localEvents = [];
       for (int day = startOfMonth.day; day <= endOfMonth.day; day++) {
         final date = DateTime(currentMonth.year, currentMonth.month, day);
-        allEvents.addAll(_controller.getEventsForDay(date));
+        localEvents.addAll(_controller.getEventsForDay(date));
       }
 
-      // Google Calendar에 업로드
-      for (var event in allEvents) {
-        await _googleCalendarService.addEventToGoogleCalendar(event);
+      print('📤 업로드 대상 로컬 이벤트 수: ${localEvents.length}');
+
+      // Google Calendar에서 같은 기간의 기존 이벤트 가져오기
+      final List<Event> googleEvents = await _googleCalendarService
+          .getEventsFromGoogleCalendar(
+            startDate: startOfMonth,
+            endDate: endOfMonth,
+          );
+
+      print('📥 Google Calendar 기존 이벤트 수: ${googleEvents.length}');
+
+      int uploadedCount = 0;
+      int skippedCount = 0;
+
+      // 각 로컬 이벤트에 대해 중복 체크 후 업로드
+      for (var localEvent in localEvents) {
+        // 중복 체크: 제목, 날짜, 시간이 모두 같은 이벤트가 있는지 확인
+        bool isDuplicate = googleEvents.any((googleEvent) {
+          return googleEvent.title == localEvent.title &&
+              googleEvent.date.year == localEvent.date.year &&
+              googleEvent.date.month == localEvent.date.month &&
+              googleEvent.date.day == localEvent.date.day &&
+              googleEvent.time == localEvent.time;
+        });
+
+        if (isDuplicate) {
+          print(
+            '⏭️ 중복 이벤트 업로드 건너뜀: ${localEvent.title} (${localEvent.date.toString().substring(0, 10)} ${localEvent.time})',
+          );
+          skippedCount++;
+          continue;
+        }
+
+        // 중복이 아니면 Google Calendar에 업로드
+        try {
+          final success = await _googleCalendarService.addEventToGoogleCalendar(
+            localEvent,
+          );
+          if (success) {
+            print(
+              '✅ 업로드 성공: ${localEvent.title} (${localEvent.date.toString().substring(0, 10)} ${localEvent.time})',
+            );
+            uploadedCount++;
+          } else {
+            print('❌ 업로드 실패: ${localEvent.title}');
+          }
+        } catch (e) {
+          print('❌ 업로드 중 오류: ${localEvent.title} - $e');
+        }
       }
 
-      print('Google Calendar 업로드 완료: ${allEvents.length}개 이벤트');
+      print('📊 Google Calendar 업로드 완료:');
+      print('   • 신규 업로드: $uploadedCount개');
+      print('   • 중복으로 건너뜀: $skippedCount개');
+      print('   • 총 로컬 이벤트: ${localEvents.length}개');
     } catch (e) {
-      print('Google Calendar 업로드 중 오류: $e');
+      print('❌ Google Calendar 업로드 중 오류: $e');
       rethrow;
     }
   }
 
-  /// 초기 데이터 로드
+  /// 초기 데이터 로드 (중복 방지 개선)
   Future<void> loadInitialData() async {
-    final today = DateTime.now();
-    final currentMonth = DateTime(today.year, today.month, 1);
+    try {
+      print('📥 초기 데이터 로드 시작...');
 
-    // 현재 월과 다음 월의 이벤트 로드
-    for (int month = 0; month < 2; month++) {
-      final targetMonth = DateTime(
-        currentMonth.year,
-        currentMonth.month + month,
-        1,
-      );
-      final daysInMonth =
-          DateTime(targetMonth.year, targetMonth.month + 1, 0).day;
+      // 1. 먼저 전체 중복 이벤트 정리
+      await EventStorageService.cleanupAllDuplicateEvents();
 
-      for (int day = 1; day <= daysInMonth; day++) {
-        final date = DateTime(targetMonth.year, targetMonth.month, day);
-        await loadEventsForDay(date);
-      }
+      // 2. 🔥 현재 월만 로드 (중복 방지)
+      final today = DateTime.now();
+      await loadEventsForMonth(today);
+
+      print('✅ 초기 데이터 로드 완료');
+    } catch (e) {
+      print('❌ 초기 데이터 로드 중 오류: $e');
+    }
+  }
+
+  /// 수동 중복 정리 메서드
+  Future<void> cleanupDuplicateEvents() async {
+    try {
+      print('🧹 수동 중복 정리 시작...');
+
+      await EventStorageService.cleanupAllDuplicateEvents();
+
+      // 컨트롤러 캐시도 새로고침
+      await refreshCurrentMonthEvents();
+
+      print('✅ 수동 중복 정리 완료');
+    } catch (e) {
+      print('❌ 중복 정리 중 오류: $e');
+      rethrow;
     }
   }
 }

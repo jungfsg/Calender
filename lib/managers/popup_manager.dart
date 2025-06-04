@@ -109,7 +109,8 @@ class PopupManager {
             ElevatedButton(
               onPressed:
                   title.isNotEmpty
-                      ? () async {                        final event = Event(
+                      ? () async {
+                        final event = Event(
                           title: title,
                           time: time.isNotEmpty ? time : '시간 미정',
                           date: _controller.selectedDay,
@@ -140,12 +141,14 @@ class PopupManager {
     // VoiceCommandService를 사용하여 음성 입력 처리
     VoiceCommandService.instance.showVoiceInput(
       context: context,
+      eventManager: _eventManager, // EventManager 전달
       onCommandProcessed: (response, originalCommand) async {
         // 음성으로 인식된 결과를 바탕으로 이벤트 생성
         if (originalCommand.isNotEmpty) {
           final eventInfo = _parseEventFromText(originalCommand);
 
-          if (eventInfo['title'] != null && eventInfo['title']!.isNotEmpty) {            final event = Event(
+          if (eventInfo['title'] != null && eventInfo['title']!.isNotEmpty) {
+            final event = Event(
               title: eventInfo['title'] ?? '제목 없음',
               time: eventInfo['time'] ?? '시간 미정',
               date: _controller.selectedDay,
@@ -292,6 +295,7 @@ class PopupManager {
   void _handleTimeSlotVoiceInput(BuildContext context) {
     VoiceCommandService.instance.showVoiceInput(
       context: context,
+      eventManager: _eventManager, // EventManager 전달
       onCommandProcessed: (response, originalCommand) async {
         if (originalCommand.isNotEmpty) {
           final timeSlotInfo = _parseTimeSlotFromText(originalCommand);

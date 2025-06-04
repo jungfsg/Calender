@@ -109,7 +109,17 @@ class CalendarController {
   /// 이벤트 제거
   void removeEvent(Event event) {
     final key = _getKey(event.date);
-    _events[key]?.remove(event);
+    if (_events[key] != null) {
+      _events[key]!.removeWhere(
+        (e) =>
+            e.title == event.title &&
+            e.time == event.time &&
+            e.date.year == event.date.year &&
+            e.date.month == event.date.month &&
+            e.date.day == event.date.day,
+      );
+      print('🗑️ Controller: 이벤트 삭제됨: ${event.title} (${event.time})');
+    }
   }
 
   /// 타임슬롯 추가
@@ -125,6 +135,23 @@ class CalendarController {
   void cacheWeatherInfo(DateTime day, WeatherInfo weatherInfo) {
     final key = _getKey(day);
     _weatherCache[key] = weatherInfo;
+  }
+
+  /// 특정 소스의 이벤트 제거
+  void removeEventsBySource(String source) {
+    for (final key in _events.keys) {
+      if (_events[key] != null) {
+        _events[key] = _events[key]!.where((e) => e.source != source).toList();
+      }
+    }
+    print('🗑️ Controller: $source 소스의 이벤트 모두 삭제됨');
+  }
+
+  /// 특정 날짜의 모든 이벤트 삭제
+  void clearEventsForDay(DateTime day) {
+    final key = _getKey(day);
+    _events[key] = [];
+    print('🧹 Controller: ${day.toString().substring(0, 10)} 날짜의 이벤트 모두 삭제됨');
   }
 
   /// 이벤트 색상 설정
@@ -165,10 +192,32 @@ class CalendarController {
     _loadingWeather = loading;
   }
 
-  /// 특정 소스의 이벤트들 제거
-  void removeEventsBySource(String source) {
+  /// 특정 날짜에 이벤트가 이미 로드되었는지 확인
+  bool hasEventsLoadedForDay(DateTime date) {
+    final key = _getKey(date);
+    return _events[key] != null && _events[key]!.isNotEmpty;
+  }
+
+  /// 특정 날짜의 로딩 상태를 확인하고 중복 로드 방지
+  bool shouldLoadEventsForDay(DateTime date) {
+    return !isDateLoading(date) && !hasEventsLoadedForDay(date);
+  }
+
+  /// 월별 이벤트 초기화 (월 변경 시 사용)
+  void clearEventsForMonth(DateTime month) {
+    final keysToRemove = <String>[];
     for (var key in _events.keys) {
-      _events[key]?.removeWhere((event) => event.source == source);
+      final parts = key.split('-');
+      if (parts.length == 3) {
+        final year = int.tryParse(parts[0]);
+        final monthPart = int.tryParse(parts[1]);
+        if (year == month.year && monthPart == month.month) {
+          keysToRemove.add(key);
+        }
+      }
+    }
+    for (var key in keysToRemove) {
+      _events.remove(key);
     }
   }
 }

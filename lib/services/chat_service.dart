@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'weather_service.dart';
 import 'event_storage_service.dart';
 import '../models/event.dart';
+import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
@@ -30,14 +31,18 @@ class ChatService {
     '습도',
     '바람',
     '온도',
-  ];
-
-  // LLM 서버에 메시지를 보내고 응답을 받는 메서드
+  ]; // LLM 서버에 메시지를 보내고 응답을 받는 메서드
   Future<types.TextMessage> sendMessage(
     String text,
     String userId, {
     Function()? onCalendarUpdate, // 캘린더 업데이트 콜백 추가
+    EventManager? eventManager, // EventManager 추가
   }) async {
+    print('📨 ChatService: sendMessage 호출됨');
+    print('   메시지: "$text"');
+    print('   userId: $userId');
+    print('   eventManager 존재: ${eventManager != null}');
+
     try {
       // 날씨 관련 질문인지 확인
       Map<String, dynamic> requestBody = {
@@ -79,10 +84,13 @@ class ChatService {
         print(data);
         print('🔍 응답 키들: ${data.keys.toList()}');
 
-        final botMessage = data['response'] as String;
-
-        // 일정 추가 관련 응답인지 확인하고 로컬 캘린더에 저장
-        final calendarUpdated = await _handleCalendarResponse(data);
+        final botMessage =
+            data['response'] as String; // 일정 추가 관련 응답인지 확인하고 로컬 캘린더에 저장
+        final calendarUpdated = await _handleCalendarResponse(
+          data,
+          onCalendarUpdate: onCalendarUpdate,
+          eventManager: eventManager,
+        );
 
         // 캘린더가 업데이트되었으면 콜백 호출
         if (calendarUpdated && onCalendarUpdate != null) {
@@ -105,7 +113,11 @@ class ChatService {
   }
 
   // 캘린더 관련 응답 처리
-  Future<bool> _handleCalendarResponse(Map<String, dynamic> data) async {
+  Future<bool> _handleCalendarResponse(
+    Map<String, dynamic> data, {
+    Function()? onCalendarUpdate,
+    EventManager? eventManager,
+  }) async {
     try {
       print('=== 캘린더 응답 처리 시작 ===');
       print('받은 데이터: $data');
@@ -135,7 +147,6 @@ class ChatService {
         print('StartDate: $startDate');
         print('StartTime: $startTime');
         print('Description: $description');
-
         if (startDate != null) {
           try {
             // 날짜 파싱
@@ -143,7 +154,27 @@ class ChatService {
             final eventTime = startTime ?? '10:00';
 
             print('파싱된 날짜: $eventDate');
-            print('파싱된 시간: $eventTime');            // Event 객체 생성
+            print('파싱된 시간: $eventTime');
+
+            // 🔥 중복 체크 추가
+            final existingEvents = await EventStorageService.getEvents(
+              eventDate,
+            );
+            final isDuplicate = existingEvents.any(
+              (e) =>
+                  e.title.trim().toLowerCase() == title.trim().toLowerCase() &&
+                  e.time == eventTime &&
+                  e.date.year == eventDate.year &&
+                  e.date.month == eventDate.month &&
+                  e.date.day == eventDate.day,
+            );
+
+            if (isDuplicate) {
+              print('🚫 AI 채팅: 중복된 일정이므로 추가하지 않음: $title ($eventTime)');
+              return false; // 중복이므로 추가하지 않음
+            }
+
+            // Event 객체 생성
             final event = Event(
               title: title,
               time: eventTime,
@@ -154,7 +185,7 @@ class ChatService {
 
             print('생성된 Event 객체: ${event.toJson()}');
 
-            // 로컬 캘린더에 이벤트 저장
+            // 로컬 캘린더에 이벤트 저장 (EventStorageService에서 이미 중복 체크 수행)
             await EventStorageService.addEvent(eventDate, event);
             print('✅ AI 채팅으로 추가된 일정이 로컬 캘린더에 저장되었습니다: $title');
             print('저장된 날짜: $eventDate');
@@ -167,7 +198,8 @@ class ChatService {
 
             return true; // 캘린더가 업데이트되었음을 반환
           } catch (e) {
-            print('❌ 날짜 파싱 오류: $e');
+            print('❌ AI 채팅 이벤트 추가 오류: $e');
+            return false;
           }
         } else {
           print('❌ startDate가 null입니다');
@@ -226,14 +258,23 @@ class ChatService {
                 break;
               }
             }
-
             if (eventToDelete != null) {
               print('🗑️ 이벤트 삭제 실행 중...');
-              // 로컬 캘린더에서 이벤트 삭제
-              await EventStorageService.removeEvent(eventDate, eventToDelete);
-              print(
-                '✅ AI 채팅으로 요청된 일정이 로컬 캘린더에서 삭제되었습니다: ${eventToDelete.title}',
-              );
+
+              // EventManager를 통해 삭제 (컨트롤러 갱신 포함)
+              if (eventManager != null) {
+                await eventManager.removeEventAndRefresh(
+                  eventDate,
+                  eventToDelete,
+                );
+                print('✅ EventManager를 통해 일정 삭제 및 컨트롤러 갱신 완료');
+              } else {
+                // 폴백: EventStorageService로 삭제
+                await EventStorageService.removeEvent(eventDate, eventToDelete);
+                print('✅ EventStorageService를 통해 일정 삭제 완료 (컨트롤러 갱신 없음)');
+              }
+
+              print('✅ AI 채팅으로 요청된 일정이 삭제되었습니다: ${eventToDelete.title}');
               print('📅 삭제된 날짜: $eventDate');
 
               // 삭제 후 확인
@@ -243,6 +284,12 @@ class ChatService {
               print('🔍 삭제 후 확인 - 남은 이벤트들 (${remainingEvents.length}개):');
               for (int i = 0; i < remainingEvents.length; i++) {
                 print('  $i: ${remainingEvents[i].toJson()}');
+              }
+
+              // 캘린더 업데이트 콜백 호출
+              if (onCalendarUpdate != null) {
+                onCalendarUpdate();
+                print('📱 캘린더 업데이트 콜백 호출됨');
               }
 
               return true; // 캘린더가 업데이트되었음을 반환

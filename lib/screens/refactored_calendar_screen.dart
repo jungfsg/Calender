@@ -106,7 +106,7 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
     }
   }
 
-  /// 초기 데이터 로드
+  /// 초기 데이터 로드 (중복 방지)
   Future<void> _loadInitialData() async {
     try {
       print('📥 초기 데이터 로드 시작...');
@@ -114,8 +114,9 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
       // Google Calendar 자동 연결 시도
       await _tryAutoConnectGoogleCalendar();
 
-      // 이벤트 데이터 로드
-      await _eventManager.loadInitialData();
+      // 🔥 초기 월 이벤트 로드 (중복 방지)
+      final now = DateTime.now();
+      await _eventManager.loadEventsForMonth(now);
 
       print('✅ 초기 데이터 로드 완료');
     } catch (e) {
