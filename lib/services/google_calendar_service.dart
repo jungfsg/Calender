@@ -3,6 +3,7 @@ import 'package:googleapis_auth/auth_io.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
 import '../models/event.dart';
+import '../controllers/calendar_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 
@@ -345,7 +346,8 @@ class GoogleCalendarService {
                   print(
                     '🎨 캘린더 색상: "${googleEvent.summary}" -> ${calendarNames[calendarId]} -> $eventColor',
                   );
-                }                final appEvent = Event(
+                }
+                final appEvent = Event(
                   title: googleEvent.summary!,
                   time: eventTime,
                   date: eventDate,
@@ -553,11 +555,16 @@ class GoogleCalendarService {
   // Google Calendar에서 이벤트 삭제
   Future<bool> deleteEventFromGoogleCalendar(Event event) async {
     if (!_isInitialized || _calendarApi == null) {
-      throw Exception('Google Calendar 서비스가 초기화되지 않았습니다.');
+      print('❌ Google Calendar 서비스가 초기화되지 않았습니다. 삭제 실패.');
+      return false;
     }
 
     try {
-      // 먼저 해당 이벤트를 Google Calendar에서 찾기
+      print(
+        '🔍 Google Calendar에서 삭제할 이벤트 검색: ${event.title} (${event.date.toString().substring(0, 10)}, ${event.time})',
+      );
+
+      // 검색 범위를 확장하여 당일 전체 이벤트를 확인
       final DateTime startDate = DateTime(
         event.date.year,
         event.date.month,
@@ -571,16 +578,29 @@ class GoogleCalendarService {
         timeMax: endDate.toUtc(),
         singleEvents: true,
         orderBy: 'startTime',
+        maxResults: 100, // 충분한 이벤트를 가져오도록 설정
       );
 
-      if (events.items != null) {
+      int foundCount = 0;
+      if (events.items != null && events.items!.isNotEmpty) {
+        print('📋 해당 날짜의 구글 캘린더 이벤트 수: ${events.items!.length}개');
+
         for (var googleEvent in events.items!) {
-          if (googleEvent.summary == event.title) {
-            // 시간도 비교하여 정확한 이벤트인지 확인
+          // 제목 비교 (정확한 일치 및 대소문자 무시)
+          final titleMatches =
+              googleEvent.summary?.trim().toLowerCase() ==
+              event.title.trim().toLowerCase();
+
+          if (titleMatches) {
+            foundCount++;
+            print('🔍 제목 일치 이벤트 발견: ${googleEvent.summary}');
+
+            // 시간 비교하여 정확한 이벤트인지 확인
             bool timeMatches = false;
 
             if (event.time == '종일') {
               timeMatches = googleEvent.start?.date != null;
+              print('  → 종일 이벤트 확인: $timeMatches');
             } else {
               if (googleEvent.start?.dateTime != null) {
                 final eventDateTime = googleEvent.start!.dateTime!.toLocal();
@@ -588,23 +608,81 @@ class GoogleCalendarService {
                   'HH:mm',
                 ).format(eventDateTime);
                 timeMatches = eventTimeString == event.time;
+                print(
+                  '  → 시간 비교: 구글($eventTimeString) vs 로컬(${event.time}) - 일치: $timeMatches',
+                );
               }
             }
 
-            if (timeMatches && googleEvent.id != null) {
+            if ((timeMatches || foundCount == 1) && googleEvent.id != null) {
+              print('🗑️ 구글 캘린더에서 이벤트 삭제 시도: ${googleEvent.id}');
               await _calendarApi!.events.delete('primary', googleEvent.id!);
-              print('이벤트가 Google Calendar에서 삭제되었습니다: ${event.title}');
+              print('✅ 이벤트가 구글 캘린더에서 성공적으로 삭제되었습니다: ${event.title}');
+              return true;
+            }
+          }
+        }
+
+        // 시간이 정확히 일치하지 않더라도 제목만 일치하는 경우 삭제 시도
+        if (foundCount > 0) {
+          for (var googleEvent in events.items!) {
+            if (googleEvent.summary?.trim().toLowerCase() ==
+                    event.title.trim().toLowerCase() &&
+                googleEvent.id != null) {
+              print('⚠️ 시간은 다르지만 제목이 일치하는 이벤트 삭제 시도');
+              await _calendarApi!.events.delete('primary', googleEvent.id!);
+              print('✅ 이벤트가 구글 캘린더에서 성공적으로 삭제되었습니다: ${event.title}');
               return true;
             }
           }
         }
       }
 
-      print('Google Calendar에서 해당 이벤트를 찾을 수 없습니다: ${event.title}');
+      print('❌ 구글 캘린더에서 해당 이벤트를 찾을 수 없습니다: ${event.title}');
       return false;
     } catch (e) {
-      print('Google Calendar 이벤트 삭제 오류: $e');
+      print('❌ 구글 캘린더 이벤트 삭제 오류: $e');
       return false;
+    }
+  }
+
+  // 여러 이벤트를 한 번에 Google Calendar에서 삭제
+  Future<Map<String, bool>> deleteMultipleEventsFromGoogle(
+    List<Event> events,
+  ) async {
+    if (!_isInitialized || _calendarApi == null) {
+      print('❌ Google Calendar 서비스가 초기화되지 않았습니다. 일괄 삭제 실패.');
+      return {};
+    }
+
+    final results = <String, bool>{};
+
+    try {
+      print('🔄 여러 이벤트 일괄 삭제 시작 (총 ${events.length}개)');
+
+      // 각 이벤트에 대해 삭제 시도
+      for (final event in events) {
+        if (event.source != 'google') {
+          // 구글 이벤트가 아닌 경우 건너뜀
+          continue;
+        }
+
+        try {
+          final success = await deleteEventFromGoogleCalendar(event);
+          results[event.uniqueId] = success;
+        } catch (e) {
+          print('❌ 이벤트 삭제 중 오류 발생: ${event.title} - $e');
+          results[event.uniqueId] = false;
+        }
+      }
+
+      final successCount = results.values.where((success) => success).length;
+      print('✅ 일괄 삭제 완료: 성공 $successCount개 / 총 ${results.length}개');
+
+      return results;
+    } catch (e) {
+      print('❌ 일괄 삭제 중 오류 발생: $e');
+      return results;
     }
   }
 
@@ -654,7 +732,8 @@ class GoogleCalendarService {
               eventDate = googleEvent.start!.dateTime!.toLocal();
             } else {
               continue; // 시작 날짜가 없는 이벤트는 건너뛰기
-            }            final holiday = Event(
+            }
+            final holiday = Event(
               title: '🇰🇷 ${googleEvent.summary!}', // 한국 태극기로 변경
               time: '종일',
               date: eventDate,
@@ -806,5 +885,108 @@ class GoogleCalendarService {
       print('⚠️ Google Calendar 조용한 재연결 실패: $e');
       return false;
     }
+  }
+
+  // 이벤트 색상 정보를 CalendarController에 동기화
+  Future<void> syncColorMappingsToController(
+    CalendarController controller,
+  ) async {
+    // 색상 정보가 로드되어 있지 않으면 로드
+    if (!_colorsLoaded) {
+      await fetchColorsFromAPI();
+    }
+
+    try {
+      print('🔄 Google Calendar 색상 정보를 컨트롤러에 동기화 시작');
+
+      // Google colorId 색상 매핑 동기화
+      _eventColors.forEach((colorId, color) {
+        controller.setColorIdColor(colorId, color);
+        print('🎨 colorId 매핑 동기화: $colorId -> $color');
+      });
+
+      // 캘린더 색상 정보 가져오기 (사용자 캘린더 색상)
+      if (_isInitialized && _calendarApi != null) {
+        final calendarList = await _calendarApi!.calendarList.list();
+
+        if (calendarList.items != null) {
+          for (var calendar in calendarList.items!) {
+            if (calendar.id != null) {
+              // 캘린더별 고유 색상 설정 (ID 기반)
+              Color calendarColor;
+
+              // 1. backgroundColor 우선 적용
+              if (calendar.backgroundColor != null) {
+                try {
+                  final hexColor = calendar.backgroundColor!;
+                  final colorValue = int.parse(
+                    hexColor.substring(1),
+                    radix: 16,
+                  );
+                  calendarColor = Color(0xFF000000 | colorValue);
+                } catch (e) {
+                  calendarColor = _getCalendarColorFromId(calendar.colorId);
+                }
+              }
+              // 2. colorId 적용
+              else if (calendar.colorId != null) {
+                calendarColor = _getCalendarColorFromId(calendar.colorId);
+              }
+              // 3. 기본 색상
+              else {
+                calendarColor = const Color(0xFF1976D2);
+              }
+
+              // 캘린더 ID를 키로 사용하여 색상 저장
+              _userCalendarColors[calendar.id!] = calendarColor;
+
+              // 프라이머리 캘린더 색상 저장
+              if (calendar.primary == true) {
+                _primaryCalendarColor = calendar.id;
+              }
+
+              print('📅 캘린더 색상 매핑: ${calendar.summary} -> $calendarColor');
+            }
+          }
+        }
+      }
+
+      print('✅ Google Calendar 색상 정보 동기화 완료');
+    } catch (e) {
+      print('❌ Google Calendar 색상 동기화 오류: $e');
+    }
+  }
+
+  // 특정 캘린더의 색상 가져오기
+  Color getCalendarColor(String calendarId) {
+    return _userCalendarColors[calendarId] ?? const Color(0xFF1976D2);
+  }
+
+  // 이벤트 색상 정보 추출 및 적용
+  Event enrichEventWithColorInfo(Event event, calendar.Event googleEvent) {
+    String? colorId = googleEvent.colorId;
+    Color? eventColor;
+
+    // 1. 이벤트에 colorId가 있으면 이를 사용
+    if (colorId != null && _eventColors.containsKey(colorId)) {
+      eventColor = _eventColors[colorId];
+    }
+    // 2. 이벤트 소스에 해당하는 캘린더 색상 사용
+    else if (googleEvent.organizer?.email != null &&
+        _userCalendarColors.containsKey(googleEvent.organizer!.email)) {
+      eventColor = _userCalendarColors[googleEvent.organizer!.email];
+    }
+
+    // 색상 정보를 이벤트에 적용
+    return Event(
+      title: event.title,
+      time: event.time,
+      date: event.date,
+      description: event.description,
+      colorId: colorId, // Google colorId 저장
+      color: eventColor, // Flutter Color 객체 저장
+      source: event.source,
+      uniqueId: event.uniqueId,
+    );
   }
 }

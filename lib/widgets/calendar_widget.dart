@@ -274,6 +274,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             },
                             events: widget.controller.getEventsForDay(day),
                             eventColors: widget.controller.eventColors,
+                            eventIdColors: widget.controller.eventIdColors,
+                            colorIdColors: widget.controller.colorIdColors,
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
@@ -295,6 +297,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             },
                             events: widget.controller.getEventsForDay(day),
                             eventColors: widget.controller.eventColors,
+                            eventIdColors: widget.controller.eventIdColors,
+                            colorIdColors: widget.controller.colorIdColors,
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
@@ -333,6 +337,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             },
                             events: widget.controller.getEventsForDay(day),
                             eventColors: widget.controller.eventColors,
+                            eventIdColors: widget.controller.eventIdColors,
+                            colorIdColors: widget.controller.colorIdColors,
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
@@ -438,6 +444,11 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       widget.controller.selectedDay,
                     ),
                     eventColors: widget.controller.eventColors,
+                    eventIdColors: widget.controller.eventIdColors,
+                    colorIdColors: widget.controller.colorIdColors,
+                    getEventDisplayColor:
+                        (event) =>
+                            widget.controller.getEventDisplayColor(event),
                     onClose: () {
                       widget.popupManager.hideEventDialog();
                       setState(() {});
@@ -592,6 +603,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       },
     );
   }
+
   /// 음성 명령 처리 결과에 따른 액션
   void _handleVoiceCommandResponse(String response, String command) {
     print('🎤 CalendarWidget: STT 명령 처리 - 명령: "$command", 응답: "$response"');
@@ -607,11 +619,10 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       widget.eventManager,
       () => setState(() {}),
     );
-    
+
     // 일정 관련 자동 팝업 기능 비활성화
     // final lowerCommand = command.toLowerCase();
     // 일정 추가 및 삭제 자동 팝업 기능은 사용자 요청으로 비활성화되었습니다
-    }
 
     // AI 응답이 있는 경우
     if (response.startsWith('AI:')) {

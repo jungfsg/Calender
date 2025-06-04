@@ -14,6 +14,8 @@ class WeatherCalendarCell extends StatelessWidget {
   final Function() onLongPress;
   final List<Event> events;
   final Map<String, Color> eventColors;
+  final Map<String, Color>? eventIdColors; // ID 기반 색상 매핑 추가
+  final Map<String, Color>? colorIdColors; // Google colorId 색상 매핑 추가
   final WeatherInfo? weatherInfo;
 
   const WeatherCalendarCell({
@@ -25,6 +27,8 @@ class WeatherCalendarCell extends StatelessWidget {
     required this.onLongPress,
     required this.events,
     required this.eventColors,
+    this.eventIdColors,
+    this.colorIdColors,
     this.weatherInfo,
   });
 
@@ -90,19 +94,31 @@ class WeatherCalendarCell extends StatelessWidget {
     );
   }
 
-  // 이벤트 색상 가져오기 - Event 객체 우선 시스템
+  // 이벤트 색상 가져오기 - 고유 ID 기반 시스템 우선
   Color _getEventColor(Event event) {
     // 1. Event 객체의 color 속성 우선
     if (event.color != null) {
       return event.color!;
     }
 
-    // 2. 제목 기반 색상 매핑 (기존 호환성)
+    // 2. Google colorId 기반 매핑
+    if (event.colorId != null &&
+        colorIdColors != null &&
+        colorIdColors!.containsKey(event.colorId)) {
+      return colorIdColors![event.colorId]!;
+    }
+
+    // 3. 고유 ID 기반 색상 매핑 (새로운 방식)
+    if (eventIdColors != null && eventIdColors!.containsKey(event.uniqueId)) {
+      return eventIdColors![event.uniqueId]!;
+    }
+
+    // 4. 제목 기반 색상 매핑 (이전 방식, 호환성 유지)
     if (eventColors.containsKey(event.title)) {
       return eventColors[event.title]!;
     }
 
-    // 3. 기본 색상
+    // 5. 기본 색상
     return Colors.blue;
   }
 

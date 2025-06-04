@@ -12,15 +12,23 @@ class CalendarController {
   // 팝업 상태
   bool _showEventPopup = false;
   bool _showTimeTablePopup = false;
-  bool _showWeatherPopup = false;
-  // 데이터 캐시
+  bool _showWeatherPopup = false; // 데이터 캐시
   final Map<String, List<Event>> _events = {};
   final Map<String, List<TimeSlot>> _timeSlots = {};
   final Map<String, WeatherInfo> _weatherCache = {};
-  final Map<String, Color> _eventColors = {};
+
+  // 색상 매핑 시스템 - 제목 기반에서 고유 ID 기반으로 변경
+  final Map<String, Color> _eventColors = {}; // 이벤트 제목 기준 (이전 방식, 호환성 유지)
+  final Map<String, Color> _eventIdColors = {}; // 고유 ID 기준 (새로운 방식)
+  final Map<String, Color> _colorIdColors = {}; // Google colorId 기준
 
   // Public getter for event colors
   Map<String, Color> get eventColors => _eventColors;
+  Map<String, Color> get eventIdColors =>
+      _eventIdColors; // 고유 ID 색상 매핑 getter 추가
+  Map<String, Color> get colorIdColors =>
+      _colorIdColors; // Google colorId 색상 매핑 getter 추가
+
   // 로딩 상태
   final Set<String> _loadingDates = {};
   bool _loadingWeather = false;
@@ -162,6 +170,56 @@ class CalendarController {
   /// 이벤트 색상 가져오기
   Color? getEventColor(String eventTitle) {
     return _eventColors[eventTitle];
+  }
+
+  /// 이벤트 ID 기반 색상 설정
+  void setEventIdColor(String uniqueId, Color color) {
+    _eventIdColors[uniqueId] = color;
+  }
+
+  /// 이벤트 ID 기반 색상 가져오기
+  Color? getEventIdColor(String uniqueId) {
+    return _eventIdColors[uniqueId];
+  }
+
+  /// Google colorId 기반 색상 설정
+  void setColorIdColor(String colorId, Color color) {
+    _colorIdColors[colorId] = color;
+  }
+
+  /// Google colorId 기반 색상 가져오기
+  Color? getColorIdColor(String colorId) {
+    return _colorIdColors[colorId];
+  }
+
+  /// 이벤트의 색상 가져오기 (모든 색상 매핑 방식 지원)
+  Color getEventDisplayColor(Event event) {
+    // 1. 이벤트 자체에 색상이 있는 경우
+    if (event.color != null) {
+      return event.color!;
+    }
+
+    // 2. Google colorId가 있고, 매핑된 색상이 있는 경우
+    if (event.colorId != null && getColorIdColor(event.colorId!) != null) {
+      return getColorIdColor(event.colorId!)!;
+    }
+
+    // 3. 고유 ID 기반 색상이 있는 경우
+    if (getEventIdColor(event.uniqueId) != null) {
+      return getEventIdColor(event.uniqueId)!;
+    }
+
+    // 4. 기존 제목 기반 색상 (호환성 유지)
+    if (getEventColor(event.title) != null) {
+      // 기존 색상을 고유 ID 기반 매핑으로 마이그레이션
+      setEventIdColor(event.uniqueId, getEventColor(event.title)!);
+      return getEventColor(event.title)!;
+    }
+
+    // 5. 기본 색상 (새로운 이벤트인 경우)
+    final defaultColor = Colors.blue;
+    setEventIdColor(event.uniqueId, defaultColor); // 기본 색상 저장
+    return defaultColor;
   }
 
   /// 모든 팝업 숨기기

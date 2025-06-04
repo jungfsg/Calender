@@ -7,19 +7,59 @@ class EventPopup extends StatelessWidget {
   final DateTime selectedDay;
   final List<Event> events;
   final Map<String, Color> eventColors;
+  final Map<String, Color>? eventIdColors; // ID 기반 색상 매핑 추가
+  final Map<String, Color>? colorIdColors; // Google colorId 색상 매핑 추가
   final Function() onClose;
   final Function() onAddEvent;
   final Function(Event) onDeleteEvent;
+  final Function(Event)? getEventDisplayColor; // 이벤트 색상 가져오는 콜백 함수
 
   const EventPopup({
     super.key,
     required this.selectedDay,
     required this.events,
     required this.eventColors,
+    this.eventIdColors,
+    this.colorIdColors,
     required this.onClose,
     required this.onAddEvent,
     required this.onDeleteEvent,
+    this.getEventDisplayColor,
   });
+
+  // 이벤트 색상 가져오기 - 고유 ID 기반 시스템 우선
+  Color _getEventColor(Event event) {
+    // 콜백 함수가 있으면 사용 (CalendarController의 getEventDisplayColor)
+    if (getEventDisplayColor != null) {
+      return getEventDisplayColor!(event);
+    }
+
+    // 콜백 함수가 없으면 기본 로직 사용
+    // 1. Event 객체의 color 속성 우선
+    if (event.color != null) {
+      return event.color!;
+    }
+
+    // 2. Google colorId 기반 매핑
+    if (event.colorId != null &&
+        colorIdColors != null &&
+        colorIdColors!.containsKey(event.colorId)) {
+      return colorIdColors![event.colorId]!;
+    }
+
+    // 3. 고유 ID 기반 색상 매핑 (새로운 방식)
+    if (eventIdColors != null && eventIdColors!.containsKey(event.uniqueId)) {
+      return eventIdColors![event.uniqueId]!;
+    }
+
+    // 4. 제목 기반 색상 매핑 (이전 방식, 호환성 유지)
+    if (eventColors.containsKey(event.title)) {
+      return eventColors[event.title]!;
+    }
+
+    // 5. 기본 색상
+    return Colors.blue;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,17 +126,14 @@ class EventPopup extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   itemCount: sortedEvents.length,
                   itemBuilder: (context, index) {
-                    final event = sortedEvents[index];
+                    final event = sortedEvents[index]; // 이벤트 색상 가져오기
+                    Color eventColor = _getEventColor(event);
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color:
-                            eventColors[event.title]?.withOpacity(0.1) ??
-                            Colors.grey.withOpacity(0.1),
-                        border: Border.all(
-                          color: eventColors[event.title] ?? Colors.grey,
-                          width: 1,
-                        ),
+                        color: eventColor.withOpacity(0.1),
+                        border: Border.all(color: eventColor, width: 1),
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: ListTile(

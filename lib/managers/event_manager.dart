@@ -44,19 +44,29 @@ class EventManager {
 
       // 캐시에 이벤트 저장
       for (var event in events) {
-        _controller.addEvent(event);
-
-        // 색상이 없는 이벤트에 색상 할당
-        if (_controller.getEventColor(event.title) == null) {
+        _controller.addEvent(event); // 색상이 없는 이벤트에 고유 ID 기반 색상 할당
+        if (_controller.getEventIdColor(event.uniqueId) == null) {
           Color eventColor;
           if (event.source == 'holiday') {
             eventColor = Colors.deepOrange; // 공휴일은 주황색
           } else if (event.source == 'google') {
-            eventColor = Colors.lightBlue; // Google 이벤트는 연한 파란색
+            // Google 이벤트의 경우 colorId를 확인
+            if (event.colorId != null &&
+                _controller.getColorIdColor(event.colorId!) != null) {
+              eventColor = _controller.getColorIdColor(event.colorId!)!;
+            } else {
+              eventColor = Colors.lightBlue; // 기본 Google 이벤트 색상
+            }
           } else {
             eventColor = _appColors[_random.nextInt(_appColors.length)];
           }
-          _controller.setEventColor(event.title, eventColor);
+          // ID 기반 색상 설정 (새 방식)
+          _controller.setEventIdColor(event.uniqueId, eventColor);
+
+          // 기존 제목 기반 색상 설정 (호환성 유지)
+          if (_controller.getEventColor(event.title) == null) {
+            _controller.setEventColor(event.title, eventColor);
+          }
         }
       }
 
@@ -154,6 +164,25 @@ class EventManager {
       // 컨트롤러에서 제거
       _controller.removeEvent(event);
 
+      // 구글 이벤트인 경우 구글 캘린더에서도 삭제
+      if (event.source == 'google') {
+        try {
+          // 구글 캘린더 서비스가 초기화되었는지 확인
+          if (await _googleCalendarService.initialize()) {
+            final deleted = await _googleCalendarService
+                .deleteEventFromGoogleCalendar(event);
+            if (deleted) {
+              print('✅ 구글 캘린더에서 이벤트 삭제됨: ${event.title}');
+            } else {
+              print('⚠️ 구글 캘린더에서 이벤트 삭제 실패: ${event.title}');
+            }
+          }
+        } catch (googleError) {
+          print('❌ 구글 캘린더 삭제 중 오류: $googleError');
+          // 구글 삭제 실패해도 로컬 삭제는 완료된 것으로 처리
+        }
+      }
+
       print('이벤트 삭제됨: ${event.title}');
     } catch (e) {
       print('이벤트 삭제 중 오류: $e');
@@ -172,6 +201,25 @@ class EventManager {
 
       // 2. 컨트롤러에서도 이벤트 제거
       _controller.removeEvent(event);
+
+      // 구글 이벤트인 경우 구글 캘린더에서도 삭제
+      if (event.source == 'google') {
+        try {
+          // 구글 캘린더 서비스가 초기화되었는지 확인
+          if (await _googleCalendarService.initialize()) {
+            final deleted = await _googleCalendarService
+                .deleteEventFromGoogleCalendar(event);
+            if (deleted) {
+              print('✅ 구글 캘린더에서 이벤트 삭제됨: ${event.title}');
+            } else {
+              print('⚠️ 구글 캘린더에서 이벤트 삭제 실패: ${event.title}');
+            }
+          }
+        } catch (googleError) {
+          print('❌ 구글 캘린더 삭제 중 오류: $googleError');
+          // 구글 삭제 실패해도 로컬 삭제는 완료된 것으로 처리
+        }
+      }
 
       // 3. 해당 날짜 이벤트 다시 로드하여 동기화
       await loadEventsForDay(date);
@@ -204,6 +252,9 @@ class EventManager {
       if (!await _googleCalendarService.initialize()) {
         throw Exception('Google Calendar 초기화 실패');
       }
+
+      // 색상 정보 동기화 (새로 추가)
+      await _googleCalendarService.syncColorMappingsToController(_controller);
 
       // 현재 연도의 시작과 끝 날짜 계산
       final DateTime startOfYear = DateTime(_controller.focusedDay.year, 1, 1);
@@ -264,17 +315,26 @@ class EventManager {
         );
         await EventStorageService.addEvent(dateKey, googleEvent);
         _controller.addEvent(googleEvent);
-        addedCount++;
-
-        // Google 이벤트는 특별한 색상 처리
-        if (_controller.getEventColor(googleEvent.title) == null) {
+        addedCount++; // Google 이벤트는 특별한 색상 처리 (고유 ID 기반)
+        if (_controller.getEventIdColor(googleEvent.uniqueId) == null) {
           Color eventColor;
           if (googleEvent.source == 'holiday') {
             eventColor = Colors.deepOrange; // 공휴일은 주황색
+          } else if (googleEvent.colorId != null &&
+              _controller.getColorIdColor(googleEvent.colorId!) != null) {
+            // Google 이벤트의 경우 colorId를 사용하여 색상 결정
+            eventColor = _controller.getColorIdColor(googleEvent.colorId!)!;
           } else {
-            eventColor = Colors.lightBlue; // Google 이벤트는 연한 파란색
+            eventColor = Colors.lightBlue; // 기본 Google 이벤트 색상
           }
-          _controller.setEventColor(googleEvent.title, eventColor);
+
+          // ID 기반 색상 설정 (새 방식)
+          _controller.setEventIdColor(googleEvent.uniqueId, eventColor);
+
+          // 기존 제목 기반 색상 설정 (호환성 유지)
+          if (_controller.getEventColor(googleEvent.title) == null) {
+            _controller.setEventColor(googleEvent.title, eventColor);
+          }
         }
       }
 
@@ -328,7 +388,7 @@ class EventManager {
   }
 
   /// 로컬 이벤트를 Google Calendar에 업로드 (중복 방지 포함)
-  Future<void> uploadToGoogleCalendar() async {
+  Future<void> uploadToGoogleCalendar({bool cleanupExisting = false}) async {
     try {
       print('🔄 EventManager: Google Calendar 업로드 시작...');
 
@@ -336,15 +396,50 @@ class EventManager {
         throw Exception('Google Calendar 초기화 실패');
       }
 
-      // 현재 월의 모든 로컬 이벤트 가져오기
+      // 색상 정보 먼저 동기화
+      await _googleCalendarService.syncColorMappingsToController(
+        _controller,
+      ); // 현재 월의 모든 로컬 이벤트 가져오기
       final currentMonth = _controller.focusedDay;
       final startOfMonth = DateTime(currentMonth.year, currentMonth.month, 1);
       final endOfMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0);
 
+      // 이벤트 초기화 옵션이 켜져있는 경우, 기존 이벤트를 모두 삭제
+      if (cleanupExisting) {
+        print('🧹 구글 캘린더 이벤트 초기화 시작...');
+        try {
+          // 기존 이벤트 가져오기
+          final googleEvents = await _googleCalendarService
+              .getEventsFromGoogleCalendar(
+                startDate: startOfMonth,
+                endDate: endOfMonth,
+              );
+
+          if (googleEvents.isNotEmpty) {
+            print('🗑️ ${googleEvents.length}개의 기존 구글 이벤트 삭제 시도');
+            final results = await _googleCalendarService
+                .deleteMultipleEventsFromGoogle(googleEvents);
+            final successCount = results.values.where((v) => v).length;
+            print(
+              '✅ $successCount개 삭제 완료, ${results.length - successCount}개 삭제 실패',
+            );
+          }
+        } catch (e) {
+          print('⚠️ 구글 캘린더 초기화 중 오류: $e');
+          // 초기화 실패해도 계속 진행
+        }
+      }
+
       List<Event> localEvents = [];
+      // 로컬 이벤트만 필터링 (구글/공휴일 제외)
       for (int day = startOfMonth.day; day <= endOfMonth.day; day++) {
         final date = DateTime(currentMonth.year, currentMonth.month, day);
-        localEvents.addAll(_controller.getEventsForDay(date));
+        final dayEvents =
+            _controller
+                .getEventsForDay(date)
+                .where((e) => e.source == 'local')
+                .toList();
+        localEvents.addAll(dayEvents);
       }
 
       print('📤 업로드 대상 로컬 이벤트 수: ${localEvents.length}');
@@ -397,11 +492,14 @@ class EventManager {
           print('❌ 업로드 중 오류: ${localEvent.title} - $e');
         }
       }
-
       print('📊 Google Calendar 업로드 완료:');
       print('   • 신규 업로드: $uploadedCount개');
       print('   • 중복으로 건너뜀: $skippedCount개');
       print('   • 총 로컬 이벤트: ${localEvents.length}개');
+
+      // 색상 매핑 정보를 컨트롤러에 동기화
+      await _googleCalendarService.syncColorMappingsToController(_controller);
+      print('🎨 색상 매핑 동기화 완료');
     } catch (e) {
       print('❌ Google Calendar 업로드 중 오류: $e');
       rethrow;
