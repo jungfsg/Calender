@@ -4,6 +4,7 @@ import '../models/weather_info.dart';
 import '../models/event.dart';
 import 'weather_icon.dart';
 import '../utils/font_utils.dart';
+import '../services/weather_service.dart';
 
 class WeatherCalendarCell extends StatelessWidget {
   final DateTime day;
@@ -16,7 +17,7 @@ class WeatherCalendarCell extends StatelessWidget {
   final WeatherInfo? weatherInfo;
 
   const WeatherCalendarCell({
-    Key? key,
+    super.key,
     required this.day,
     required this.isSelected,
     required this.isToday,
@@ -25,7 +26,7 @@ class WeatherCalendarCell extends StatelessWidget {
     required this.events,
     required this.eventColors,
     this.weatherInfo,
-  }) : super(key: key);
+  });
 
   // 셀 배경 색상 결정
   Color _getBackgroundColor() {
@@ -33,7 +34,7 @@ class WeatherCalendarCell extends StatelessWidget {
     final isHoliday = _isHoliday();
 
     if (isSelected) {
-      return const Color.fromARGB(255, 68, 138, 218)!;
+      return const Color.fromARGB(255, 68, 138, 218);
     } else if (isToday) {
       return Colors.amber[300]!;
     } else if (isHoliday) {
@@ -66,14 +67,26 @@ class WeatherCalendarCell extends StatelessWidget {
   bool _isHoliday() {
     // 실제로 쉬는 공휴일만 포함
     final actualHolidays = {
-      '신정', '설날', '삼일절', '석가탄신일', '부처님오신날',
-      '어린이날', '현충일', '광복절', '추석', '개천절', 
-      '한글날', '크리스마스', '대체공휴일', '임시공휴일'
+      '신정',
+      '설날',
+      '삼일절',
+      '석가탄신일',
+      '부처님오신날',
+      '어린이날',
+      '현충일',
+      '광복절',
+      '추석',
+      '개천절',
+      '한글날',
+      '크리스마스',
+      '대체공휴일',
+      '임시공휴일',
     };
 
-    return events.any((event) =>
-      event.title.startsWith('🇰🇷') &&
-      actualHolidays.any((holiday) => event.title.contains(holiday))
+    return events.any(
+      (event) =>
+          event.title.startsWith('🇰🇷') &&
+          actualHolidays.any((holiday) => event.title.contains(holiday)),
     );
   }
 
@@ -83,12 +96,12 @@ class WeatherCalendarCell extends StatelessWidget {
     if (event.color != null) {
       return event.color!;
     }
-    
+
     // 2. 제목 기반 색상 매핑 (기존 호환성)
     if (eventColors.containsKey(event.title)) {
       return eventColors[event.title]!;
     }
-    
+
     // 3. 기본 색상
     return Colors.blue;
   }
@@ -110,8 +123,9 @@ class WeatherCalendarCell extends StatelessWidget {
             color: _getBackgroundColor(),
             child: Stack(
               children: [
-                // 날씨 아이콘 (있는 경우에만 표시) - 우상단 유지
-                if (weatherInfo != null)
+                // 날씨 아이콘 (있는 경우에만 표시 + 5일 범위 내인 경우만) - 우상단 유지
+                if (weatherInfo != null &&
+                    WeatherService.isWithinForecastRange(day))
                   Positioned(
                     top: 0,
                     right: 0,

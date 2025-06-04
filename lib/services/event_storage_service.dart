@@ -79,6 +79,63 @@ class EventStorageService {
         .toList();
   }
 
+  // Google Calendar 동기화 전용 메서드
+  static Future<void> syncGoogleEvents(DateTime date, List<Event> googleEvents) async {
+    final prefs = await SharedPreferences.getInstance();
+    final dateKey = _getEventKey(date);
+    final existingEvents = await getEvents(date);
+    
+    // 기존 Google 이벤트 제거 (중복 방지)
+    final localEvents = existingEvents.where((e) => e.source != 'google').toList();
+    
+    // Google 이벤트 추가
+    final allEvents = [...localEvents, ...googleEvents];
+    
+    // 시간순으로 정렬
+    allEvents.sort((a, b) => a.compareTo(b));
+    
+    final eventStrings = allEvents.map((e) => jsonEncode(e.toJson())).toList();
+    await prefs.setStringList(dateKey, eventStrings);
+    
+    print('✅ Google 이벤트 동기화 완료: ${date.toString().split(' ')[0]} - ${googleEvents.length}개 이벤트');
+  }
+
+  // 특정 소스의 이벤트만 제거하는 메서드
+  static Future<void> removeEventsBySource(DateTime date, String source) async {
+    final prefs = await SharedPreferences.getInstance();
+    final dateKey = _getEventKey(date);
+    final events = await getEvents(date);
+    
+    final filteredEvents = events.where((e) => e.source != source).toList();
+    
+    final eventStrings = filteredEvents.map((e) => jsonEncode(e.toJson())).toList();
+    await prefs.setStringList(dateKey, eventStrings);
+    
+    print('🗑️ ${source} 소스 이벤트 제거 완료: ${date.toString().split(' ')[0]}');
+  }
+
+  // 특정 소스의 이벤트 개수 확인
+  static Future<int> getEventCountBySource(DateTime date, String source) async {
+    final events = await getEvents(date);
+    return events.where((e) => e.source == source).length;
+  }
+  // 날짜 범위에 대한 Google 이벤트 일괄 동기화
+  static Future<void> syncGoogleEventsForRange(
+    DateTime startDate, 
+    DateTime endDate, 
+    Map<DateTime, List<Event>> googleEventsByDate
+  ) async {
+    // 날짜 범위 내의 모든 날짜 처리
+    DateTime currentDate = startDate;
+    while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
+      final googleEvents = googleEventsByDate[currentDate] ?? [];
+      await syncGoogleEvents(currentDate, googleEvents);
+      currentDate = currentDate.add(const Duration(days: 1));
+    }
+    
+    print('📅 Google Calendar 범위 동기화 완료: ${startDate.toString().split(' ')[0]} ~ ${endDate.toString().split(' ')[0]}');
+  }
+
   // 키 생성 헬퍼 메서드
   static String _getEventKey(DateTime date) {
     return '${_eventPrefix}${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';

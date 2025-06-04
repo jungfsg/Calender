@@ -12,14 +12,14 @@ class EventPopup extends StatelessWidget {
   final Function(Event) onDeleteEvent;
 
   const EventPopup({
-    Key? key,
+    super.key,
     required this.selectedDay,
     required this.events,
     required this.eventColors,
     required this.onClose,
     required this.onAddEvent,
     required this.onDeleteEvent,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'calendar_screen.dart';
+import 'refactored_calendar_screen.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (success) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => const PixelArtCalendarScreen(),
+              builder: (context) => const RefactoredCalendarScreen(),
             ),
           );
         } else {

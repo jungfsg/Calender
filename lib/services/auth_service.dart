@@ -6,15 +6,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
   // 서버 URL (chat_service.dart와 동일하게 맞추는 것이 좋습니다)
-  final String baseUrl = 'https://efb3-59-17-140-26.ngrok-free.app';
+  final String baseUrl = 'https://fad4-220-90-168-2.ngrok-free.app';
 
   // GoogleSignIn 설정을 명시적으로 구성
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'email',
-      'profile',
-    ],
-  );
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // 토큰 저장 키
@@ -25,20 +20,20 @@ class AuthService {
   Future<bool> signInWithGoogle() async {
     try {
       print('Google 로그인 시작...');
-      
+
       // Google 로그인 다이얼로그 표시
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         print('사용자가 로그인을 취소했습니다.');
         return false;
       }
-      
+
       print('Google 계정 선택 완료: ${googleUser.email}');
 
       // 인증 세부 정보 가져오기
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
-      
+
       print('Google 인증 토큰 획득 완료');
       print('Access Token 존재: ${googleAuth.accessToken != null}');
       print('ID Token 존재: ${googleAuth.idToken != null}');
@@ -49,7 +44,7 @@ class AuthService {
       );
 
       print('Firebase 인증 시작...');
-      
+
       // Firebase에 로그인
       final UserCredential userCredential = await _auth.signInWithCredential(
         credential,
@@ -58,7 +53,7 @@ class AuthService {
 
       if (user != null) {
         print('Firebase 로그인 성공: ${user.email}');
-        
+
         // Firebase 토큰을 직접 사용
         final String? token = await user.getIdToken();
         final String userId = user.uid;

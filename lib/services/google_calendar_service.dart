@@ -7,7 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 
 class GoogleCalendarService {
-  static final GoogleCalendarService _instance = GoogleCalendarService._internal();
+  static final GoogleCalendarService _instance =
+      GoogleCalendarService._internal();
   factory GoogleCalendarService() => _instance;
   GoogleCalendarService._internal();
 
@@ -23,10 +24,10 @@ class GoogleCalendarService {
 
   // 🎨 동적 색상 매핑 (Google Calendar Colors API에서 가져옴)
   static Map<String, Color> _eventColors = {}; // event 색상 팔레트
-  static Map<String, Color> _calendarColors = {}; // calendar 색상 팔레트
-  static Map<String, String> _eventColorHex = {}; // event hex 코드 저장
-  static Map<String, String> _calendarColorHex = {}; // calendar hex 코드 저장
-  static Map<String, Color> _userCalendarColors = {}; // 사용자 캘린더별 실제 색상
+  static final Map<String, Color> _calendarColors = {}; // calendar 색상 팔레트
+  static final Map<String, String> _eventColorHex = {}; // event hex 코드 저장
+  static final Map<String, String> _calendarColorHex = {}; // calendar hex 코드 저장
+  static final Map<String, Color> _userCalendarColors = {}; // 사용자 캘린더별 실제 색상
   static bool _colorsLoaded = false;
 
   // 기본 색상 (colorId가 없을 때 사용)
@@ -52,10 +53,10 @@ class GoogleCalendarService {
 
       _calendarApi = calendar.CalendarApi(httpClient);
       _isInitialized = true;
-      
+
       // 🎨 초기화 시 색상 정보 로드
       await fetchColorsFromAPI();
-      
+
       print('Google Calendar 서비스가 초기화되었습니다.');
       return true;
     } catch (e) {
@@ -74,27 +75,27 @@ class GoogleCalendarService {
 
     try {
       print('🎨 Google Calendar Colors API 호출 시작');
-      
+
       // Colors API 호출 - 공식 문서: service.colors().get().execute()
       final colors = await _calendarApi!.colors.get();
-      
+
       // 🎨 공식 문서: Print available calendarListEntry colors
       if (colors.calendar != null) {
         print('📋 가져온 캘린더 색상 수: ${colors.calendar!.length}');
-        
+
         _calendarColors.clear();
         _calendarColorHex.clear();
-        
+
         // 공식 문서: for id, color in colors['calendar'].iteritem()
         colors.calendar!.forEach((colorId, colorDef) {
           print('🎨 Calendar ColorId: $colorId');
           print('  Background: ${colorDef.background}');
           print('  Foreground: ${colorDef.foreground}');
-          
+
           if (colorDef.background != null) {
             final hexColor = colorDef.background!;
             _calendarColorHex[colorId] = hexColor;
-            
+
             try {
               final colorValue = int.parse(hexColor.substring(1), radix: 16);
               final flutterColor = Color(0xFF000000 | colorValue);
@@ -109,20 +110,20 @@ class GoogleCalendarService {
       // 🎨 공식 문서: Print available event colors
       if (colors.event != null) {
         print('📋 가져온 이벤트 색상 수: ${colors.event!.length}');
-        
+
         _eventColors.clear();
         _eventColorHex.clear();
-        
+
         // 공식 문서: for id, color in colors['event'].iteritem()
         colors.event!.forEach((colorId, colorDef) {
           print('🎨 Event ColorId: $colorId');
           print('  Background: ${colorDef.background}');
           print('  Foreground: ${colorDef.foreground}');
-          
+
           if (colorDef.background != null) {
             final hexColor = colorDef.background!;
             _eventColorHex[colorId] = hexColor;
-            
+
             try {
               final colorValue = int.parse(hexColor.substring(1), radix: 16);
               final flutterColor = Color(0xFF000000 | colorValue);
@@ -135,9 +136,10 @@ class GoogleCalendarService {
       }
 
       _colorsLoaded = true;
-      print('✅ Colors API 완료 - 캘린더: ${_calendarColors.length}개, 이벤트: ${_eventColors.length}개');
+      print(
+        '✅ Colors API 완료 - 캘린더: ${_calendarColors.length}개, 이벤트: ${_eventColors.length}개',
+      );
       return true;
-      
     } catch (e) {
       print('❌ Colors API 호출 오류: $e');
       _initializeDefaultColors();
@@ -168,14 +170,14 @@ class GoogleCalendarService {
   Future<void> _fetchUserCalendarColors() async {
     try {
       print('🎨 사용자 캘린더 색상 정보 가져오기 시작');
-      
+
       final calendarList = await _calendarApi!.calendarList.list();
-      
+
       if (calendarList.items != null) {
         for (var calendar in calendarList.items!) {
           if (calendar.id != null) {
             Color calendarColor;
-            
+
             // 🎯 공식 문서 기준 우선순위:
             // 1. backgroundColor (직접 hex 색상)
             if (calendar.backgroundColor != null) {
@@ -183,7 +185,9 @@ class GoogleCalendarService {
                 final hexColor = calendar.backgroundColor!;
                 final colorValue = int.parse(hexColor.substring(1), radix: 16);
                 calendarColor = Color(0xFF000000 | colorValue);
-                print('🎨 캘린더 "${calendar.summary}" backgroundColor: $hexColor');
+                print(
+                  '🎨 캘린더 "${calendar.summary}" backgroundColor: $hexColor',
+                );
               } catch (e) {
                 calendarColor = _getCalendarColorFromId(calendar.colorId);
                 print('⚠️ backgroundColor 파싱 실패: ${calendar.backgroundColor}');
@@ -192,19 +196,21 @@ class GoogleCalendarService {
             // 2. colorId (공식 문서의 calendar 색상 팔레트 참조)
             else if (calendar.colorId != null) {
               calendarColor = _getCalendarColorFromId(calendar.colorId);
-              print('🎨 캘린더 "${calendar.summary}" colorId: ${calendar.colorId}');
+              print(
+                '🎨 캘린더 "${calendar.summary}" colorId: ${calendar.colorId}',
+              );
             }
             // 3. 기본 색상
             else {
               calendarColor = const Color(0xFF1976D2);
               print('🎨 캘린더 "${calendar.summary}" 기본 색상 사용');
             }
-            
+
             _userCalendarColors[calendar.id!] = calendarColor;
           }
         }
       }
-      
+
       print('✅ ${_userCalendarColors.length}개 캘린더의 색상 정보 로드 완료');
     } catch (e) {
       print('❌ 사용자 캘린더 색상 가져오기 오류: $e');
@@ -221,8 +227,10 @@ class GoogleCalendarService {
     }
 
     try {
-      final DateTime start = startDate ?? DateTime.now().subtract(const Duration(days: 30));
-      final DateTime end = endDate ?? DateTime.now().add(const Duration(days: 30));
+      final DateTime start =
+          startDate ?? DateTime.now().subtract(const Duration(days: 30));
+      final DateTime end =
+          endDate ?? DateTime.now().add(const Duration(days: 30));
 
       print('🔍 구글 캘린더 이벤트 조회 시작');
 
@@ -230,13 +238,14 @@ class GoogleCalendarService {
       final calendarList = await _calendarApi!.calendarList.list();
       Map<String, Color> calendarColors = {};
       Map<String, String> calendarNames = {};
-      
+
       // 🔥 한국 공휴일 캘린더 ID (중복 방지용)
-      const String koreanHolidayCalendarId = 'ko.south_korea#holiday@group.v.calendar.google.com';
-      
+      const String koreanHolidayCalendarId =
+          'ko.south_korea#holiday@group.v.calendar.google.com';
+
       if (calendarList.items != null) {
         print('📋 발견된 캘린더 수: ${calendarList.items!.length}');
-        
+
         for (var calendar in calendarList.items!) {
           if (calendar.id != null) {
             // 🔥 한국 공휴일 캘린더는 getKoreanHolidays에서 별도 처리하므로 제외
@@ -244,9 +253,9 @@ class GoogleCalendarService {
               print('⚠️ 한국 공휴일 캘린더는 별도 처리를 위해 제외: ${calendar.summary}');
               continue;
             }
-            
+
             Color calendarColor;
-            
+
             // 🎯 CalendarList API 문서 기준 우선순위:
             // 1. backgroundColor (16진수 "#0088aa" 형식 - colorId를 대체함)
             if (calendar.backgroundColor != null) {
@@ -254,7 +263,9 @@ class GoogleCalendarService {
                 final hexColor = calendar.backgroundColor!;
                 final colorValue = int.parse(hexColor.substring(1), radix: 16);
                 calendarColor = Color(0xFF000000 | colorValue);
-                print('🎨 캘린더 "${calendar.summary}" backgroundColor: $hexColor');
+                print(
+                  '🎨 캘린더 "${calendar.summary}" backgroundColor: $hexColor',
+                );
               } catch (e) {
                 calendarColor = _getCalendarColorFromId(calendar.colorId);
                 print('⚠️ backgroundColor 파싱 실패: ${calendar.backgroundColor}');
@@ -263,82 +274,91 @@ class GoogleCalendarService {
             // 2. colorId (Colors API의 calendar 팔레트 참조)
             else if (calendar.colorId != null) {
               calendarColor = _getCalendarColorFromId(calendar.colorId);
-              print('🎨 캘린더 "${calendar.summary}" colorId: ${calendar.colorId}');
+              print(
+                '🎨 캘린더 "${calendar.summary}" colorId: ${calendar.colorId}',
+              );
             }
             // 3. 기본 색상
             else {
               calendarColor = const Color(0xFF1976D2);
               print('🎨 캘린더 "${calendar.summary}" 기본 색상 사용');
             }
-            
+
             calendarColors[calendar.id!] = calendarColor;
-            calendarNames[calendar.id!] = calendar.summary ?? 'Unknown Calendar';
+            calendarNames[calendar.id!] =
+                calendar.summary ?? 'Unknown Calendar';
           }
         }
       }
 
       // 2. 🎨 일반 캘린더에서만 이벤트 가져오기 (공휴일 캘린더 제외)
       List<Event> appEvents = [];
-      
+
       for (var calendarId in calendarColors.keys) {
         try {
-          print('📅 캘린더 "${calendarNames[calendarId]}" ($calendarId)에서 이벤트 조회 중...');
+          print(
+            '📅 캘린더 "${calendarNames[calendarId]}" ($calendarId)에서 이벤트 조회 중...',
+          );
 
-      final events = await _calendarApi!.events.list(
+          final events = await _calendarApi!.events.list(
             calendarId,
-        timeMin: start.toUtc(),
-        timeMax: end.toUtc(),
-        singleEvents: true,
-        orderBy: 'startTime',
+            timeMin: start.toUtc(),
+            timeMax: end.toUtc(),
+            singleEvents: true,
+            orderBy: 'startTime',
             maxResults: 2500,
-      );
+          );
 
           if (events.items != null) {
             print('   📋 ${events.items!.length}개 이벤트 발견');
-      
-        for (var googleEvent in events.items!) {
-          if (googleEvent.summary != null) {
-            DateTime eventDate;
-            String eventTime = '';
 
-            // 날짜/시간 처리
-            if (googleEvent.start?.dateTime != null) {
-              eventDate = googleEvent.start!.dateTime!.toLocal();
-              eventTime = DateFormat('HH:mm').format(eventDate);
-            } else if (googleEvent.start?.date != null) {
-              eventDate = googleEvent.start!.date!;
-              eventTime = '종일';
-            } else {
+            for (var googleEvent in events.items!) {
+              if (googleEvent.summary != null) {
+                DateTime eventDate;
+                String eventTime = '';
+
+                // 날짜/시간 처리
+                if (googleEvent.start?.dateTime != null) {
+                  eventDate = googleEvent.start!.dateTime!.toLocal();
+                  eventTime = DateFormat('HH:mm').format(eventDate);
+                } else if (googleEvent.start?.date != null) {
+                  eventDate = googleEvent.start!.date!;
+                  eventTime = '종일';
+                } else {
                   continue;
                 }
 
                 // 🎯 CalendarList API 문서 기준 색상 결정:
                 Color eventColor;
                 String? finalColorId = googleEvent.colorId;
-                
+
                 if (finalColorId != null) {
                   // 1️⃣ 개별 이벤트에 색상이 지정된 경우 (드물음)
                   eventColor = _getEventColorFromId(finalColorId);
-                  print('🎨 개별 이벤트 색상: "${googleEvent.summary}" -> event colorId: $finalColorId');
+                  print(
+                    '🎨 개별 이벤트 색상: "${googleEvent.summary}" -> event colorId: $finalColorId',
+                  );
                 } else {
                   // 2️⃣ 캘린더의 backgroundColor/colorId 사용 (일반적인 경우)
-                  eventColor = calendarColors[calendarId] ?? const Color(0xFF1976D2);
-                  print('🎨 캘린더 색상: "${googleEvent.summary}" -> ${calendarNames[calendarId]} -> $eventColor');
-            }
-
-            final appEvent = Event(
-              title: googleEvent.summary!,
-              time: eventTime,
-              date: eventDate,
-              description: googleEvent.description ?? '',
+                  eventColor =
+                      calendarColors[calendarId] ?? const Color(0xFF1976D2);
+                  print(
+                    '🎨 캘린더 색상: "${googleEvent.summary}" -> ${calendarNames[calendarId]} -> $eventColor',
+                  );
+                }                final appEvent = Event(
+                  title: googleEvent.summary!,
+                  time: eventTime,
+                  date: eventDate,
+                  description: googleEvent.description ?? '',
                   colorId: finalColorId,
                   color: eventColor,
-            );
+                  source: 'google', // Google Calendar에서 가져온 이벤트로 표시
+                );
 
-            appEvents.add(appEvent);
+                appEvents.add(appEvent);
+              }
+            }
           }
-        }
-      }
         } catch (e) {
           print('⚠️ 캘린더 "$calendarId" 이벤트 조회 오류: $e');
           // 개별 캘린더 오류는 계속 진행
@@ -347,10 +367,11 @@ class GoogleCalendarService {
 
       // 날짜순 정렬
       appEvents.sort((a, b) => a.date.compareTo(b.date));
-      
-      print('✅ 총 ${calendarColors.length}개 일반 캘린더에서 ${appEvents.length}개의 이벤트를 가져왔습니다');
+
+      print(
+        '✅ 총 ${calendarColors.length}개 일반 캘린더에서 ${appEvents.length}개의 이벤트를 가져왔습니다',
+      );
       return appEvents;
-      
     } catch (e) {
       print('Google Calendar 이벤트 가져오기 오류: $e');
       throw Exception('Google Calendar 이벤트를 가져오는데 실패했습니다: $e');
@@ -360,7 +381,7 @@ class GoogleCalendarService {
   // 🎨 이벤트 색상 ID → Color 변환 (공식 문서의 event 팔레트 사용)
   static Color _getEventColorFromId(String? colorId) {
     if (colorId == null) return const Color(0xFF1976D2);
-    
+
     final color = _eventColors[colorId];
     if (color != null) {
       final hexColor = _eventColorHex[colorId];
@@ -375,7 +396,7 @@ class GoogleCalendarService {
   // 🎨 캘린더 색상 ID → Color 변환 (공식 문서의 calendar 팔레트 사용)
   static Color _getCalendarColorFromId(String? colorId) {
     if (colorId == null) return const Color(0xFF1976D2);
-    
+
     final color = _calendarColors[colorId];
     if (color != null) {
       final hexColor = _calendarColorHex[colorId];
@@ -396,12 +417,12 @@ class GoogleCalendarService {
 
     try {
       print('🔍 CalendarList API 색상 정보 분석 시작');
-      
+
       final calendarList = await _calendarApi!.calendarList.list();
-      
+
       if (calendarList.items != null) {
         print('\n📋 사용자의 모든 캘린더 색상 정보:');
-        
+
         for (var calendar in calendarList.items!) {
           print('\n🎨 캘린더: "${calendar.summary}"');
           print('   ID: ${calendar.id}');
@@ -410,12 +431,15 @@ class GoogleCalendarService {
           print('   foregroundColor: ${calendar.foregroundColor ?? "null"}');
           print('   primary: ${calendar.primary ?? false}');
           print('   selected: ${calendar.selected ?? false}');
-          
+
           // 실제 적용될 색상 계산
           Color finalColor;
           if (calendar.backgroundColor != null) {
             try {
-              final colorValue = int.parse(calendar.backgroundColor!.substring(1), radix: 16);
+              final colorValue = int.parse(
+                calendar.backgroundColor!.substring(1),
+                radix: 16,
+              );
               finalColor = Color(0xFF000000 | colorValue);
               print('   → 최종 색상: backgroundColor 사용 -> $finalColor');
             } catch (e) {
@@ -445,7 +469,7 @@ class GoogleCalendarService {
   static String getColorName(String colorId) {
     const colorNames = {
       '1': '라벤더',
-      '2': '세이지', 
+      '2': '세이지',
       '3': '포도',
       '4': '플라밍고',
       '5': '바나나',
@@ -471,7 +495,11 @@ class GoogleCalendarService {
 
       if (event.time == '종일') {
         // 종일 이벤트
-        startDateTime = DateTime(event.date.year, event.date.month, event.date.day);
+        startDateTime = DateTime(
+          event.date.year,
+          event.date.month,
+          event.date.day,
+        );
         endDateTime = startDateTime.add(const Duration(days: 1));
       } else {
         // 시간이 지정된 이벤트
@@ -486,22 +514,27 @@ class GoogleCalendarService {
             hour,
             minute,
           );
-          endDateTime = startDateTime.add(const Duration(hours: 1)); // 기본 1시간 이벤트
+          endDateTime = startDateTime.add(
+            const Duration(hours: 1),
+          ); // 기본 1시간 이벤트
         } else {
           startDateTime = event.date;
           endDateTime = startDateTime.add(const Duration(hours: 1));
         }
       }
 
-      final googleEvent = calendar.Event()
-        ..summary = event.title
-        ..description = event.description
-        ..start = (event.time == '종일')
-            ? calendar.EventDateTime(date: startDateTime)
-            : calendar.EventDateTime(dateTime: startDateTime.toUtc())
-        ..end = (event.time == '종일')
-            ? calendar.EventDateTime(date: endDateTime)
-            : calendar.EventDateTime(dateTime: endDateTime.toUtc());
+      final googleEvent =
+          calendar.Event()
+            ..summary = event.title
+            ..description = event.description
+            ..start =
+                (event.time == '종일')
+                    ? calendar.EventDateTime(date: startDateTime)
+                    : calendar.EventDateTime(dateTime: startDateTime.toUtc())
+            ..end =
+                (event.time == '종일')
+                    ? calendar.EventDateTime(date: endDateTime)
+                    : calendar.EventDateTime(dateTime: endDateTime.toUtc());
 
       // 색상 정보가 있으면 추가
       if (event.colorId != null) {
@@ -525,7 +558,11 @@ class GoogleCalendarService {
 
     try {
       // 먼저 해당 이벤트를 Google Calendar에서 찾기
-      final DateTime startDate = DateTime(event.date.year, event.date.month, event.date.day);
+      final DateTime startDate = DateTime(
+        event.date.year,
+        event.date.month,
+        event.date.day,
+      );
       final DateTime endDate = startDate.add(const Duration(days: 1));
 
       final events = await _calendarApi!.events.list(
@@ -541,13 +578,15 @@ class GoogleCalendarService {
           if (googleEvent.summary == event.title) {
             // 시간도 비교하여 정확한 이벤트인지 확인
             bool timeMatches = false;
-            
+
             if (event.time == '종일') {
               timeMatches = googleEvent.start?.date != null;
             } else {
               if (googleEvent.start?.dateTime != null) {
                 final eventDateTime = googleEvent.start!.dateTime!.toLocal();
-                final eventTimeString = DateFormat('HH:mm').format(eventDateTime);
+                final eventTimeString = DateFormat(
+                  'HH:mm',
+                ).format(eventDateTime);
                 timeMatches = eventTimeString == event.time;
               }
             }
@@ -584,11 +623,14 @@ class GoogleCalendarService {
     }
 
     try {
-      final DateTime start = startDate ?? DateTime.now().subtract(const Duration(days: 30));
-      final DateTime end = endDate ?? DateTime.now().add(const Duration(days: 365));
+      final DateTime start =
+          startDate ?? DateTime.now().subtract(const Duration(days: 30));
+      final DateTime end =
+          endDate ?? DateTime.now().add(const Duration(days: 365));
 
       // 한국 공휴일 캘린더 ID
-      const String koreanHolidayCalendarId = 'ko.south_korea#holiday@group.v.calendar.google.com';
+      const String koreanHolidayCalendarId =
+          'ko.south_korea#holiday@group.v.calendar.google.com';
 
       final events = await _calendarApi!.events.list(
         koreanHolidayCalendarId,
@@ -599,7 +641,7 @@ class GoogleCalendarService {
       );
 
       List<Event> holidays = [];
-      
+
       if (events.items != null) {
         for (var googleEvent in events.items!) {
           if (googleEvent.summary != null) {
@@ -612,15 +654,14 @@ class GoogleCalendarService {
               eventDate = googleEvent.start!.dateTime!.toLocal();
             } else {
               continue; // 시작 날짜가 없는 이벤트는 건너뛰기
-            }
-
-            final holiday = Event(
+            }            final holiday = Event(
               title: '🇰🇷 ${googleEvent.summary!}', // 한국 태극기로 변경
               time: '종일',
               date: eventDate,
               description: '한국 공휴일',
               colorId: 'holiday_red', // 공휴일 전용 colorId
-              color: Colors.red,       // 🔥 빨간색 직접 설정
+              color: Colors.red, // 🔥 빨간색 직접 설정
+              source: 'holiday', // 공휴일로 표시
             );
 
             holidays.add(holiday);
@@ -675,8 +716,10 @@ class GoogleCalendarService {
 
       // 두 리스트 합치기
       final allEvents = [...regularEvents, ...holidays];
-      
-      print('총 ${allEvents.length}개의 이벤트를 가져왔습니다. (일반: ${regularEvents.length}, 공휴일: ${holidays.length})');
+
+      print(
+        '총 ${allEvents.length}개의 이벤트를 가져왔습니다. (일반: ${regularEvents.length}, 공휴일: ${holidays.length})',
+      );
       return allEvents;
     } catch (e) {
       print('공휴일 포함 동기화 오류: $e');
@@ -712,23 +755,23 @@ class GoogleCalendarService {
       final currentUser = _googleSignIn.currentUser;
       if (currentUser != null) {
         print('🔄 이미 로그인된 사용자 발견: ${currentUser.email}');
-        
+
         // 이미 초기화되어 있으면 바로 성공 반환
         if (_isInitialized && _calendarApi != null) {
           print('✅ Google Calendar 서비스 이미 초기화됨');
           return true;
         }
-        
+
         // 초기화되지 않았으면 다시 초기화
         try {
           final httpClient = await _googleSignIn.authenticatedClient();
           if (httpClient != null) {
             _calendarApi = calendar.CalendarApi(httpClient);
             _isInitialized = true;
-            
+
             // 색상 정보 로드
             await fetchColorsFromAPI();
-            
+
             print('✅ 기존 로그인으로 Google Calendar 서비스 초기화 완료');
             return true;
           }
@@ -736,7 +779,7 @@ class GoogleCalendarService {
           print('⚠️ 기존 로그인으로 초기화 실패: $e');
         }
       }
-      
+
       print('ℹ️ 로그인된 사용자 없음 - Google Calendar 초기화 건너뜀');
       return false;
     } catch (e) {
@@ -764,4 +807,4 @@ class GoogleCalendarService {
       return false;
     }
   }
-} 
+}
