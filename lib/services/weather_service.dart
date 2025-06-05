@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geocoding/geocoding.dart';
 import '../models/weather_info.dart';
+import '../controllers/calendar_controller.dart';
 
 class WeatherService {
   // OpenWeatherMap API 키 (실제 키로 변경하세요)
@@ -336,5 +337,48 @@ class WeatherService {
 
     // 새로운 시간이 정오에 더 가까우면 true
     return newDistance < currentDistance;
+  }
+
+  /// 캘린더 표시용 날씨 로드 (오늘부터 정확히 5일)
+  static Future<List<WeatherInfo>> loadCalendarWeather(
+    CalendarController controller,
+  ) async {
+    final weatherList = await get5DayForecast();
+    final today = DateTime.now();
+    final todayStr = DateFormat('yyyy-MM-dd').format(today);
+
+    // 오늘 날짜부터 시작하는 데이터만 필터링
+    final filteredList =
+        weatherList.where((weather) {
+          // 날짜 문자열을 DateTime으로 변환하여 비교
+          final weatherDate = DateTime.parse(weather.date);
+          final todayDate = DateTime(today.year, today.month, today.day);
+          return weatherDate.compareTo(todayDate) >= 0; // 오늘 또는 이후 날짜만
+        }).toList();
+
+    // 앞에서부터 최대 5일치만 사용
+    final limitedWeatherList = filteredList.take(5).toList();
+
+    if (limitedWeatherList.isNotEmpty) {
+      // 날씨 정보를 컨트롤러 캐시에 저장
+      for (var weather in limitedWeatherList) {
+        final date = DateTime.parse(weather.date);
+        controller.cacheWeatherInfo(date, weather);
+      }
+    }
+
+    print('캘린더 날씨 로드 완료: ${limitedWeatherList.length}일간 예보 ($todayStr 부터)');
+    return limitedWeatherList;
+  }
+
+  /// 특정 날짜가 5일 예보 범위 내인지 확인 (오늘부터 정확히 5일)
+  static bool isWithinForecastRange(DateTime day) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day); // 시간 제거
+    final checkDate = DateTime(day.year, day.month, day.day); // 시간 제거
+
+    final daysDifference = checkDate.difference(todayDate).inDays;
+
+    return daysDifference >= 0 && daysDifference < 5;
   }
 }

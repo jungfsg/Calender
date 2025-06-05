@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-// import 'screens/calendar_screen.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
-import 'screens/calendar_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Calender vs250515_2',
+      title: 'Calender vs2500604',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const LoginScreen(),
       // home: const PixelArtCalendarScreen(),

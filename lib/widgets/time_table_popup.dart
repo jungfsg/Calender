@@ -10,12 +10,12 @@ class TimeTablePopup extends StatelessWidget {
   final VoidCallback onAddTimeSlot;
 
   const TimeTablePopup({
-    Key? key,
+    super.key,
     required this.selectedDay,
     required this.timeSlots,
     required this.onClose,
     required this.onAddTimeSlot,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
