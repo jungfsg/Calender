@@ -600,12 +600,22 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       context: context,
       eventManager: widget.eventManager, // EventManager 전달
       onCommandProcessed: _handleVoiceCommandResponse,
-      onCalendarUpdate: () {
+      onCalendarUpdate: () async {
         print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음');
-        // AI가 캘린더를 업데이트한 경우 UI 새로고침
+
+        // 현재 선택된 날짜의 이벤트 강제 새로고침
+        await widget.eventManager.loadEventsForDay(
+          widget.controller.selectedDay,
+          forceRefresh: true,
+        );
+
+        // 월 전체 이벤트도 새로고침 (백그라운드로 처리)
+        widget.eventManager.refreshCurrentMonthEvents().then((_) {
+          print('🔄 월 전체 이벤트 새로고침 완료');
+        });
+
+        // UI 새로고침
         setState(() {});
-        // 현재 선택된 날짜의 이벤트 다시 로드
-        widget.eventManager.loadEventsForDay(widget.controller.selectedDay);
       },
     );
   }
@@ -626,15 +636,16 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       () => setState(() {}),
     );
 
-    // 일정 관련 자동 팝업 기능 비활성화
-    // final lowerCommand = command.toLowerCase();
-    // 일정 추가 및 삭제 자동 팝업 기능은 사용자 요청으로 비활성화되었습니다
-
-    // AI 응답이 있는 경우
-    if (response.startsWith('AI:')) {
-      // 캘린더 이벤트 새로고침 (AI가 수정했을 수 있음)
-      widget.eventManager.refreshCurrentMonthEvents();
-      setState(() {});
-    }
+    // 모든 음성 명령 후 항상 화면 갱신 및 이벤트 새로고침 - 일정 추가 누락 문제 해결
+    print('🔄 음성 명령 후 이벤트 강제 새로고침');
+    widget.eventManager.refreshCurrentMonthEvents().then((_) {
+      // 현재 선택된 날짜의 이벤트도 강제 갱신
+      widget.eventManager
+          .loadEventsForDay(widget.controller.selectedDay, forceRefresh: true)
+          .then((_) {
+            // UI 갱신
+            setState(() {});
+          });
+    });
   }
 }

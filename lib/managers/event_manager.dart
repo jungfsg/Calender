@@ -298,17 +298,34 @@ class EventManager {
     }
   }
 
-  /// 현재 월의 모든 이벤트 새로고침
-  Future<void> refreshCurrentMonthEvents() async {
+  /// 현재 월의 모든 이벤트 새로고침 (강제 갱신 옵션 추가)
+  Future<void> refreshCurrentMonthEvents({bool forceRefresh = true}) async {
+    print('🔄 EventManager: 현재 월 이벤트 새로고침 시작 (강제 갱신: $forceRefresh)');
     final currentMonth = _controller.focusedDay;
     final startOfMonth = DateTime(currentMonth.year, currentMonth.month, 1);
     final endOfMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0);
 
+    // 현재 선택된 날짜는 우선적으로 갱신 (가장 중요한 UI 영역)
+    final selectedDay = _controller.selectedDay;
+    if (selectedDay.month == currentMonth.month &&
+        selectedDay.year == currentMonth.year) {
+      print('🎯 EventManager: 선택된 날짜 ($selectedDay) 강제 갱신');
+      await loadEventsForDay(selectedDay, forceRefresh: true);
+    }
+
     // 해당 월의 모든 날짜에 대해 이벤트 로드
     for (int day = startOfMonth.day; day <= endOfMonth.day; day++) {
       final date = DateTime(currentMonth.year, currentMonth.month, day);
-      await loadEventsForDay(date);
+      // 이미 갱신한 선택된 날짜는 건너뜀
+      if (date.day == selectedDay.day &&
+          date.month == selectedDay.month &&
+          date.year == selectedDay.year) {
+        continue;
+      }
+      await loadEventsForDay(date, forceRefresh: forceRefresh);
     }
+
+    print('✅ EventManager: 현재 월 이벤트 새로고침 완료');
   }
 
   /// Google 캘린더와 동기화 (중복 방지 시스템 적용)

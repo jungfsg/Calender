@@ -10,7 +10,7 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://fad4-220-90-168-2.ngrok-free.app';
+  final String baseUrl = 'https://8a83-220-90-168-2.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 날씨 관련 키워드 목록
@@ -183,9 +183,9 @@ class ChatService {
               source: 'local', // 로컬에서 생성된 이벤트
             );
 
-            print('생성된 Event 객체: ${event.toJson()}');
-
-            // 로컬 캘린더에 이벤트 저장 (EventStorageService에서 이미 중복 체크 수행)
+            print(
+              '생성된 Event 객체: ${event.toJson()}',
+            ); // 로컬 캘린더에 이벤트 저장 (EventStorageService에서 이미 중복 체크 수행)
             await EventStorageService.addEvent(eventDate, event);
             print('✅ AI 채팅으로 추가된 일정이 로컬 캘린더에 저장되었습니다: $title');
             print('저장된 날짜: $eventDate');
@@ -195,6 +195,15 @@ class ChatService {
             print(
               '저장 후 확인 - 해당 날짜의 이벤트들: ${savedEvents.map((e) => e.toJson()).toList()}',
             );
+
+            // EventManager가 전달되었다면 해당 날짜의 이벤트 강제 갱신
+            if (eventManager != null) {
+              print('🔄 ChatService: 이벤트 매니저의 이벤트 강제 갱신 중 (날짜: $eventDate)');
+              await eventManager.loadEventsForDay(
+                eventDate,
+                forceRefresh: true,
+              );
+            }
 
             return true; // 캘린더가 업데이트되었음을 반환
           } catch (e) {

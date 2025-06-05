@@ -76,11 +76,25 @@ class VoiceCommandService {
         eventManager: eventManager, // EventManager 전달
         onCalendarUpdate: () {
           print('🔄 VoiceCommandService: AI가 캘린더를 업데이트했습니다');
-          // AI가 일정을 추가/수정/삭제한 경우 UI 새로고침
-          if (onCalendarUpdate != null) {
-            onCalendarUpdate();
+
+          // 이벤트 추가/수정/삭제 관련 명령어를 AI로 전달한 경우
+          // 모든 날짜의 이벤트를 강제로 새로고침
+          if (eventManager != null) {
+            print('⚡ VoiceCommandService: 이벤트 매니저 강제 새로고침');
+            eventManager.refreshCurrentMonthEvents().then((_) {
+              // AI가 일정을 추가/수정/삭제한 경우 UI 새로고침
+              if (onCalendarUpdate != null) {
+                onCalendarUpdate();
+              }
+              onCommandProcessed('✅ AI 응답 완료 (캘린더가 업데이트되었습니다)', command);
+            });
+          } else {
+            // EventManager가 없는 경우
+            if (onCalendarUpdate != null) {
+              onCalendarUpdate();
+            }
+            onCommandProcessed('✅ AI 응답 완료 (캘린더가 업데이트되었습니다)', command);
           }
-          onCommandProcessed('✅ AI 응답 완료 (캘린더가 업데이트되었습니다)', command);
         },
       );
 
