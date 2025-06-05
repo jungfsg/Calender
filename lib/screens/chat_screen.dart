@@ -343,12 +343,13 @@ class _EmptyPageState extends State<EmptyPage> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
     if (index == 0) {
-      // 이전 화면으로 돌아가기만 하기 (새 화면 생성하지 않음)
-      Navigator.of(context).pop();
+      // 캘린더로 돌아가기 - 결과와 함께 pop
+      Navigator.of(context).pop({'refreshNavigation': true});
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
     }
   }
 

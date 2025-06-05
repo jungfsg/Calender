@@ -25,11 +25,24 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _isLoading = false;
         });
-
         if (success) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const RefactoredCalendarScreen(),
+            PageRouteBuilder(
+              pageBuilder:
+                  (context, animation, secondaryAnimation) =>
+                      const RefactoredCalendarScreen(),
+              transitionsBuilder: (
+                context,
+                animation,
+                secondaryAnimation,
+                child,
+              ) {
+                // 페이드 효과로 전환 (투명하게 전환됨)
+                return FadeTransition(opacity: animation, child: child);
+              },
+              transitionDuration: const Duration(
+                milliseconds: 300,
+              ), // 전환 시간 (0.3초)
             ),
           );
         } else {

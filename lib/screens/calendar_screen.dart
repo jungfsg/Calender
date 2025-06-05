@@ -157,18 +157,44 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
 
   @override
   Widget build(BuildContext context) {
-    // 초기화가 완료되지 않은 경우 로딩 화면 표시 (로딩 인디케이터 없음)
-    if (!_isInitialized) {
-      return Scaffold(
-        backgroundColor: const Color.fromARGB(255, 162, 222, 141),
-      );
-    } // 메인 캘린더 위젯 표시
-    return CalendarWidget(
+    // 메인 캘린더 위젯 생성
+    Widget mainCalendarWidget = CalendarWidget(
       controller: _controller,
       eventManager: _eventManager,
       popupManager: _popupManager,
       onLogout: _handleLogout,
     );
+
+    // 초기화가 완료되지 않은 경우 로딩 오버레이 표시
+    if (!_isInitialized) {
+      return Stack(
+        children: [
+          // 백그라운드에 캘린더 위젯 표시 (화면이 갑자기 나타나지 않도록)
+          mainCalendarWidget,
+
+          // 반투명 로딩 오버레이
+          Scaffold(
+            backgroundColor: Colors.black38, // 반투명 배경
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '앱을 준비하는 중...',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    } // 메인 캘린더 위젯 표시
+    return mainCalendarWidget;
   }
 
   @override

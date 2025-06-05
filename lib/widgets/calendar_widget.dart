@@ -65,10 +65,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
 
     // 정확한 주 수 계산
     final int totalWeeks = ((firstWeekday + lastDate) / 7).ceil();
-
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+      backgroundColor: Colors.transparent,
       drawer: CalendarSideMenu(
         onWeatherForecastTap: () async {
           // WeatherService 직접 호출
@@ -572,8 +571,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   }
 
   /// EmptyPage로 이동
-  void _navigateToEmptyPage() {
-    Navigator.of(context).push(
+  void _navigateToEmptyPage() async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder:
             (context) => EmptyPage(
@@ -585,6 +584,13 @@ class _CalendarWidgetState extends State<CalendarWidget> {
             ),
       ),
     );
+
+    // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
+    if (result != null && result['refreshNavigation'] == true) {
+      setState(() {
+        _selectedIndex = 0; // 캘린더 탭으로 리셋
+      });
+    }
   }
 
   /// 스낵바 표시
