@@ -51,7 +51,6 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _popupManager.dispose();
     super.dispose();
   }
 
@@ -65,15 +64,10 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
   /// 앱 초기화
   Future<void> _initializeApp() async {
     try {
-      print('🚀 앱 초기화 시작...');
-
-      // 1. 권한 요청
+      print('🚀 앱 초기화 시작...'); // 1. 권한 요청
       await _requestPermissions();
 
-      // 2. STT 초기화
-      await _popupManager.initializeSpeech();
-
-      // 3. 초기 데이터 로드
+      // 2. 초기 데이터 로드
       await _loadInitialData(); // 4. 날씨 정보 로드
       await WeatherService.loadCalendarWeather(_controller);
 

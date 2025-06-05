@@ -538,16 +538,32 @@ class GoogleCalendarService {
                     ? calendar.EventDateTime(date: endDateTime)
                     : calendar.EventDateTime(dateTime: endDateTime.toUtc());
 
-      // 색상 정보가 있으면 추가
-      if (event.colorId != null) {
+      // 🎨 색상 정보 동기화 개선
+      if (event.hasCustomColor()) {
+        final colorId = event.getColorId();
+        if (colorId != null && colorId >= 1 && colorId <= 11) {
+          googleEvent.colorId = colorId.toString();
+          print(
+            '🎨 Google Calendar에 색상 동기화: ${event.title} -> colorId: $colorId (${getColorName(colorId.toString())})',
+          );
+        } else {
+          print('⚠️ 유효하지 않은 colorId: $colorId');
+        }
+      } else if (event.colorId != null) {
+        // 기존 호환성: colorId가 문자열로 있는 경우
         googleEvent.colorId = event.colorId;
+        print(
+          '🎨 Google Calendar에 색상 동기화: ${event.title} -> colorId: ${event.colorId} (${getColorName(event.colorId!)})',
+        );
+      } else {
+        print('📝 Google Calendar에 기본 색상으로 추가: ${event.title}');
       }
 
       await _calendarApi!.events.insert(googleEvent, 'primary');
-      print('이벤트가 Google Calendar에 추가되었습니다: ${event.title}');
+      print('✅ 이벤트가 Google Calendar에 추가되었습니다: ${event.title}');
       return true;
     } catch (e) {
-      print('Google Calendar 이벤트 추가 오류: $e');
+      print('❌ Google Calendar 이벤트 추가 오류: $e');
       return false;
     }
   }

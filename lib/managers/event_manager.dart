@@ -10,16 +10,19 @@ class EventManager {
   final CalendarController _controller;
   final GoogleCalendarService _googleCalendarService = GoogleCalendarService();
   final Random _random = Random();
-
-  // 앱 전용 색상 목록
-  final List<Color> _appColors = [
-    Colors.red,
-    Colors.blue,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-    Colors.indigo,
-    Colors.teal,
+  // Google Calendar 표준 11가지 색상 (기존 7가지에서 11가지로 확장)
+  final List<Color> _standardColors = [
+    const Color(0xFF9AA0F5), // 라벤더
+    const Color(0xFF33B679), // 세이지
+    const Color(0xFF8E24AA), // 포도
+    const Color(0xFFE67C73), // 플라밍고
+    const Color(0xFFF6BF26), // 바나나
+    const Color(0xFFFF8A65), // 귤
+    const Color(0xFF039BE5), // 공작새
+    const Color(0xFF616161), // 그래파이트
+    const Color(0xFF3F51B5), // 블루베리
+    const Color(0xFF0B8043), // 바질
+    const Color(0xFFD50000), // 토마토
   ];
 
   EventManager(this._controller);
@@ -58,7 +61,8 @@ class EventManager {
               eventColor = Colors.lightBlue; // 기본 Google 이벤트 색상
             }
           } else {
-            eventColor = _appColors[_random.nextInt(_appColors.length)];
+            eventColor =
+                _standardColors[_random.nextInt(_standardColors.length)];
           }
           // ID 기반 색상 설정 (새 방식)
           _controller.setEventIdColor(event.uniqueId, eventColor);
@@ -144,13 +148,72 @@ class EventManager {
 
       // 5. 색상 할당
       if (_controller.getEventColor(event.title) == null) {
-        final color = _appColors[_random.nextInt(_appColors.length)];
+        final color = _standardColors[_random.nextInt(_standardColors.length)];
         _controller.setEventColor(event.title, color);
       }
 
       print('✅ 이벤트 추가됨: ${event.title}');
     } catch (e) {
       print('❌ 이벤트 추가 중 오류: $e');
+      rethrow;
+    }
+  }
+
+  /// 색상 ID를 지정하여 이벤트 추가
+  Future<void> addEventWithColorId(Event event, int colorId) async {
+    try {
+      // 색상 ID 적용된 이벤트 생성
+      final coloredEvent = event.withColorId(colorId);
+
+      // 기존 중복 체크 로직
+      final existingEvents = await EventStorageService.getEvents(
+        coloredEvent.date,
+      );
+      final isDuplicate = existingEvents.any(
+        (e) =>
+            e.title.trim().toLowerCase() ==
+                coloredEvent.title.trim().toLowerCase() &&
+            e.time == coloredEvent.time &&
+            e.date.year == coloredEvent.date.year &&
+            e.date.month == coloredEvent.date.month &&
+            e.date.day == coloredEvent.date.day,
+      );
+
+      if (isDuplicate) {
+        print(
+          '🚫 중복 이벤트로 추가하지 않음: ${coloredEvent.title} (${coloredEvent.time})',
+        );
+        throw Exception('이미 동일한 일정이 존재합니다');
+      }
+
+      // 컨트롤러 캐시에서도 중복 체크
+      final cachedEvents = _controller.getEventsForDay(coloredEvent.date);
+      final isCacheDuplicate = cachedEvents.any(
+        (e) =>
+            e.title.trim().toLowerCase() ==
+                coloredEvent.title.trim().toLowerCase() &&
+            e.time == coloredEvent.time &&
+            e.date.year == coloredEvent.date.year &&
+            e.date.month == coloredEvent.date.month &&
+            e.date.day == coloredEvent.date.day,
+      );
+
+      if (isCacheDuplicate) {
+        print('🚫 캐시에 중복 이벤트 존재: ${coloredEvent.title} (${coloredEvent.time})');
+        throw Exception('이미 동일한 일정이 존재합니다');
+      }
+
+      // 저장 및 캐시 추가
+      await EventStorageService.addEvent(coloredEvent.date, coloredEvent);
+      _controller.addEvent(coloredEvent); // 컨트롤러에 색상 정보도 저장 (중복 우선순위 간소화)
+      _controller.setEventIdColor(
+        coloredEvent.uniqueId,
+        coloredEvent.getDisplayColor(),
+      );
+
+      print('✅ 색상 지정 이벤트 추가됨: ${coloredEvent.title} (색상 ID: $colorId)');
+    } catch (e) {
+      print('❌ 색상 지정 이벤트 추가 중 오류: $e');
       rethrow;
     }
   }
@@ -537,6 +600,55 @@ class EventManager {
       print('✅ 수동 중복 정리 완료');
     } catch (e) {
       print('❌ 중복 정리 중 오류: $e');
+      rethrow;
+    }
+  }
+
+  /// 기존 이벤트의 색상을 11가지 Google 표준 색상으로 마이그레이션
+  Future<void> migrateEventsToStandardColors() async {
+    try {
+      print('🎨 기존 이벤트 색상 마이그레이션 시작...');
+
+      final now = DateTime.now();
+      final startOfYear = DateTime(now.year, 1, 1);
+      final endOfYear = DateTime(now.year, 12, 31);
+
+      int migratedCount = 0;
+      DateTime currentDate = startOfYear;
+
+      while (currentDate.isBefore(endOfYear) ||
+          currentDate.isAtSameMomentAs(endOfYear)) {
+        final events = await EventStorageService.getEvents(currentDate);
+        bool hasChanges = false;
+
+        for (var event in events) {
+          // 로컬 이벤트만 마이그레이션 (Google/공휴일 이벤트 제외)
+          if (event.source == 'local' && !event.hasCustomColor()) {
+            // 랜덤 색상 ID 할당 (1-11)
+            final randomColorId = (_random.nextInt(11) + 1);
+            final migratedEvent = event.withColorId(randomColorId);
+
+            // 기존 이벤트 제거 후 새 이벤트 추가
+            await EventStorageService.removeEvent(currentDate, event);
+            await EventStorageService.addEvent(currentDate, migratedEvent);
+
+            print('🎨 마이그레이션: ${event.title} -> colorId: $randomColorId');
+            migratedCount++;
+            hasChanges = true;
+          }
+        }
+
+        // 변경사항이 있으면 컨트롤러 캐시 갱신
+        if (hasChanges) {
+          await loadEventsForDay(currentDate);
+        }
+
+        currentDate = currentDate.add(const Duration(days: 1));
+      }
+
+      print('✅ 색상 마이그레이션 완료: $migratedCount개 이벤트 처리됨');
+    } catch (e) {
+      print('❌ 색상 마이그레이션 중 오류: $e');
       rethrow;
     }
   }

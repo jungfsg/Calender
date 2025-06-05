@@ -90,4 +90,59 @@ class Event {
       uniqueId: uniqueId ?? this.uniqueId, // 고유 ID 유지
     );
   }
+
+  // 색상 ID 설정 (Google Calendar 표준 색상)
+  Event withColorId(int colorId) {
+    // ColorPickerDialog에서 색상 가져오기
+    final colorValue = _getColorByColorId(colorId);
+    return copyWith(colorId: colorId.toString(), color: colorValue);
+  }
+
+  // colorId로 색상 가져오기 (Google Calendar 표준 색상)
+  static Color _getColorByColorId(int colorId) {
+    const Map<int, Color> googleColors = {
+      1: Color(0xFF9AA0F5), // 라벤더
+      2: Color(0xFF33B679), // 세이지
+      3: Color(0xFF8E24AA), // 포도
+      4: Color(0xFFE67C73), // 플라밍고
+      5: Color(0xFFF6BF26), // 바나나
+      6: Color(0xFFFF8A65), // 귤
+      7: Color(0xFF039BE5), // 공작새
+      8: Color(0xFF616161), // 그래파이트
+      9: Color(0xFF3F51B5), // 블루베리
+      10: Color(0xFF0B8043), // 바질
+      11: Color(0xFFD50000), // 토마토
+    };
+    return googleColors[colorId] ?? googleColors[1]!;
+  }
+
+  // 현재 이벤트의 최종 표시 색상 가져오기 (단순화된 우선순위)
+  Color getDisplayColor() {
+    // 1. 직접 색상이 있으면 사용
+    if (color != null) return color!;
+
+    // 2. colorId가 있으면 Google 표준 색상 사용
+    if (colorId != null) {
+      final id = int.tryParse(colorId!);
+      if (id != null && id >= 1 && id <= 11) {
+        return _getColorByColorId(id);
+      }
+    }
+
+    // 3. 기본값: 라벤더 (colorId: 1)
+    return _getColorByColorId(1);
+  }
+
+  // 색상 ID 추출 (Google Calendar colorId 호환)
+  int? getColorId() {
+    if (colorId != null) {
+      return int.tryParse(colorId!);
+    }
+    return null;
+  }
+
+  // 이 이벤트가 사용자 지정 색상인지 확인
+  bool hasCustomColor() {
+    return colorId != null && getColorId() != null;
+  }
 }
