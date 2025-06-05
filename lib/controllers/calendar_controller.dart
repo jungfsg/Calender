@@ -90,7 +90,8 @@ class CalendarController {
   /// 특정 날짜의 이벤트 가져오기
   List<Event> getEventsForDay(DateTime day) {
     final key = _getKey(day);
-    return _events[key] ?? [];
+    // 방어적 복사본 반환 (참조 문제 방지)
+    return List<Event>.from(_events[key] ?? []);
   }
 
   /// 특정 날짜의 타임슬롯 가져오기
@@ -105,13 +106,28 @@ class CalendarController {
     return _weatherCache[key];
   }
 
-  /// 이벤트 추가
+  /// 이벤트 추가 (참조 깨기 로직 추가)
   void addEvent(Event event) {
     final key = _getKey(event.date);
+    // 키가 없으면 새 리스트 생성
     if (_events[key] == null) {
       _events[key] = [];
     }
-    _events[key]!.add(event);
+
+    // 중복 방지 (정확한 비교)
+    bool isDuplicate = _events[key]!.any(
+      (e) =>
+          e.uniqueId == event.uniqueId ||
+          (e.title == event.title &&
+              e.time == event.time &&
+              e.date.year == event.date.year &&
+              e.date.month == event.date.month &&
+              e.date.day == event.date.day),
+    );
+
+    if (!isDuplicate) {
+      _events[key]!.add(event);
+    }
   }
 
   /// 이벤트 제거
@@ -147,18 +163,35 @@ class CalendarController {
 
   /// 특정 소스의 이벤트 제거
   void removeEventsBySource(String source) {
+    // 새로운 이벤트 맵 생성 (방어적 복사)
+    Map<String, List<Event>> newEvents = {};
+
     for (final key in _events.keys) {
       if (_events[key] != null) {
-        _events[key] = _events[key]!.where((e) => e.source != source).toList();
+        // 해당 소스가 아닌 이벤트만 새 맵에 추가
+        newEvents[key] =
+            _events[key]!.where((e) => e.source != source).toList();
       }
     }
+
+    // 기존 맵을 새 맵으로 교체 (참조 깨기)
+    _events.clear();
+    _events.addAll(newEvents);
+
     print('🗑️ Controller: $source 소스의 이벤트 모두 삭제됨');
   }
 
   /// 특정 날짜의 모든 이벤트 삭제
   void clearEventsForDay(DateTime day) {
     final key = _getKey(day);
-    _events[key] = [];
+
+    // 기존 참조를 끊고 새 리스트 할당
+    if (_events.containsKey(key)) {
+      _events[key] = List<Event>.empty(growable: true);
+    } else {
+      _events[key] = [];
+    }
+
     print('🧹 Controller: ${day.toString().substring(0, 10)} 날짜의 이벤트 모두 삭제됨');
   }
 

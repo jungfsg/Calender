@@ -78,9 +78,15 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         },
         onGoogleCalendarDownload: () async {
           try {
+            _showSnackBar('Google Calendar 동기화 시작...');
+
+            // 동기화 처리 (내부적으로 이벤트도 리로드함)
             await widget.eventManager.syncWithGoogleCalendar();
+
+            // UI 강제 새로고침
             setState(() {});
-            _showSnackBar('Google Calendar 동기화 완료');
+
+            _showSnackBar('Google Calendar 동기화 완료!');
           } catch (e) {
             _showSnackBar('동기화 실패: $e');
           }

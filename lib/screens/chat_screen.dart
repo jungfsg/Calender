@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'calendar_screen.dart';
 import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
@@ -348,17 +347,8 @@ class _EmptyPageState extends State<EmptyPage> {
       _selectedIndex = index;
     });
     if (index == 0) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder:
-              (context, animation, secondaryAnimation) =>
-                  const RefactoredCalendarScreen(),
-          transitionDuration: const Duration(milliseconds: 300),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
-      );
+      // 이전 화면으로 돌아가기만 하기 (새 화면 생성하지 않음)
+      Navigator.of(context).pop();
     }
   }
 
@@ -413,23 +403,8 @@ class _EmptyPageState extends State<EmptyPage> {
         action: SnackBarAction(
           label: '캘린더 보기',
           onPressed: () {
-            // 캘린더 탭으로 이동
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder:
-                    (context, animation, secondaryAnimation) =>
-                        const RefactoredCalendarScreen(),
-                transitionDuration: const Duration(milliseconds: 300),
-                transitionsBuilder: (
-                  context,
-                  animation,
-                  secondaryAnimation,
-                  child,
-                ) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-              ),
-            );
+            // 캘린더 탭으로 이동 (이전 화면으로 돌아가기)
+            Navigator.of(context).pop();
           },
         ),
         duration: const Duration(seconds: 4),

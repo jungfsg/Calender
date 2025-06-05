@@ -105,12 +105,11 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
     try {
       print('📥 초기 데이터 로드 시작...');
 
-      // Google Calendar 자동 연결 시도
-      await _tryAutoConnectGoogleCalendar();
+      // 🔥 EventManager의 초기 데이터 로드 메서드 사용 (로컬 일정 보존)
+      await _eventManager.loadInitialData();
 
-      // 🔥 초기 월 이벤트 로드 (중복 방지)
-      final now = DateTime.now();
-      await _eventManager.loadEventsForMonth(now);
+      // Google Calendar 자동 연결 시도 (로컬 일정 로드 후에 실행)
+      await _tryAutoConnectGoogleCalendar();
 
       print('✅ 초기 데이터 로드 완료');
     } catch (e) {
@@ -158,25 +157,10 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
 
   @override
   Widget build(BuildContext context) {
-    // 초기화가 완료되지 않은 경우 로딩 화면 표시
+    // 초기화가 완료되지 않은 경우 로딩 화면 표시 (로딩 인디케이터 없음)
     if (!_isInitialized) {
       return Scaffold(
         backgroundColor: const Color.fromARGB(255, 162, 222, 141),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-              SizedBox(height: 16),
-              Text(
-                '캘린더를 초기화하고 있습니다...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
-          ),
-        ),
       );
     } // 메인 캘린더 위젯 표시
     return CalendarWidget(
