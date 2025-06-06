@@ -173,9 +173,9 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
           mainCalendarWidget,
 
           // 반투명 로딩 오버레이
-          Scaffold(
-            backgroundColor: Colors.black38, // 반투명 배경
-            body: Center(
+          Container(
+            color: Colors.black38, // 반투명 배경
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

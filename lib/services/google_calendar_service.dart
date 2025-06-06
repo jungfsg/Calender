@@ -750,7 +750,7 @@ class GoogleCalendarService {
               continue; // 시작 날짜가 없는 이벤트는 건너뛰기
             }
             final holiday = Event(
-              title: '🇰🇷 ${googleEvent.summary!}', // 한국 태극기로 변경
+              title: googleEvent.summary!, // 태극기 삭제, 불필요한 문자열 보간 삭제
               time: '종일',
               date: eventDate,
               description: '한국 공휴일',

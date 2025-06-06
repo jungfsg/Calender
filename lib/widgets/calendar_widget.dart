@@ -67,7 +67,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
     final int totalWeeks = ((firstWeekday + lastDate) / 7).ceil();
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.transparent,
+      backgroundColor:  Color.fromARGB(255, 162, 222, 141),
+      // 캘린더 화면 가장 뒷 레이어의 배경색
+      // OS 네비게이션 바 위치의 색상도 같이 바뀌므로 앱 네비게이션 바의 색상과 일치시켜야 함
       drawer: CalendarSideMenu(
         onWeatherForecastTap: () async {
           // WeatherService 직접 호출

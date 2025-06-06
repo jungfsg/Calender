@@ -88,9 +88,7 @@ class WeatherCalendarCell extends StatelessWidget {
     };
 
     return events.any(
-      (event) =>
-          event.title.startsWith('🇰🇷') &&
-          actualHolidays.any((holiday) => event.title.contains(holiday)),
+      (event) => actualHolidays.any((holiday) => event.title.contains(holiday)),
     );
   }
 
@@ -198,7 +196,10 @@ class WeatherCalendarCell extends StatelessWidget {
                                   fontSize: 10,
                                   color: Colors.white,
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                                overflow: TextOverflow.clip,
+                                // 글자수 초과 처리 코드
+                                // ellipsis: 초과 시 생략 기호 표시
+                                // clip: 초과 시 자르기
                                 maxLines: 1,
                               ),
                             );
