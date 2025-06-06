@@ -67,7 +67,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('로그인')),
       body: LayoutBuilder(
         builder: (context, constraints) {
           return Container(
@@ -101,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // 고정 크기 텍스트
                     const Text(
                       // 'A.M.A.T.T.A.\n– Your Memory Assistant',
-                      '– Your Memory Assistant',
+                      'Your Memory Assistant',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24, // 고정 크기
