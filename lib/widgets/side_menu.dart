@@ -9,13 +9,13 @@ class CalendarSideMenu extends StatelessWidget {
   final bool isGoogleCalendarConnected; // Google Calendar 연결 상태
 
   const CalendarSideMenu({
-    Key? key, 
+    super.key,
     required this.onWeatherForecastTap,
     required this.onGoogleCalendarDownload, // 다운로드 콜백 필수
     required this.onGoogleCalendarUpload, // 업로드 콜백 필수
     required this.onLogoutTap, // 필수 매개변수로 추가
     this.isGoogleCalendarConnected = false, // 기본값은 연결되지 않음
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -60,24 +60,25 @@ class CalendarSideMenu extends StatelessWidget {
             // Google Calendar 동기화 - 다운로드
             ListTile(
               leading: Icon(
-                Icons.download, 
+                Icons.download,
                 color: isGoogleCalendarConnected ? Colors.green : Colors.blue,
               ),
               title: Text(
-                isGoogleCalendarConnected 
-                  ? 'Google → 앱으로 다운로드'
-                  : 'Google Calendar 연결',
+                isGoogleCalendarConnected
+                    ? 'Google → 앱으로 다운로드'
+                    : 'Google Calendar 연결',
                 style: getTextStyle(fontSize: 12, color: Colors.black),
               ),
-              subtitle: isGoogleCalendarConnected 
-                ? Text(
-                    'Google Calendar의 일정을 앱으로 가져오기',
-                    style: getTextStyle(fontSize: 10, color: Colors.green),
-                  )
-                : Text(
-                    '터치하여 연결하기',
-                    style: getTextStyle(fontSize: 10, color: Colors.grey),
-                  ),
+              subtitle:
+                  isGoogleCalendarConnected
+                      ? Text(
+                        'Google Calendar의 일정을 앱으로 가져오기',
+                        style: getTextStyle(fontSize: 10, color: Colors.green),
+                      )
+                      : Text(
+                        '터치하여 연결하기',
+                        style: getTextStyle(fontSize: 10, color: Colors.grey),
+                      ),
               onTap: () {
                 // 드로어 닫기
                 Navigator.pop(context);
@@ -85,7 +86,7 @@ class CalendarSideMenu extends StatelessWidget {
                 onGoogleCalendarDownload();
               },
             ),
-            
+
             // Google Calendar 동기화 - 업로드 (연결된 경우에만 표시)
             if (isGoogleCalendarConnected)
               ListTile(
@@ -119,6 +120,7 @@ class CalendarSideMenu extends StatelessWidget {
                 ),
                 enabled: false, // 정보 표시용이므로 비활성화
               ),
+
             // 하단에 로그아웃 버튼을 배치하기 위한 Spacer
             const Spacer(),
             // 구분선
