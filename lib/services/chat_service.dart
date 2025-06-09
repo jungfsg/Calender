@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:uuid/uuid.dart';
@@ -168,26 +169,36 @@ class ChatService {
                   e.date.month == eventDate.month &&
                   e.date.day == eventDate.day,
             );
-
             if (isDuplicate) {
               print('🚫 AI 채팅: 중복된 일정이므로 추가하지 않음: $title ($eventTime)');
               return false; // 중복이므로 추가하지 않음
-            }
-
-            // Event 객체 생성
+            } // Event 객체 생성 (랜덤 colorId 지정)
             final event = Event(
               title: title,
               time: eventTime,
               date: eventDate,
               description: description,
               source: 'local', // 로컬에서 생성된 이벤트
+              colorId:
+                  (1 + Random().nextInt(11)).toString(), // 1-11 사이 랜덤 색상 ID 지정
             );
 
-            print(
-              '생성된 Event 객체: ${event.toJson()}',
-            ); // 로컬 캘린더에 이벤트 저장 (EventStorageService에서 이미 중복 체크 수행)
-            await EventStorageService.addEvent(eventDate, event);
-            print('✅ AI 채팅으로 추가된 일정이 로컬 캘린더에 저장되었습니다: $title');
+            print('생성된 Event 객체: ${event.toJson()}');
+
+            // EventManager가 전달되었다면 이벤트 매니저를 통해 추가 (Google 동기화 포함)
+            if (eventManager != null) {
+              print(
+                '🔄 ChatService: EventManager의 addEvent로 일정 추가 중 (Google 동기화 포함)',
+              );
+              await eventManager.addEvent(event, syncWithGoogle: true);
+              print('✅ AI 채팅으로 추가된 일정이 로컬 및 Google 캘린더에 저장되었습니다: $title');
+            } else {
+              // EventManager가 없는 경우 폴백: 로컬 저장소에만 저장
+              print('⚠️ EventManager가 없어 로컬에만 저장합니다');
+              await EventStorageService.addEvent(eventDate, event);
+              print('✅ AI 채팅으로 추가된 일정이 로컬 캘린더에만 저장되었습니다: $title');
+            }
+
             print('저장된 날짜: $eventDate');
 
             // 저장 후 확인
@@ -195,15 +206,6 @@ class ChatService {
             print(
               '저장 후 확인 - 해당 날짜의 이벤트들: ${savedEvents.map((e) => e.toJson()).toList()}',
             );
-
-            // EventManager가 전달되었다면 해당 날짜의 이벤트 강제 갱신
-            if (eventManager != null) {
-              print('🔄 ChatService: 이벤트 매니저의 이벤트 강제 갱신 중 (날짜: $eventDate)');
-              await eventManager.loadEventsForDay(
-                eventDate,
-                forceRefresh: true,
-              );
-            }
 
             return true; // 캘린더가 업데이트되었음을 반환
           } catch (e) {
@@ -268,19 +270,22 @@ class ChatService {
               }
             }
             if (eventToDelete != null) {
-              print('🗑️ 이벤트 삭제 실행 중...');
-
-              // EventManager를 통해 삭제 (컨트롤러 갱신 포함)
+              print(
+                '🗑️ 이벤트 삭제 실행 중...',
+              ); // EventManager를 통해 삭제 (컨트롤러 갱신 및 Google 동기화 포함)
               if (eventManager != null) {
                 await eventManager.removeEventAndRefresh(
                   eventDate,
                   eventToDelete,
+                  syncWithGoogle: true, // Google 캘린더에서도 삭제
                 );
-                print('✅ EventManager를 통해 일정 삭제 및 컨트롤러 갱신 완료');
+                print('✅ EventManager를 통해 일정 삭제 및 Google Calendar 동기화 완료');
               } else {
-                // 폴백: EventStorageService로 삭제
+                // 폴백: EventStorageService로 삭제 (Google Calendar 동기화 없음)
                 await EventStorageService.removeEvent(eventDate, eventToDelete);
-                print('✅ EventStorageService를 통해 일정 삭제 완료 (컨트롤러 갱신 없음)');
+                print(
+                  '⚠️ EventManager가 없어 로컬에서만 삭제되었습니다 (Google Calendar 동기화 없음)',
+                );
               }
 
               print('✅ AI 채팅으로 요청된 일정이 삭제되었습니다: ${eventToDelete.title}');

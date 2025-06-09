@@ -149,23 +149,54 @@ class EventManager {
       if (isCacheDuplicate) {
         print('🚫 캐시에 중복 이벤트 존재: ${event.title} (${event.time})');
         throw Exception('이미 동일한 일정이 존재합니다');
+      } // 3. 색상 ID가 없는 경우 랜덤 색상 ID 할당 (Google Calendar와 동기화를 위해)
+      Event eventToSave = event;
+      if (event.colorId == null) {
+        // 랜덤 색상 ID 할당 (1-11)
+        final randomColorId = (1 + _random.nextInt(11)).toString();
+        eventToSave = Event(
+          title: event.title,
+          time: event.time,
+          date: event.date,
+          description: event.description,
+          source: event.source,
+          colorId: randomColorId, // 랜덤 색상 ID 할당
+          uniqueId: event.uniqueId,
+          endTime: event.endTime,
+        );
+        print('🎨 랜덤 색상 ID 할당: ${event.title} -> colorId: $randomColorId');
       }
 
-      // 3. 중복이 없으면 저장
-      await EventStorageService.addEvent(event.date, event);
+      // 4. 저장
+      await EventStorageService.addEvent(eventToSave.date, eventToSave);
 
-      // 4. 컨트롤러에 추가
-      _controller.addEvent(event);
+      // 5. 컨트롤러에 추가
+      _controller.addEvent(eventToSave);
 
-      // 5. 색상 할당
-      if (_controller.getEventColor(event.title) == null) {
-        final color = _standardColors[_random.nextInt(_standardColors.length)];
-        _controller.setEventColor(event.title, color);
+      // 6. 색상 할당
+      if (_controller.getEventColor(eventToSave.title) == null) {
+        final color =
+            eventToSave.colorId != null
+                ? _standardColors[int.parse(eventToSave.colorId!) -
+                    1] // colorId에 해당하는 색상
+                : _standardColors[_random.nextInt(
+                  _standardColors.length,
+                )]; // 랜덤 색상
+        _controller.setEventColor(eventToSave.title, color);
       }
 
-      // 6. Google 동기화 진행 (옵션에 따라)
-      if (syncWithGoogle && event.source == 'local') {
-        await _syncManager.syncEventAddition(event);
+      // 7. 이벤트 ID 기반 색상 매핑 (신규)
+      if (eventToSave.colorId != null) {
+        final colorId = int.tryParse(eventToSave.colorId!);
+        if (colorId != null && colorId >= 1 && colorId <= 11) {
+          final color = _standardColors[colorId - 1];
+          _controller.setEventIdColor(eventToSave.uniqueId, color);
+        }
+      }
+
+      // 8. Google 동기화 진행 (옵션에 따라)
+      if (syncWithGoogle && eventToSave.source == 'local') {
+        await _syncManager.syncEventAddition(eventToSave);
       }
 
       print('✅ 이벤트 추가됨: ${event.title}');

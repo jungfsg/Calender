@@ -36,6 +36,72 @@ class SyncManager {
       );
       if (success) {
         print('✅ 구글 캘린더에 이벤트 동기화 성공: ${event.title}');
+
+        // 🔥 Google Calendar API에서 설정한 색상 정보가 로컬에도 반영되도록 이벤트 업데이트
+        try {
+          // 이벤트에 colorId가 없을 경우, 동일한 날짜에 동일한 제목의 Google 이벤트를 찾아서 색상 정보를 가져옴
+          final googleEvents = await _googleCalendarService
+              .getEventsFromGoogleCalendar(
+                startDate: event.date,
+                endDate: event.date.add(const Duration(days: 1)),
+              );
+
+          final matchingEvent = googleEvents.firstWhere(
+            (e) =>
+                e.title == event.title &&
+                e.date.year == event.date.year &&
+                e.date.month == event.date.month &&
+                e.date.day == event.date.day &&
+                e.time == event.time,
+            orElse: () => event,
+          );
+
+          // Google에서 할당한 colorId가 있으면 이를 로컬 이벤트에 반영
+          if (matchingEvent.colorId != null &&
+              (event.colorId == null ||
+                  matchingEvent.colorId != event.colorId)) {
+            print(
+              '🎨 Google Calendar에서 색상 정보 동기화: colorId=${matchingEvent.colorId}',
+            );
+
+            // 1. 기존 이벤트 삭제
+            await EventStorageService.removeEvent(event.date, event);
+
+            // 2. 색상 정보가 업데이트된 이벤트 생성
+            final updatedEvent = Event(
+              title: event.title,
+              time: event.time,
+              date: event.date,
+              description: event.description,
+              source: event.source,
+              colorId: matchingEvent.colorId,
+              color: matchingEvent.color,
+              uniqueId: event.uniqueId,
+              endTime: event.endTime,
+            );
+
+            // 3. 업데이트된 이벤트 저장
+            await EventStorageService.addEvent(event.date, updatedEvent);
+
+            // 4. 컨트롤러에도 업데이트
+            _controller.removeEvent(event);
+            _controller.addEvent(updatedEvent);
+
+            // 5. 색상 ID에 해당하는 색상 매핑 설정
+            if (updatedEvent.colorId != null) {
+              final colorId = int.tryParse(updatedEvent.colorId!);
+              if (colorId != null && colorId >= 1 && colorId <= 11) {
+                final color = updatedEvent.getDisplayColor();
+                _controller.setEventIdColor(updatedEvent.uniqueId, color);
+                print(
+                  '🎨 이벤트 색상 매핑 완료: ${updatedEvent.title} -> ${updatedEvent.colorId} -> $color',
+                );
+              }
+            }
+          }
+        } catch (e) {
+          print('⚠️ 색상 동기화 중 오류: $e');
+        }
       } else {
         print('❌ 구글 캘린더 동기화 실패: ${event.title}');
       }

@@ -14,8 +14,9 @@ import 'package:gal/gal.dart';
 
 class EmptyPage extends StatefulWidget {
   final VoidCallback? onCalendarUpdate;
+  final dynamic eventManager; // EventManager 타입을 추가 (동적 타입으로 사용)
 
-  const EmptyPage({super.key, this.onCalendarUpdate});
+  const EmptyPage({super.key, this.onCalendarUpdate, this.eventManager});
 
   @override
   State createState() => _EmptyPageState();
@@ -82,6 +83,7 @@ class _EmptyPageState extends State<EmptyPage> {
             widget.onCalendarUpdate!();
           }
         },
+        eventManager: widget.eventManager, // EventManager 전달하여 Google 동기화 활성화
       );
 
       if (!mounted) return;
@@ -197,9 +199,7 @@ class _EmptyPageState extends State<EmptyPage> {
             } catch (e) {
               print('OCR 텍스트 저장 중 오류 발생: $e');
               // 저장 실패해도 계속 진행
-            }
-
-            // 인식된 텍스트를 서버로 전송
+            } // 인식된 텍스트를 서버로 전송
             final botResponse = await _chatService.sendMessage(
               recognizedText.text,
               _user.id,
@@ -213,6 +213,7 @@ class _EmptyPageState extends State<EmptyPage> {
                   widget.onCalendarUpdate!();
                 }
               },
+              eventManager: widget.eventManager, // EventManager 추가 전달
             );
 
             setState(() {

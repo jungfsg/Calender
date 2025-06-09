@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:googleapis/calendar/v3.dart' as calendar;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -561,9 +562,9 @@ class GoogleCalendarService {
             ..end =
                 (event.time == '종일')
                     ? calendar.EventDateTime(date: endDateTime)
-                    : calendar.EventDateTime(dateTime: endDateTime.toUtc());
-
-      // 🎨 색상 정보 동기화 개선
+                    : calendar.EventDateTime(
+                      dateTime: endDateTime.toUtc(),
+                    ); // 🎨 색상 정보 동기화 개선
       if (event.hasCustomColor()) {
         final colorId = event.getColorId();
         if (colorId != null && colorId >= 1 && colorId <= 11) {
@@ -581,8 +582,19 @@ class GoogleCalendarService {
           '🎨 Google Calendar에 색상 동기화: ${event.title} -> colorId: ${event.colorId} (${getColorName(event.colorId!)})',
         );
       } else {
-        print('📝 Google Calendar에 기본 색상으로 추가: ${event.title}');
+        // 색상이 설정되어 있지 않은 경우 랜덤 색상 할당
+        final randomColorId = (1 + Random().nextInt(11)).toString();
+        googleEvent.colorId = randomColorId;
+        print(
+          '🎨 색상 없는 이벤트에 랜덤 색상 할당: ${event.title} -> colorId: $randomColorId (${getColorName(randomColorId)})',
+        );
       }
+
+      // 최종 확인 로그 추가
+      print('🔍 Google Calendar API 호출 전 최종 확인:');
+      print('   - 이벤트 제목: ${event.title}');
+      print('   - 본래 colorId: ${event.colorId}');
+      print('   - 최종 설정된 googleEvent.colorId: ${googleEvent.colorId}');
 
       await _calendarApi!.events.insert(googleEvent, 'primary');
       print('✅ 이벤트가 Google Calendar에 추가되었습니다: ${event.title}');
