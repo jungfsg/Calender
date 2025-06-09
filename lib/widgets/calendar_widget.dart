@@ -217,23 +217,17 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                           color: Colors.black,
                           text: '1',
                         ),
-                        outsideTextStyle: getTextStyle(
-                          fontSize: 8,
-                          color: const Color(0xFF888888),
-                          text: '1',
-                        ),
                         selectedDecoration: BoxDecoration(
                           color: Colors.blue[800],
                         ),
                         todayDecoration: BoxDecoration(
                           color: Colors.amber[300],
                         ),
-                        defaultDecoration: const BoxDecoration(),
-                        weekendDecoration: const BoxDecoration(
-                          color: Color(0xFFEEEEEE),
+                        defaultDecoration: const BoxDecoration(
+                          color: Colors.white,
                         ),
-                        outsideDecoration: const BoxDecoration(
-                          color: Color(0xFFDDDDDD), // 이번달이 아닌 날짜의 셀 배경색
+                        weekendDecoration: const BoxDecoration(
+                          color: Colors.white,
                         ),
                         tableBorder: TableBorder.all(
                           color: const Color.fromARGB(24, 0, 0, 0),
@@ -246,6 +240,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                           color: Colors.transparent,
                         ),
                         markerSize: 0,
+                        outsideDecoration: const BoxDecoration(
+                          color: Colors.white,
+                        ),
                       ),
                       calendarBuilders: CalendarBuilders(
                         // 기본 셀 빌더

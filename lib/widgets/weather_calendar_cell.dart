@@ -38,13 +38,14 @@ class WeatherCalendarCell extends StatelessWidget {
       return const Color.fromARGB(255, 68, 138, 218);
     } else if (isToday) {
       return Colors.amber[300]!;
-    } else if (isHoliday) {
-      return const Color.fromARGB(255, 255, 240, 240); // 연한 빨간색 배경
-    } else if (day.weekday == DateTime.saturday ||
-        day.weekday == DateTime.sunday) {
-      return const Color.fromARGB(255, 255, 255, 255);
     }
-    return Colors.white;
+    // else if (isHoliday) {
+    //   return const Color.fromARGB(255, 255, 240, 240); // 연한 빨간색 배경
+    // } else if (day.weekday == DateTime.saturday ||
+    //     day.weekday == DateTime.sunday) {
+    //   return const Color.fromARGB(255, 255, 255, 255);
+    // }
+    return const Color.fromARGB(148, 255, 255, 255);
   }
 
   // 날짜 색상 결정
