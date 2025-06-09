@@ -33,7 +33,7 @@ class CalendarWidget extends StatefulWidget {
     required this.eventManager,
     required this.popupManager,
     this.onLogout,
-    
+
     // --- TTS 관련 추가 ---
     required this.isTtsEnabled,
     required this.onTtsToggle,
@@ -98,7 +98,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         },
         onLogoutTap: widget.onLogout ?? () {},
         isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
-        
+
         // --- TTS 관련 속성 전달 ---
         isTtsEnabled: widget.isTtsEnabled,
         onTtsToggle: widget.onTtsToggle,
@@ -272,12 +272,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                               widget.popupManager.showEventDialog();
                               setState(() {});
                             },
-                            onLongPress: () {
-                              widget.controller.setSelectedDay(day);
-                              widget.controller.setFocusedDay(focusedDay);
-                              widget.popupManager.showTimeTableDialog();
-                              setState(() {});
-                            },
                             events: widget.controller.getEventsForDay(day),
                             eventColors: widget.controller.eventColors,
                             eventIdColors: widget.controller.eventIdColors,
@@ -295,10 +289,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             isToday: false,
                             onTap: () {
                               widget.popupManager.showEventDialog();
-                              setState(() {});
-                            },
-                            onLongPress: () {
-                              widget.popupManager.showTimeTableDialog();
                               setState(() {});
                             },
                             events: widget.controller.getEventsForDay(day),
@@ -333,12 +323,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                               }
 
                               widget.popupManager.showEventDialog();
-                              setState(() {});
-                            },
-                            onLongPress: () {
-                              widget.controller.setSelectedDay(day);
-                              widget.controller.setFocusedDay(focusedDay);
-                              widget.popupManager.showTimeTableDialog();
                               setState(() {});
                             },
                             events: widget.controller.getEventsForDay(day),
@@ -463,9 +447,11 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       });
                     },
                     onEditEvent: (event) {
-                      widget.popupManager.showEditEventDialog(context, event).then((_) {
-                        setState(() {});
-                      });
+                      widget.popupManager
+                          .showEditEventDialog(context, event)
+                          .then((_) {
+                            setState(() {});
+                          });
                     },
                     onDeleteEvent: (event) async {
                       await widget.eventManager.removeEvent(event);

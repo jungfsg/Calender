@@ -11,20 +11,17 @@ class WeatherCalendarCell extends StatelessWidget {
   final bool isSelected;
   final bool isToday;
   final Function() onTap;
-  final Function() onLongPress;
   final List<Event> events;
   final Map<String, Color> eventColors;
   final Map<String, Color>? eventIdColors; // ID 기반 색상 매핑 추가
   final Map<String, Color>? colorIdColors; // Google colorId 색상 매핑 추가
   final WeatherInfo? weatherInfo;
-
   const WeatherCalendarCell({
     super.key,
     required this.day,
     required this.isSelected,
     required this.isToday,
     required this.onTap,
-    required this.onLongPress,
     required this.events,
     required this.eventColors,
     this.eventIdColors,
@@ -124,7 +121,6 @@ class WeatherCalendarCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
       child: LayoutBuilder(
         builder: (context, constraints) {
           // 셀의 너비를 기준으로 날짜 폰트 크기 계산
