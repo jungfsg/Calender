@@ -206,6 +206,42 @@ class EventManager {
     }
   }
 
+  /// 이벤트 수정
+  Future<void> updateEvent(Event originalEvent, Event updatedEvent, {bool syncWithGoogle = true}) async {
+    try {
+      print('🔄 EventManager: 이벤트 수정 시작 - ${originalEvent.title} -> ${updatedEvent.title}');
+
+      // 1. 원본 이벤트 삭제
+      await EventStorageService.removeEvent(originalEvent.date, originalEvent);
+      _controller.removeEvent(originalEvent);
+
+      // 2. 수정된 이벤트를 원래 날짜가 아닌 경우 새로운 날짜에 추가
+      final eventToSave = updatedEvent.copyWith(
+        uniqueId: originalEvent.uniqueId, // 고유 ID 유지
+      );
+
+      // 3. 새 이벤트 저장
+      await EventStorageService.addEvent(eventToSave.date, eventToSave);
+      _controller.addEvent(eventToSave);
+
+      // 4. 색상 정보 유지
+      final originalColor = _controller.getEventIdColor(originalEvent.uniqueId);
+      if (originalColor != null) {
+        _controller.setEventIdColor(eventToSave.uniqueId, originalColor);
+      }
+
+      // 5. Google 동기화 진행 (옵션에 따라)
+      if (syncWithGoogle) {
+        await _syncManager.syncEventUpdate(originalEvent, eventToSave);
+      }
+
+      print('✅ EventManager: 이벤트 수정 완료 - ${eventToSave.title}');
+    } catch (e) {
+      print('❌ EventManager: 이벤트 수정 실패 - ${originalEvent.title}: $e');
+      rethrow;
+    }
+  }
+
   /// 색상 ID를 지정하여 이벤트 추가 (동기화 추가)
   Future<void> addEventWithColorId(
     Event event,
@@ -665,14 +701,26 @@ class EventManager {
 
         // 중복이 아니면 Google Calendar에 업로드
         try {
-          final success = await _googleCalendarService.addEventToGoogleCalendar(
+          final googleEventId = await _googleCalendarService.addEventToGoogleCalendar(
             localEvent,
           );
-          if (success) {
+          if (googleEventId != null) {
             print(
               '✅ 업로드 성공: ${localEvent.title} (${localEvent.date.toString().substring(0, 10)} ${localEvent.time})',
             );
             uploadedCount++;
+
+            // 로컬 이벤트에 Google Event ID 저장
+            try {
+              final updatedEvent = localEvent.copyWith(googleEventId: googleEventId);
+              await EventStorageService.removeEvent(localEvent.date, localEvent);
+              await EventStorageService.addEvent(localEvent.date, updatedEvent);
+              _controller.removeEvent(localEvent);
+              _controller.addEvent(updatedEvent);
+              print('🔗 Google Event ID 저장: ${localEvent.title} -> $googleEventId');
+            } catch (e) {
+              print('⚠️ Google Event ID 저장 실패: $e');
+            }
           } else {
             print('❌ 업로드 실패: ${localEvent.title}');
           }

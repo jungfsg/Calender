@@ -31,11 +31,42 @@ class SyncManager {
       }
 
       // 구글 캘린더에 추가
-      final success = await _googleCalendarService.addEventToGoogleCalendar(
+      final googleEventId = await _googleCalendarService.addEventToGoogleCalendar(
         event,
       );
-      if (success) {
+      if (googleEventId != null) {
         print('✅ 구글 캘린더에 이벤트 동기화 성공: ${event.title}');
+
+        // 로컬 이벤트에 Google Event ID 저장
+        try {
+          // 1. 기존 이벤트 삭제
+          await EventStorageService.removeEvent(event.date, event);
+
+          // 2. Google Event ID가 추가된 이벤트 생성
+          final updatedEventWithId = Event(
+            title: event.title,
+            time: event.time,
+            date: event.date,
+            description: event.description,
+            source: event.source,
+            colorId: event.colorId,
+            color: event.color,
+            uniqueId: event.uniqueId,
+            endTime: event.endTime,
+            googleEventId: googleEventId, // Google Event ID 저장
+          );
+
+          // 3. 업데이트된 이벤트 저장
+          await EventStorageService.addEvent(event.date, updatedEventWithId);
+
+          // 4. 컨트롤러에도 업데이트
+          _controller.removeEvent(event);
+          _controller.addEvent(updatedEventWithId);
+
+          print('🔗 Google Event ID 저장 완료: ${event.title} -> $googleEventId');
+        } catch (e) {
+          print('⚠️ Google Event ID 저장 중 오류: $e');
+        }
 
         // 🔥 Google Calendar API에서 설정한 색상 정보가 로컬에도 반영되도록 이벤트 업데이트
         try {
@@ -107,6 +138,42 @@ class SyncManager {
       }
     } catch (e) {
       print('❌ 이벤트 추가 동기화 오류: $e');
+    }
+  }
+
+  /// 이벤트 수정 시 동기화 (로컬 → 구글)
+  Future<void> syncEventUpdate(Event originalEvent, Event updatedEvent) async {
+    try {
+      print('🔄 SyncManager: 이벤트 수정 동기화 시작...');
+      print('   원본: ${originalEvent.title} (${originalEvent.time})');
+      print('   수정: ${updatedEvent.title} (${updatedEvent.time})');
+
+      // 구글 캘린더가 연결되어 있는지 확인
+      if (!await _googleCalendarService.silentReconnect()) {
+        print('⚠️ Google Calendar 연결되지 않음, 로컬에만 수정됨');
+        return;
+      }
+
+      // 공휴일 이벤트는 수정하지 않음
+      if (originalEvent.source == 'holiday') {
+        print('🔍 공휴일 이벤트는 Google Calendar 수정 불가');
+        return;
+      }
+
+      // Google Calendar에서 이벤트 업데이트
+      final success = await _googleCalendarService.updateEventOnGoogleCalendar(
+        originalEvent,
+        updatedEvent,
+      );
+
+      if (success) {
+        print('✅ Google Calendar 이벤트 수정 동기화 성공: ${updatedEvent.title}');
+      } else {
+        print('❌ Google Calendar 이벤트 수정 동기화 실패: ${originalEvent.title}');
+        // 실패한 경우 로컬에서만 수정된 상태 유지
+      }
+    } catch (e) {
+      print('❌ 이벤트 수정 동기화 오류: $e');
     }
   }
 

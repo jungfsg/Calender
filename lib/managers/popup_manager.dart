@@ -254,6 +254,216 @@ class PopupManager {
     );
   }
 
+  /// 이벤트 수정 다이얼로그 표시
+  Future<void> showEditEventDialog(BuildContext context, Event event) async {
+    final TextEditingController titleController = TextEditingController(text: event.title);
+    
+    // 시작 시간 파싱
+    final timeParts = event.time.split(':');
+    TimeOfDay selectedStartTime = TimeOfDay(
+      hour: int.parse(timeParts[0]),
+      minute: int.parse(timeParts[1]),
+    );
+    
+    // 종료 시간 파싱
+    TimeOfDay selectedEndTime;
+    if (event.endTime != null && event.endTime!.isNotEmpty) {
+      final endTimeParts = event.endTime!.split(':');
+      selectedEndTime = TimeOfDay(
+        hour: int.parse(endTimeParts[0]),
+        minute: int.parse(endTimeParts[1]),
+      );
+    } else {
+      selectedEndTime = TimeOfDay(
+        hour: (selectedStartTime.hour + 1) % 24,
+        minute: selectedStartTime.minute,
+      );
+    }
+    
+    int selectedColorId = event.getColorId() ?? 1; // 기본 색상: 라벤더
+
+    return showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('일정 수정'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(hintText: '일정 제목'),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('색상 선택:'),
+                  Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: _getColorByColorId(selectedColorId),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.grey,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => ColorPickerDialog(
+                              initialColorId: selectedColorId,
+                              onColorSelected: (colorId) {
+                                setState(() {
+                                  selectedColorId = colorId;
+                                });
+                              },
+                            ),
+                          );
+                        },
+                        child: const Text('변경'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('시작 시간:'),
+                  TextButton(
+                    onPressed: () async {
+                      final TimeOfDay? picked = await showTimePicker(
+                        context: context,
+                        initialTime: selectedStartTime,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              timePickerTheme: TimePickerThemeData(
+                                backgroundColor: Colors.white,
+                                hourMinuteTextColor: Colors.black,
+                                dayPeriodTextColor: Colors.black,
+                                dayPeriodColor: Colors.grey[200],
+                                dayPeriodShape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          selectedStartTime = picked;
+                          // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
+                          selectedEndTime = TimeOfDay(
+                            hour: (selectedStartTime.hour + 1) % 24,
+                            minute: selectedStartTime.minute,
+                          );
+                        });
+                      }
+                    },
+                    child: Text(
+                      '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('종료 시간:'),
+                  TextButton(
+                    onPressed: () async {
+                      final TimeOfDay? picked = await showTimePicker(
+                        context: context,
+                        initialTime: selectedEndTime,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              timePickerTheme: TimePickerThemeData(
+                                backgroundColor: Colors.white,
+                                hourMinuteTextColor: Colors.black,
+                                dayPeriodTextColor: Colors.black,
+                                dayPeriodColor: Colors.grey[200],
+                                dayPeriodShape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          selectedEndTime = picked;
+                        });
+                      }
+                    },
+                    child: Text(
+                      '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (titleController.text.isNotEmpty) {
+                  final updatedEvent = event.copyWith(
+                    title: titleController.text,
+                    time: '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                    endTime: '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                    colorId: selectedColorId.toString(),
+                  );
+
+                  try {
+                    await _eventManager.updateEvent(event, updatedEvent, syncWithGoogle: true);
+                    Navigator.pop(context);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('일정이 수정되었습니다: ${titleController.text}'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('일정 수정 실패: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('수정'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // colorId로 색상 가져오기 (Google Calendar 표준 색상)
   Color _getColorByColorId(int colorId) {
     const Map<int, Color> googleColors = {

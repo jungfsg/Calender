@@ -12,6 +12,7 @@ class EventPopup extends StatelessWidget {
   final Function() onClose;
   final Function() onAddEvent;
   final Function(Event) onDeleteEvent;
+  final Function(Event)? onEditEvent; // 이벤트 수정 콜백 함수 추가
   final Function(Event)? getEventDisplayColor; // 이벤트 색상 가져오는 콜백 함수
 
   const EventPopup({
@@ -24,6 +25,7 @@ class EventPopup extends StatelessWidget {
     required this.onClose,
     required this.onAddEvent,
     required this.onDeleteEvent,
+    this.onEditEvent, // 이벤트 수정 콜백 추가
     this.getEventDisplayColor,
   });
 
@@ -156,47 +158,59 @@ class EventPopup extends StatelessWidget {
                             color: Colors.black,
                           ),
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, size: 20),
-                          onPressed: () async {
-                            // 삭제 확인 다이얼로그
-                            final shouldDelete = await showDialog<bool>(
-                              context: context,
-                              builder:
-                                  (context) => AlertDialog(
-                                    title: Text(
-                                      '일정 삭제',
-                                      style: getTextStyle(fontSize: 14),
-                                    ),
-                                    content: Text(
-                                      '${event.time} ${event.title} 일정을 삭제하시겠습니까?',
-                                      style: getTextStyle(fontSize: 12),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.pop(context, false),
-                                        child: Text(
-                                          '취소',
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 수정 버튼
+                            if (onEditEvent != null)
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 20),
+                                onPressed: () => onEditEvent!(event),
+                              ),
+                            // 삭제 버튼
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 20),
+                              onPressed: () async {
+                                // 삭제 확인 다이얼로그
+                                final shouldDelete = await showDialog<bool>(
+                                  context: context,
+                                  builder:
+                                      (context) => AlertDialog(
+                                        title: Text(
+                                          '일정 삭제',
+                                          style: getTextStyle(fontSize: 14),
+                                        ),
+                                        content: Text(
+                                          '${event.time} ${event.title} 일정을 삭제하시겠습니까?',
                                           style: getTextStyle(fontSize: 12),
                                         ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed:
+                                                () => Navigator.pop(context, false),
+                                            child: Text(
+                                              '취소',
+                                              style: getTextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed:
+                                                () => Navigator.pop(context, true),
+                                            child: Text(
+                                              '삭제',
+                                              style: getTextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.pop(context, true),
-                                        child: Text(
-                                          '삭제',
-                                          style: getTextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                            );
+                                );
 
-                            if (shouldDelete == true) {
-                              onDeleteEvent(event);
-                            }
-                          },
+                                if (shouldDelete == true) {
+                                  onDeleteEvent(event);
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     );

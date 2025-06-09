@@ -465,6 +465,11 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         setState(() {});
                       });
                     },
+                    onEditEvent: (event) {
+                      widget.popupManager.showEditEventDialog(context, event).then((_) {
+                        setState(() {});
+                      });
+                    },
                     onDeleteEvent: (event) async {
                       await widget.eventManager.removeEvent(event);
                       setState(() {});
