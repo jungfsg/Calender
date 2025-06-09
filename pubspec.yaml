@@ -64,6 +64,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   water_drop_nav_bar: ^2.2.2
   gal: ^2.3.1
+  flutter_tts: ^4.2.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

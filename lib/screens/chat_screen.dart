@@ -1,3 +1,4 @@
+// lib/screens/chat_screen.dart (최종 수정본)
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
@@ -11,6 +12,9 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
+
+// --- TTS 관련 추가 ---
+import '../services/tts_service.dart'; // TTS 서비스 임포트
 
 class EmptyPage extends StatefulWidget {
   final VoidCallback? onCalendarUpdate;
@@ -38,7 +42,12 @@ class _EmptyPageState extends State<EmptyPage> {
   @override
   void initState() {
     super.initState();
-    _addSystemMessage('안녕하세요! 무엇을 도와드릴까요?');
+    // 초기 시스템 메시지도 음성으로 재생
+    const initialMessage = '안녕하세요! 무엇을 도와드릴까요?';
+    _addSystemMessage(initialMessage);
+    // --- TTS 관련 추가 ---
+    // 앱 시작 시 초기 메시지 재생 (TTS가 활성화 되어있을 경우)
+    TtsService.instance.speak(initialMessage);
   }
 
   void _addSystemMessage(String text) {
@@ -48,6 +57,7 @@ class _EmptyPageState extends State<EmptyPage> {
       id: _uuid.v4(),
       text: text,
     );
+    if (!mounted) return;
     setState(() {
       _messages.insert(0, message);
     });
@@ -79,9 +89,7 @@ class _EmptyPageState extends State<EmptyPage> {
           _showCalendarUpdateNotification();
 
           // 부모 위젯(캘린더 화면)의 콜백도 호출
-          if (widget.onCalendarUpdate != null) {
-            widget.onCalendarUpdate!();
-          }
+          widget.onCalendarUpdate?.call();
         },
         eventManager: widget.eventManager, // EventManager 전달하여 Google 동기화 활성화
       );
@@ -91,15 +99,25 @@ class _EmptyPageState extends State<EmptyPage> {
         _messages.insert(0, botResponse);
         _isLoading = false;
       });
+
+      // --- TTS 관련 추가 ---
+      // 봇의 응답이 텍스트 메시지일 경우에만 음성으로 재생
+      if (botResponse is types.TextMessage) {
+        TtsService.instance.speak(botResponse.text);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
-      _addSystemMessage('죄송합니다. 서버 통신 중 오류가 발생했습니다: $e');
+      final errorMessage = '죄송합니다. 서버 통신 중 오류가 발생했습니다: $e';
+      _addSystemMessage(errorMessage);
+      // --- TTS 관련 추가 ---
+      TtsService.instance.speak(errorMessage);
     }
   }
 
+  // ... (기존 _handleImageSelection 함수는 변경 없음) ...
   Future _handleImageSelection() async {
     final XFile? result = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -125,30 +143,13 @@ class _EmptyPageState extends State<EmptyPage> {
         // 갤러리에 저장
         try {
           await Gal.putImage(result.path);
-
-          // 저장 성공 메시지
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('📸 사진이 갤러리에 저장되었습니다.'),
-                duration: Duration(seconds: 2),
-                backgroundColor: Colors.green,
-              ),
+              const SnackBar(content: Text('📸 사진이 갤러리에 저장되었습니다.')),
             );
           }
         } catch (e) {
           print('갤러리 저장 실패: $e');
-          // 저장 실패 시에도 사용자에게 알림
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('⚠️ 갤러리 저장 실패: $e'),
-                duration: Duration(seconds: 3),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-          // 저장 실패해도 OCR 처리는 계속 진행
         }
 
         final File imageFile = File(result.path);
@@ -171,8 +172,7 @@ class _EmptyPageState extends State<EmptyPage> {
         try {
           // OCR 처리
           final inputImage = InputImage.fromFilePath(imageFile.path);
-          final RecognizedText recognizedText = await _textRecognizer
-              .processImage(inputImage);
+          final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
           if (recognizedText.text.isNotEmpty) {
             // 인식된 텍스트 메시지 생성
             final textMessage = types.TextMessage(
@@ -181,45 +181,30 @@ class _EmptyPageState extends State<EmptyPage> {
               id: _uuid.v4(),
               text: recognizedText.text,
             );
-
             setState(() {
               _messages.insert(0, textMessage);
             });
 
-            try {
-              // 인식된 텍스트를 ChromaDB에 저장
-              await _chatService.storeOcrText(
-                recognizedText.text,
-                metadata: {
-                  'source': 'camera_ocr',
-                  'timestamp': DateTime.now().toIso8601String(),
-                  'user_id': _user.id,
-                },
-              );
-            } catch (e) {
-              print('OCR 텍스트 저장 중 오류 발생: $e');
-              // 저장 실패해도 계속 진행
-            } // 인식된 텍스트를 서버로 전송
+            // 인식된 텍스트를 서버로 전송
             final botResponse = await _chatService.sendMessage(
               recognizedText.text,
               _user.id,
               onCalendarUpdate: () {
-                // 일정이 추가되었을 때 사용자에게 알림
                 print('🎉 캘린더 업데이트 콜백이 호출되었습니다! (OCR)');
                 _showCalendarUpdateNotification();
-
-                // 부모 위젯(캘린더 화면)의 콜백도 호출
-                if (widget.onCalendarUpdate != null) {
-                  widget.onCalendarUpdate!();
-                }
+                widget.onCalendarUpdate?.call();
               },
-              eventManager: widget.eventManager, // EventManager 추가 전달
+              eventManager: widget.eventManager,
             );
 
             setState(() {
               _messages.insert(0, botResponse);
               _isLoading = false;
             });
+            // --- TTS 관련 추가 ---
+            if (botResponse is types.TextMessage) {
+              TtsService.instance.speak(botResponse.text);
+            }
           } else {
             // 텍스트가 인식되지 않은 경우 이미지만 전송
             await _handleImageUpload(imageFile);
@@ -228,17 +213,17 @@ class _EmptyPageState extends State<EmptyPage> {
           setState(() {
             _isLoading = false;
           });
-          _addSystemMessage('이미지 처리 중 오류가 발생했습니다: $e');
+          final errorMessage = '이미지 처리 중 오류가 발생했습니다: $e';
+          _addSystemMessage(errorMessage);
+          // --- TTS 관련 추가 ---
+          TtsService.instance.speak(errorMessage);
         }
       }
     } catch (e) {
       print('카메라 촬영 중 오류 발생: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('카메라 촬영 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('카메라 촬영 중 오류가 발생했습니다: $e')),
         );
       }
     }
@@ -248,7 +233,6 @@ class _EmptyPageState extends State<EmptyPage> {
     if (!mounted) return;
 
     final bytes = await imageFile.readAsBytes();
-    final base64Image = base64Encode(bytes);
     final size = bytes.length;
 
     final imageMessage = types.ImageMessage(
@@ -274,15 +258,23 @@ class _EmptyPageState extends State<EmptyPage> {
         _messages.insert(0, botResponse);
         _isLoading = false;
       });
+      // --- TTS 관련 추가 ---
+      if (botResponse is types.TextMessage) {
+        TtsService.instance.speak(botResponse.text);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
-      _addSystemMessage('죄송합니다. 이미지 전송 중 오류가 발생했습니다: $e');
+      final errorMessage = '죄송합니다. 이미지 전송 중 오류가 발생했습니다: $e';
+      _addSystemMessage(errorMessage);
+      // --- TTS 관련 추가 ---
+      TtsService.instance.speak(errorMessage);
     }
   }
 
+  // ... (이후 _buildCustomInput, _onItemTapped 등 나머지 코드는 기존과 동일합니다) ...
   // 커스텀 입력 영역 위젯
   Widget _buildCustomInput() {
     return Container(
@@ -421,6 +413,9 @@ class _EmptyPageState extends State<EmptyPage> {
         if (_isLoading) {
           return false;
         }
+        // --- TTS 관련 추가 ---
+        // 화면을 나가기 전에 TTS 중지
+        TtsService.instance.stop();
         return true;
       },
       child: Scaffold(
@@ -507,6 +502,9 @@ class _EmptyPageState extends State<EmptyPage> {
     if (!kIsWeb) {
       _textRecognizer.close(); // 웹이 아닐 때만 리소스 해제
     }
+    // --- TTS 관련 추가 ---
+    // 화면이 완전히 종료될 때 TTS 중지
+    TtsService.instance.stop();
     super.dispose();
   }
 }

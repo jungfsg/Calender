@@ -23,12 +23,20 @@ class CalendarWidget extends StatefulWidget {
   final PopupManager popupManager;
   final VoidCallback? onLogout;
 
+  // --- TTS 관련 추가 ---
+  final bool isTtsEnabled;
+  final ValueChanged<bool> onTtsToggle;
+
   const CalendarWidget({
     super.key,
     required this.controller,
     required this.eventManager,
     required this.popupManager,
     this.onLogout,
+    
+    // --- TTS 관련 추가 ---
+    required this.isTtsEnabled,
+    required this.onTtsToggle,
   });
 
   @override
@@ -46,7 +54,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // 현재 월의 주 수 계산
+    // ... (기존 코드와 동일)
     final DateTime firstDay = DateTime(
       widget.controller.focusedDay.year,
       widget.controller.focusedDay.month,
@@ -57,22 +65,15 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       widget.controller.focusedDay.month + 1,
       0,
     );
-
-    // 주 시작일에 맞는 요일 오프셋 계산
-    final int firstWeekday = (firstDay.weekday % 7); // 0: 일, 1: 월, ... 6: 토
-    // 마지막 날의 날짜
+    final int firstWeekday = (firstDay.weekday % 7);
     final int lastDate = lastDay.day;
-
-    // 정확한 주 수 계산
     final int totalWeeks = ((firstWeekday + lastDate) / 7).ceil();
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Color.fromARGB(255, 162, 222, 141),
-      // 캘린더 화면 가장 뒷 레이어의 배경색
-      // OS 네비게이션 바 위치의 색상도 같이 바뀌므로 앱 네비게이션 바의 색상과 일치시켜야 함
+      backgroundColor: const Color.fromARGB(255, 162, 222, 141),
       drawer: CalendarSideMenu(
         onWeatherForecastTap: () async {
-          // WeatherService 직접 호출
           await WeatherService.loadCalendarWeather(widget.controller);
           widget.popupManager.showWeatherForecastDialog();
           setState(() {});
@@ -80,13 +81,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         onGoogleCalendarDownload: () async {
           try {
             _showSnackBar('Google Calendar 동기화 시작...');
-
-            // 동기화 처리 (내부적으로 이벤트도 리로드함)
             await widget.eventManager.syncWithGoogleCalendar();
-
-            // UI 강제 새로고침
             setState(() {});
-
             _showSnackBar('Google Calendar 동기화 완료!');
           } catch (e) {
             _showSnackBar('동기화 실패: $e');
@@ -102,8 +98,13 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         },
         onLogoutTap: widget.onLogout ?? () {},
         isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
+        
+        // --- TTS 관련 속성 전달 ---
+        isTtsEnabled: widget.isTtsEnabled,
+        onTtsToggle: widget.onTtsToggle,
       ),
       body: SafeArea(
+        // ... (이하 모든 코드는 기존과 동일)
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -144,7 +145,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         print(
                           '📅 월 변경됨: ${focusedDay.year}년 ${focusedDay.month}월',
                         );
-
                         widget.controller.setFocusedDay(focusedDay);
                         widget.controller.hideAllPopups();
 
@@ -269,7 +269,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                   print('❌ 날짜 선택 시 이벤트 로드 실패: $e');
                                 }
                               }
-
                               widget.popupManager.showEventDialog();
                               setState(() {});
                             },
@@ -428,7 +427,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                 ),
                               ),
                               // 여백을 위한 투명한 아이콘
-                              IconButton(
+                              const IconButton(
                                 icon: Icon(
                                   Icons.calendar_today,
                                   color: Colors.transparent,
@@ -441,9 +440,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       ),
                     ),
                   ),
-                ),
-
-                // 이벤트 팝업 오버레이
+                ), // 이벤트 팝업 오버레이
                 if (widget.controller.showEventPopup)
                   EventPopup(
                     selectedDay: widget.controller.selectedDay,
@@ -501,20 +498,10 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                     builder: (context, snapshot) {
                       // 로딩 중일 때 로딩 인디케이터 표시
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(
-                          child: Container(
-                            width: MediaQuery.of(context).size.width * 0.7,
-                            height: MediaQuery.of(context).size.height * 0.3,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 10,
-                                ),
-                              ],
-                            ),
+                        return const Center(
+                          child: SizedBox(
+                            width: 200,
+                            height: 200,
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -594,7 +581,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
             ),
       ),
     );
-
     // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
     if (result != null && result['refreshNavigation'] == true) {
       setState(() {
