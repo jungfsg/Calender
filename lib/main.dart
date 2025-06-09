@@ -18,7 +18,15 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Calender vs2500604',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: const Color.fromARGB(
+          255,
+          162,
+          222,
+          141,
+        ), // 기존 캘린더 배경색과 동일하게 설정
+      ),
       home: const LoginScreen(),
       // home: const PixelArtCalendarScreen(),
       debugShowCheckedModeBanner: false,

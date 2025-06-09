@@ -109,7 +109,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final availableHeight = constraints.maxHeight;
-            const monthHeaderHeight = 65.0;
+            const monthHeaderHeight = 55.0;
             const dayOfWeekHeaderHeight = 35.0;
             final weekHeight =
                 (availableHeight -
@@ -117,21 +117,22 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                     dayOfWeekHeaderHeight -
                     16.0) /
                 totalWeeks;
+            final adjustedWeekHeight = weekHeight.clamp(50.0, double.infinity);
 
             return Stack(
               children: [
-                // 캘린더 부분
+                // 패딩의 색이 캘린더의 연/월 표시 박스와 이번달이 아닌 날짜의 테두리 색에 반영됨
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(3.0, 3.0, 3.0, 0),
+                  padding: const EdgeInsets.fromLTRB(7.0, 7.0, 7.0, 0),
                   child: Container(
-                    color: Colors.white,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     child: TableCalendar(
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
                       focusedDay: widget.controller.focusedDay,
                       calendarFormat: _calendarFormat,
                       daysOfWeekHeight: dayOfWeekHeaderHeight,
-                      rowHeight: weekHeight,
+                      rowHeight: adjustedWeekHeight,
                       selectedDayPredicate: (day) {
                         return isSameDay(widget.controller.selectedDay, day);
                       },
@@ -175,8 +176,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         formatButtonVisible: false,
                         leftChevronVisible: false,
                         rightChevronVisible: false,
-                        headerMargin: const EdgeInsets.only(bottom: 8),
-                        headerPadding: const EdgeInsets.symmetric(vertical: 10),
+                        headerMargin: const EdgeInsets.only(bottom: 4),
+                        headerPadding: const EdgeInsets.symmetric(vertical: 5),
                         titleCentered: true,
                       ),
                       daysOfWeekStyle: DaysOfWeekStyle(
@@ -232,7 +233,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                           color: Color(0xFFEEEEEE),
                         ),
                         outsideDecoration: const BoxDecoration(
-                          color: Color(0xFFDDDDDD),
+                          color: Color(0xFFDDDDDD), // 이번달이 아닌 날짜의 셀 배경색
                         ),
                         tableBorder: TableBorder.all(
                           color: const Color.fromARGB(24, 0, 0, 0),
@@ -363,7 +364,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             child: Text(
                               weekdayNames[weekdayIndex],
                               style: getTextStyle(
-                                fontSize: 14,
+                                fontSize: 12,
                                 color: textColor,
                                 text: weekdayNames[weekdayIndex],
                               ),
@@ -404,7 +405,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                   child: Text(
                                     '${month.year}년 ${monthNames[month.month - 1]}',
                                     style: getTextStyle(
-                                      fontSize: 20,
+                                      fontSize: 16, // 사이즈에 따라 표시 영역의 크기가 변함
                                       color: Colors.black,
                                     ),
                                   ),

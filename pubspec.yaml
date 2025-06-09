@@ -53,6 +53,7 @@ dependencies:
   extension_google_sign_in_as_googleapis_auth: ^2.0.12
   # MLKIT OCR
   google_mlkit_text_recognition: ^0.11.0
+  glassmorphism: ^3.0.0
 
   # 채팅 UI 관련 패키지 (필요하다면 주석 해제)
   # flutter_chat_ui: ^1.6.12
