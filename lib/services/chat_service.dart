@@ -97,13 +97,49 @@ class ChatService {
         print(data);
         print('🔍 응답 키들: ${data.keys.toList()}');
 
-        final botMessage =
-            data['response'] as String; // 일정 추가 관련 응답인지 확인하고 로컬 캘린더에 저장
+        final botMessage = data['response'] as String;
+        
+        // 일정 추가/수정/삭제 관련 응답인지 확인하고 로컬 캘린더에 저장
         final calendarUpdated = await _handleCalendarResponse(
           data,
           onCalendarUpdate: onCalendarUpdate,
           eventManager: eventManager,
         );
+
+        // 일정 조회인 경우 로컬에서 직접 조회해서 응답 생성
+        final intent = data['intent'] as String?;
+        final extractedInfo = data['extracted_info'] as Map<String, dynamic>?;
+        
+        String finalMessage = botMessage;
+        
+        if ((intent == 'calendar_query' || intent == 'calendar_search') && extractedInfo != null) {
+          print('🔄 일정 조회 인텐트 감지 - 로컬에서 직접 조회');
+          
+          final queryDate = extractedInfo['start_date'] as String?;
+          final queryDateEnd = extractedInfo['end_date'] as String?;
+          
+          if (queryDate != null) {
+            try {
+              final startDate = DateTime.parse(queryDate);
+              final endDate = queryDateEnd != null ? DateTime.parse(queryDateEnd) : startDate;
+              
+              final eventsMap = await _getEventsInDateRange(startDate, endDate, eventManager);
+              
+              if (eventsMap.isNotEmpty) {
+                final formattedSchedule = _formatScheduleForUser(eventsMap, startDate, endDate);
+                finalMessage = formattedSchedule; // 백엔드 응답 대신 우리가 생성한 일정 브리핑 사용
+                print('✅ 로컬 일정 조회 성공 - 일정 브리핑으로 응답 대체');
+              } else {
+                final dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][startDate.weekday % 7];
+                finalMessage = '📅 ${startDate.month}월 ${startDate.day}일 (${dayOfWeek})에는 등록된 일정이 없습니다.';
+                print('📭 해당 날짜에 일정 없음 - 빈 일정 메시지로 응답');
+              }
+            } catch (e) {
+              print('❌ 로컬 일정 조회 실패: $e');
+              // 오류 시 백엔드 응답 그대로 사용
+            }
+          }
+        }
 
         // 캘린더가 업데이트되었으면 콜백 호출
         if (calendarUpdated && onCalendarUpdate != null) {
@@ -114,7 +150,7 @@ class ChatService {
         return types.TextMessage(
           author: types.User(id: 'bot'),
           id: _uuid.v4(),
-          text: botMessage,
+          text: finalMessage,
           createdAt: DateTime.now().millisecondsSinceEpoch,
         );
       } else {
@@ -401,6 +437,59 @@ class ChatService {
           print('❌ 수정할 일정의 날짜 정보가 없습니다');
         }
       }
+      // 일정 조회가 성공한 경우 (calendar_query 또는 calendar_search)
+      else if ((intent == 'calendar_query' || intent == 'calendar_search') &&
+          extractedInfo != null) {
+        print('📅 일정 조회 조건 만족! 일정 조회 시작...');
+
+        // 추출된 날짜 정보로 일정 조회
+        final queryDate = extractedInfo['query_date'] as String? ?? 
+                         extractedInfo['start_date'] as String? ?? 
+                         extractedInfo['date'] as String?;
+        final queryDateEnd = extractedInfo['query_date_end'] as String? ??
+                            extractedInfo['end_date'] as String?;
+
+        print('🔍 조회할 날짜: "$queryDate"');
+        print('🔍 조회 종료날짜: "$queryDateEnd"');
+        print('🔍 ExtractedInfo 전체: $extractedInfo');
+
+        if (queryDate != null) {
+          try {
+            // 시작 날짜 파싱
+            final startDate = DateTime.parse(queryDate);
+            print('📅 파싱된 조회 시작 날짜: $startDate');
+
+            // 종료 날짜 파싱 (없으면 시작 날짜와 동일)
+            final endDate = queryDateEnd != null ? DateTime.parse(queryDateEnd) : startDate;
+            print('📅 파싱된 조회 종료 날짜: $endDate');
+
+            // 로컬에서 직접 일정 조회 (백엔드 결과에 의존하지 않음)
+            final eventsMap = await _getEventsInDateRange(startDate, endDate, eventManager);
+            
+            if (eventsMap.isNotEmpty) {
+              final totalEvents = eventsMap.values.fold<int>(0, (sum, events) => sum + events.length);
+              print('📋 조회된 총 일정 개수: $totalEvents개');
+
+              // 일정 목록을 사용자 친화적으로 포맷팅
+              final formattedSchedule = _formatScheduleForUser(eventsMap, startDate, endDate);
+              print('📝 포맷팅된 일정 브리핑: $formattedSchedule');
+
+              // 채팅에 일정 정보 추가 - 직접 메시지 생성해서 표시
+              return true; // 캘린더 조회 완료
+            } else {
+              print('📭 해당 기간에 일정이 없습니다.');
+              // 일정이 없어도 응답 생성
+              return true; // 빈 일정도 응답으로 처리
+            }
+          } catch (e) {
+            print('❌ 일정 조회 중 날짜 파싱 오류: $e');
+            return false;
+          }
+        } else {
+          print('❌ 조회할 날짜 정보가 없습니다');
+          return false;
+        }
+      }
       // 일정 삭제가 성공한 경우
       else if (intent == 'calendar_delete' &&
           calendarResult != null &&
@@ -530,11 +619,14 @@ class ChatService {
         print('- Intent == calendar_add: ${intent == 'calendar_add'}');
         print('- Intent == calendar_update: ${intent == 'calendar_update'}');
         print('- Intent == calendar_delete: ${intent == 'calendar_delete'}');
+        print('- Intent == calendar_query: ${intent == 'calendar_query'}');
+        print('- Intent == calendar_search: ${intent == 'calendar_search'}');
         print('- CalendarResult != null: ${calendarResult != null}');
-        print(
-          '- CalendarResult[success] == true: ${calendarResult?['success'] == true}',
-        );
         print('- ExtractedInfo != null: ${extractedInfo != null}');
+        if (calendarResult != null) {
+          print('- CalendarResult keys: ${calendarResult.keys.toList()}');
+          print('- CalendarResult: $calendarResult');
+        }
       }
 
       print('=== 캘린더 응답 처리 종료 ===');
@@ -565,9 +657,11 @@ class ChatService {
     '일정 알려줘',
     '일정 확인',
     '뭐 있어',
+    '뭐있어',
     '무슨 일',
     '캘린더',
     '달력',
+    '확인',
   ];
 
   // 일정 조회 관련 질문인지 확인하는 메서드
@@ -673,6 +767,118 @@ class ChatService {
       }
     } catch (e) {
       throw Exception('OCR 텍스트 저장 중 오류 발생: $e');
+    }
+  }
+
+  // 특정 날짜 범위의 일정 조회
+  Future<Map<String, List<Event>>> _getEventsInDateRange(DateTime startDate, DateTime endDate, EventManager? eventManager) async {
+    try {
+      // EventStorageService를 직접 사용하여 날짜 범위의 이벤트 가져오기
+      List<Event> events = [];
+      final currentDate = DateTime(startDate.year, startDate.month, startDate.day);
+      final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
+      
+      for (DateTime date = currentDate; 
+           date.isBefore(endDateOnly.add(Duration(days: 1))); 
+           date = date.add(Duration(days: 1))) {
+        final dayEvents = await EventStorageService.getEvents(date);
+        events.addAll(dayEvents);
+      }
+
+      final eventsByDate = <String, List<Event>>{};
+      
+      // 날짜별로 그룹화
+      for (final event in events) {
+        final dateKey = '${event.date.year}-${event.date.month.toString().padLeft(2, '0')}-${event.date.day.toString().padLeft(2, '0')}';
+        eventsByDate.putIfAbsent(dateKey, () => []).add(event);
+      }
+
+      return eventsByDate;
+    } catch (e) {
+      print('날짜 범위 일정 조회 오류: $e');
+      return {};
+    }
+  }
+
+  // 일정을 사용자 친화적으로 포맷팅
+  String _formatScheduleForUser(Map<String, List<Event>> eventsMap, DateTime startDate, DateTime endDate) {
+    final buffer = StringBuffer();
+    
+    // 단일 날짜인지 날짜 범위인지 확인
+    final isSingleDate = startDate.year == endDate.year && 
+                        startDate.month == endDate.month && 
+                        startDate.day == endDate.day;
+                        
+    if (isSingleDate) {
+      final dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][startDate.weekday % 7];
+      buffer.writeln('📅 ${startDate.month}월 ${startDate.day}일 ($dayOfWeek)의 일정:');
+    } else {
+      buffer.writeln('📅 ${startDate.month}월 ${startDate.day}일 ~ ${endDate.month}월 ${endDate.day}일의 일정:');
+    }
+
+    final sortedDates = eventsMap.keys.toList()..sort();
+    
+    for (final dateKey in sortedDates) {
+      final events = eventsMap[dateKey]!;
+      final date = DateTime.parse(dateKey);
+      final dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][date.weekday % 7];
+      
+      if (!isSingleDate) {
+        buffer.writeln('\n🗓️ ${date.month}월 ${date.day}일 ($dayOfWeek):');
+      }
+      
+      // 시간순으로 정렬
+      events.sort((a, b) {
+        if (a.time.isEmpty && b.time.isEmpty) return 0;
+        if (a.time.isEmpty) return 1;
+        if (b.time.isEmpty) return -1;
+        
+        // HH:mm 형식의 시간을 분으로 변환하여 비교
+        final aTime = _parseTimeToMinutes(a.time);
+        final bTime = _parseTimeToMinutes(b.time);
+        return aTime.compareTo(bTime);
+      });
+      
+      for (int i = 0; i < events.length; i++) {
+        final event = events[i];
+        final startTime = event.time.isNotEmpty ? event.time : '시간 미정';
+        final endTime = event.endTime ?? '';
+        final timeStr = endTime.isNotEmpty ? '$startTime~$endTime' : startTime;
+        
+        buffer.writeln('  ${i + 1}. ${event.title}');
+        buffer.writeln('     ⏰ $timeStr');
+        
+        if (event.description.isNotEmpty) {
+          buffer.writeln('     📝 ${event.description}');
+        }
+        
+        // 마지막 일정이 아니면 줄바꿈 추가
+        if (i < events.length - 1) {
+          buffer.writeln();
+        }
+      }
+    }
+
+    final totalEvents = eventsMap.values.fold<int>(0, (sum, events) => sum + events.length);
+    buffer.writeln('\n📊 총 ${totalEvents}개의 일정이 있습니다.');
+
+    return buffer.toString();
+  }
+
+  // HH:mm 형식의 시간을 분으로 변환하는 헬퍼 메서드
+  int _parseTimeToMinutes(String timeStr) {
+    try {
+      if (timeStr.isEmpty) return 9999; // 시간이 없는 이벤트는 맨 뒤로
+      
+      final parts = timeStr.split(':');
+      if (parts.length != 2) return 9999;
+      
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      
+      return hour * 60 + minute;
+    } catch (e) {
+      return 9999; // 파싱 실패시 맨 뒤로
     }
   }
 }
