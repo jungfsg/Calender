@@ -48,7 +48,11 @@ class PopupManager {
   /// 이벤트 추가 다이얼로그 표시 (색상 선택 기능 포함)
   Future<void> showAddEventDialog(BuildContext context) async {
     final TextEditingController titleController = TextEditingController();
-    TimeOfDay selectedTime = TimeOfDay.now();
+    TimeOfDay selectedStartTime = TimeOfDay.now();
+    TimeOfDay selectedEndTime = TimeOfDay(
+      hour: (selectedStartTime.hour + 1) % 24,
+      minute: selectedStartTime.minute,
+    );
     int selectedColorId = 1; // 기본 색상: 라벤더
 
     return showDialog<void>(
@@ -110,12 +114,12 @@ class PopupManager {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('시간 선택:'),
+                          const Text('시작 시간:'),
                           TextButton(
                             onPressed: () async {
                               final TimeOfDay? picked = await showTimePicker(
                                 context: context,
-                                initialTime: selectedTime,
+                                initialTime: selectedStartTime,
                                 builder: (context, child) {
                                   return Theme(
                                     data: Theme.of(context).copyWith(
@@ -137,12 +141,59 @@ class PopupManager {
                               );
                               if (picked != null) {
                                 setState(() {
-                                  selectedTime = picked;
+                                  selectedStartTime = picked;
+                                  // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
+                                  selectedEndTime = TimeOfDay(
+                                    hour: (selectedStartTime.hour + 1) % 24,
+                                    minute: selectedStartTime.minute,
+                                  );
                                 });
                               }
                             },
                             child: Text(
-                              '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                              '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                              style: const TextStyle(color: Colors.blue),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('종료 시간:'),
+                          TextButton(
+                            onPressed: () async {
+                              final TimeOfDay? picked = await showTimePicker(
+                                context: context,
+                                initialTime: selectedEndTime,
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      timePickerTheme: TimePickerThemeData(
+                                        backgroundColor: Colors.white,
+                                        hourMinuteTextColor: Colors.black,
+                                        dayPeriodTextColor: Colors.black,
+                                        dayPeriodColor: Colors.grey[200],
+                                        dayPeriodShape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  selectedEndTime = picked;
+                                });
+                              }
+                            },
+                            child: Text(
+                              '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
                               style: const TextStyle(color: Colors.blue),
                             ),
                           ),
@@ -161,16 +212,19 @@ class PopupManager {
                           final event = Event(
                             title: titleController.text,
                             time:
-                                '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                                '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                            endTime:
+                                '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
                             date: _controller.selectedDay,
                             source: 'local',
                           );
 
                           try {
-                            // 색상 ID를 지정하여 이벤트 추가
+                            // 색상 ID를 지정하여 이벤트 추가 (Google 동기화 활성화)
                             await _eventManager.addEventWithColorId(
                               event,
                               selectedColorId,
+                              syncWithGoogle: true,
                             );
                             Navigator.pop(context);
 

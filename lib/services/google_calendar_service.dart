@@ -494,7 +494,6 @@ class GoogleCalendarService {
     try {
       DateTime startDateTime;
       DateTime endDateTime;
-
       if (event.time == '종일') {
         // 종일 이벤트
         startDateTime = DateTime(
@@ -504,21 +503,47 @@ class GoogleCalendarService {
         );
         endDateTime = startDateTime.add(const Duration(days: 1));
       } else {
-        // 시간이 지정된 이벤트
-        final timeParts = event.time.split(':');
-        if (timeParts.length == 2) {
-          final hour = int.tryParse(timeParts[0]) ?? 0;
-          final minute = int.tryParse(timeParts[1]) ?? 0;
+        // 시작 시간이 지정된 이벤트
+        final startTimeParts = event.time.split(':');
+        if (startTimeParts.length == 2) {
+          final startHour = int.tryParse(startTimeParts[0]) ?? 0;
+          final startMinute = int.tryParse(startTimeParts[1]) ?? 0;
           startDateTime = DateTime(
             event.date.year,
             event.date.month,
             event.date.day,
-            hour,
-            minute,
+            startHour,
+            startMinute,
           );
-          endDateTime = startDateTime.add(
-            const Duration(hours: 1),
-          ); // 기본 1시간 이벤트
+
+          // 종료 시간이 지정되어 있으면 사용
+          if (event.endTime != null && event.endTime!.isNotEmpty) {
+            final endTimeParts = event.endTime!.split(':');
+            if (endTimeParts.length == 2) {
+              final endHour = int.tryParse(endTimeParts[0]) ?? 0;
+              final endMinute = int.tryParse(endTimeParts[1]) ?? 0;
+              endDateTime = DateTime(
+                event.date.year,
+                event.date.month,
+                event.date.day,
+                endHour,
+                endMinute,
+              );
+
+              // 종료 시간이 시작 시간보다 이전이면 다음 날로 설정 (24시간 이상 지속되는 이벤트)
+              if (endDateTime.isBefore(startDateTime)) {
+                endDateTime = endDateTime.add(const Duration(days: 1));
+              }
+            } else {
+              endDateTime = startDateTime.add(
+                const Duration(hours: 1),
+              ); // 기본 1시간 이벤트
+            }
+          } else {
+            endDateTime = startDateTime.add(
+              const Duration(hours: 1),
+            ); // 기본 1시간 이벤트
+          }
         } else {
           startDateTime = event.date;
           endDateTime = startDateTime.add(const Duration(hours: 1));

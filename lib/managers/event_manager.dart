@@ -4,12 +4,15 @@ import '../services/google_calendar_service.dart';
 import '../controllers/calendar_controller.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'sync_manager.dart';
 
 /// 이벤트 관련 로직을 처리하는 매니저 클래스
 class EventManager {
   final CalendarController _controller;
   final GoogleCalendarService _googleCalendarService = GoogleCalendarService();
   final Random _random = Random();
+  // SyncManager 속성 추가
+  late final SyncManager _syncManager;
   // Google Calendar 표준 11가지 색상 (기존 7가지에서 11가지로 확장)
   final List<Color> _standardColors = [
     const Color(0xFF9AA0F5), // 라벤더
@@ -25,7 +28,11 @@ class EventManager {
     const Color(0xFFD50000), // 토마토
   ];
 
-  EventManager(this._controller);
+  // 생성자 수정
+  EventManager(this._controller) {
+    // SyncManager 초기화 - 의존성 주입
+    _syncManager = SyncManager(this, _controller);
+  }
 
   /// 특정 날짜의 이벤트 로드 (중복 방지, 강제 새로고침 옵션 추가)
   Future<void> loadEventsForDay(
@@ -109,8 +116,8 @@ class EventManager {
     }
   }
 
-  /// 이벤트 추가 (중복 체크 강화)
-  Future<void> addEvent(Event event) async {
+  /// 이벤트 추가 (중복 체크 강화, 동기화 개선)
+  Future<void> addEvent(Event event, {bool syncWithGoogle = true}) async {
     try {
       // 1. 기존 이벤트와 중복 체크
       final existingEvents = await EventStorageService.getEvents(event.date);
@@ -156,6 +163,11 @@ class EventManager {
         _controller.setEventColor(event.title, color);
       }
 
+      // 6. Google 동기화 진행 (옵션에 따라)
+      if (syncWithGoogle && event.source == 'local') {
+        await _syncManager.syncEventAddition(event);
+      }
+
       print('✅ 이벤트 추가됨: ${event.title}');
     } catch (e) {
       print('❌ 이벤트 추가 중 오류: $e');
@@ -163,8 +175,12 @@ class EventManager {
     }
   }
 
-  /// 색상 ID를 지정하여 이벤트 추가
-  Future<void> addEventWithColorId(Event event, int colorId) async {
+  /// 색상 ID를 지정하여 이벤트 추가 (동기화 추가)
+  Future<void> addEventWithColorId(
+    Event event,
+    int colorId, {
+    bool syncWithGoogle = true,
+  }) async {
     try {
       // 색상 ID 적용된 이벤트 생성
       final coloredEvent = event.withColorId(colorId);
@@ -215,6 +231,11 @@ class EventManager {
         coloredEvent.getDisplayColor(),
       );
 
+      // Google 동기화 진행 (옵션에 따라)
+      if (syncWithGoogle && coloredEvent.source == 'local') {
+        await _syncManager.syncEventAddition(coloredEvent);
+      }
+
       print('✅ 색상 지정 이벤트 추가됨: ${coloredEvent.title} (색상 ID: $colorId)');
     } catch (e) {
       print('❌ 색상 지정 이벤트 추가 중 오류: $e');
@@ -222,8 +243,8 @@ class EventManager {
     }
   }
 
-  /// 이벤트 제거
-  Future<void> removeEvent(Event event) async {
+  /// 이벤트 제거 (동기화 개선)
+  Future<void> removeEvent(Event event, {bool syncWithGoogle = true}) async {
     try {
       // 로컬 스토리지에서 삭제
       await EventStorageService.removeEvent(event.date, event);
@@ -231,34 +252,24 @@ class EventManager {
       // 컨트롤러에서 제거
       _controller.removeEvent(event);
 
-      // 구글 이벤트인 경우 구글 캘린더에서도 삭제
-      if (event.source == 'google') {
-        try {
-          // 구글 캘린더 서비스가 초기화되었는지 확인
-          if (await _googleCalendarService.initialize()) {
-            final deleted = await _googleCalendarService
-                .deleteEventFromGoogleCalendar(event);
-            if (deleted) {
-              print('✅ 구글 캘린더에서 이벤트 삭제됨: ${event.title}');
-            } else {
-              print('⚠️ 구글 캘린더에서 이벤트 삭제 실패: ${event.title}');
-            }
-          }
-        } catch (googleError) {
-          print('❌ 구글 캘린더 삭제 중 오류: $googleError');
-          // 구글 삭제 실패해도 로컬 삭제는 완료된 것으로 처리
-        }
+      // Google 동기화 진행 (옵션에 따라)
+      if (syncWithGoogle) {
+        await _syncManager.syncEventDeletion(event);
       }
 
-      print('이벤트 삭제됨: ${event.title}');
+      print('✅ 이벤트 삭제됨: ${event.title}');
     } catch (e) {
-      print('이벤트 삭제 중 오류: $e');
+      print('❌ 이벤트 삭제 중 오류: $e');
       rethrow;
     }
   }
 
-  /// 특정 이벤트 삭제 후 컨트롤러 갱신
-  Future<void> removeEventAndRefresh(DateTime date, Event event) async {
+  /// 특정 이벤트 삭제 후 컨트롤러 갱신 (동기화 개선)
+  Future<void> removeEventAndRefresh(
+    DateTime date,
+    Event event, {
+    bool syncWithGoogle = true,
+  }) async {
     try {
       print('🗑️ EventManager: 이벤트 삭제 및 새로고침 시작...');
       print('   삭제할 이벤트: ${event.title} (${date.toString().substring(0, 10)})');
@@ -269,27 +280,13 @@ class EventManager {
       // 2. 컨트롤러에서도 이벤트 제거
       _controller.removeEvent(event);
 
-      // 구글 이벤트인 경우 구글 캘린더에서도 삭제
-      if (event.source == 'google') {
-        try {
-          // 구글 캘린더 서비스가 초기화되었는지 확인
-          if (await _googleCalendarService.initialize()) {
-            final deleted = await _googleCalendarService
-                .deleteEventFromGoogleCalendar(event);
-            if (deleted) {
-              print('✅ 구글 캘린더에서 이벤트 삭제됨: ${event.title}');
-            } else {
-              print('⚠️ 구글 캘린더에서 이벤트 삭제 실패: ${event.title}');
-            }
-          }
-        } catch (googleError) {
-          print('❌ 구글 캘린더 삭제 중 오류: $googleError');
-          // 구글 삭제 실패해도 로컬 삭제는 완료된 것으로 처리
-        }
+      // 3. Google 동기화 진행 (옵션에 따라)
+      if (syncWithGoogle) {
+        await _syncManager.syncEventDeletion(event);
       }
 
-      // 3. 해당 날짜 이벤트 다시 로드하여 동기화
-      await loadEventsForDay(date);
+      // 4. 해당 날짜 이벤트 다시 로드하여 동기화
+      await loadEventsForDay(date, forceRefresh: true);
 
       print('✅ EventManager: 이벤트 삭제 및 새로고침 완료');
     } catch (e) {

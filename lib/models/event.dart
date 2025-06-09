@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 class Event {
   final String title;
-  final String time; // HH:mm 형식의 시간
+  final String time; // HH:mm 형식의 시작 시간
+  final String? endTime; // HH:mm 형식의 종료 시간, null일 경우 시작시간+1시간으로 자동 계산
   final DateTime date;
   final String description; // 이벤트 설명 추가
   final String? colorId; // 구글 캘린더 색상 ID 추가
@@ -13,6 +14,7 @@ class Event {
   Event({
     required this.title,
     required this.time,
+    this.endTime,
     required this.date,
     this.description = '', // 기본값으로 빈 문자열 설정
     this.colorId,
@@ -33,6 +35,7 @@ class Event {
     final json = {
       'title': title,
       'time': time,
+      'endTime': endTime, // 종료 시간 추가
       'date': date.toIso8601String(),
       'description': description,
       'colorId': colorId,
@@ -51,6 +54,7 @@ class Event {
     final event = Event(
       title: json['title'],
       time: json['time'],
+      endTime: json['endTime'], // 종료 시간 복원
       date: DateTime.parse(json['date']),
       description: json['description'] ?? '',
       colorId: json['colorId'],
@@ -63,15 +67,21 @@ class Event {
     );
     return event;
   }
-
   // 시간 비교를 위한 메서드
   int compareTo(Event other) {
     return time.compareTo(other.time);
-  } // 색상이 있는 Event 복사본 생성
+  }
 
+  // 종료 시간이 있는지 확인하는 메서드
+  bool hasEndTime() {
+    return endTime != null && endTime!.isNotEmpty;
+  }
+
+  // 색상이 있는 Event 복사본 생성
   Event copyWith({
     String? title,
     String? time,
+    String? endTime,
     DateTime? date,
     String? description,
     String? colorId,
@@ -82,6 +92,7 @@ class Event {
     return Event(
       title: title ?? this.title,
       time: time ?? this.time,
+      endTime: endTime ?? this.endTime,
       date: date ?? this.date,
       description: description ?? this.description,
       colorId: colorId ?? this.colorId,
