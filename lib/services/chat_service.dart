@@ -11,7 +11,7 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://cea6-220-90-168-2.ngrok-free.app';
+  final String baseUrl = 'https://aea4-59-17-140-26.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 날씨 관련 키워드 목록
@@ -70,6 +70,18 @@ class ChatService {
         } catch (weatherError) {
           print('날씨 데이터 가져오기 실패: $weatherError');
           // 날씨 데이터 가져오기 실패해도 계속 진행
+        }
+      }
+
+      // 일정 조회 관련 질문이면 캘린더 데이터 추가
+      if (_isCalendarQueryQuestion(text)) {
+        try {
+          final calendarData = await _getCalendarDataForAI();
+          requestBody['calendar_context'] = calendarData;
+          print('🗓️ 캘린더 컨텍스트 추가: ${calendarData.length}개 이벤트');
+        } catch (calendarError) {
+          print('캘린더 데이터 가져오기 실패: $calendarError');
+          // 캘린더 데이터 가져오기 실패해도 계속 진행
         }
       }
 
@@ -216,6 +228,179 @@ class ChatService {
           print('❌ startDate가 null입니다');
         }
       }
+      // 일정 수정이 성공한 경우
+      else if (intent == 'calendar_update' &&
+          calendarResult != null &&
+          calendarResult['success'] == true &&
+          extractedInfo != null) {
+        print('✏️ 일정 수정 조건 만족! 이벤트 수정 시작...');
+
+        // 추출된 정보로 수정할 이벤트 찾기
+        final originalTitle = extractedInfo['original_title'] as String? ?? 
+                             extractedInfo['title'] as String? ?? ''; // title 필드 폴백 추가
+        final newTitle = extractedInfo['new_title'] as String? ?? 
+                        extractedInfo['title'] as String?; // title 필드 폴백 추가
+        final startDate = extractedInfo['start_date'] as String?;
+        final originalStartDate = extractedInfo['original_start_date'] as String?;
+        final newStartTime = extractedInfo['new_start_time'] as String? ?? 
+                            extractedInfo['start_time'] as String?; // start_time 필드 폴백 추가
+        final newEndTime = extractedInfo['new_end_time'] as String? ?? 
+                          extractedInfo['end_time'] as String?; // end_time 필드 폴백 추가
+        final newDescription = extractedInfo['new_description'] as String? ?? 
+                              extractedInfo['description'] as String?; // description 필드 폴백 추가
+
+        print('🔍 ExtractedInfo 전체 구조: $extractedInfo');
+        print('🔍 수정 대상 원본 Title: "$originalTitle"');
+        print('🔍 새로운 Title: "$newTitle"');
+        print('🔍 원본 StartDate: "$originalStartDate"');
+        print('🔍 새로운 StartDate: "$startDate"');
+        print('🔍 새로운 StartTime: "$newStartTime"');
+        print('🔍 새로운 EndTime: "$newEndTime"');
+        print('🔍 새로운 Description: "$newDescription"');
+
+        // 원본 날짜 또는 새로운 날짜 중 하나는 있어야 함
+        final searchDate = originalStartDate ?? startDate;
+        if (searchDate != null) {
+          try {
+            // 날짜 파싱
+            final eventDate = DateTime.parse(searchDate);
+            print('📅 파싱된 검색 날짜: $eventDate');
+
+            // 해당 날짜의 모든 이벤트 가져오기
+            final existingEvents = await EventStorageService.getEvents(eventDate);
+            print('📋 해당 날짜의 기존 이벤트들 (${existingEvents.length}개):');
+            for (int i = 0; i < existingEvents.length; i++) {
+              print('  $i: ${existingEvents[i].toJson()}');
+            }
+
+            // 수정할 이벤트 찾기 (Google Event ID 우선, 제목으로 폴백)
+            Event? eventToUpdate;
+            print('🔍 수정할 이벤트 검색 중...');
+            
+            // Google Event ID가 있다면 우선적으로 검색
+            final googleEventId = extractedInfo['google_event_id'] as String?;
+            if (googleEventId != null && googleEventId.isNotEmpty) {
+              print('🔗 Google Event ID로 검색 시도: $googleEventId');
+              for (var event in existingEvents) {
+                if (event.googleEventId == googleEventId) {
+                  eventToUpdate = event;
+                  print('✅ Google Event ID로 이벤트 찾음: ${event.toJson()}');
+                  break;
+                }
+              }
+            }
+            
+            // Google Event ID로 찾지 못했거나 ID가 없는 경우 제목으로 검색
+            if (eventToUpdate == null) {
+              print('🔍 제목으로 이벤트 검색...');
+              for (int i = 0; i < existingEvents.length; i++) {
+                var event = existingEvents[i];
+                print('  검색 $i: "${event.title}" vs "$originalTitle"');
+
+                bool titleMatch = false;
+                if (originalTitle.isNotEmpty) {
+                  // 정확한 일치 우선
+                  if (event.title.toLowerCase() == originalTitle.toLowerCase()) {
+                    titleMatch = true;
+                    print('    정확한 제목 일치: $titleMatch');
+                  }
+                  // 포함 관계 검사
+                  else if (event.title.toLowerCase().contains(originalTitle.toLowerCase()) ||
+                      originalTitle.toLowerCase().contains(event.title.toLowerCase())) {
+                    titleMatch = true;
+                    print('    부분 제목 일치: $titleMatch');
+                  }
+                } else {
+                  // originalTitle이 비어있는 경우, 해당 날짜의 첫 번째 이벤트를 수정 대상으로 선택
+                  print('    originalTitle이 비어있음 - 첫 번째 이벤트 선택');
+                  titleMatch = true;
+                }
+
+                if (titleMatch) {
+                  eventToUpdate = event;
+                  print('✅ 수정할 이벤트 찾음 (제목 기준): ${event.toJson()}');
+                  break;
+                }
+              }
+            }
+
+            if (eventToUpdate != null) {
+              print('✏️ 이벤트 수정 실행 중...');
+
+              // 새로운 날짜가 지정된 경우 파싱
+              DateTime updatedDate = eventToUpdate.date;
+              if (startDate != null && startDate != originalStartDate) {
+                try {
+                  updatedDate = DateTime.parse(startDate);
+                  print('📅 새로운 날짜로 변경: $updatedDate');
+                } catch (e) {
+                  print('⚠️ 새로운 날짜 파싱 실패, 기존 날짜 유지: $e');
+                }
+              }
+
+              // 수정된 이벤트 생성 (기존 값들을 더 잘 보존)
+              final updatedEvent = eventToUpdate.copyWith(
+                title: (newTitle != null && newTitle != eventToUpdate.title) ? newTitle : eventToUpdate.title,
+                time: (newStartTime != null && newStartTime != eventToUpdate.time) ? newStartTime : eventToUpdate.time,
+                endTime: (newEndTime != null && newEndTime != eventToUpdate.endTime) ? newEndTime : eventToUpdate.endTime,
+                date: updatedDate,
+                description: (newDescription != null && newDescription != eventToUpdate.description) ? newDescription : eventToUpdate.description,
+              );
+
+              print('🔄 수정 전 이벤트: ${eventToUpdate.toJson()}');
+              print('🔄 적용할 변경사항:');
+              print('   제목: ${eventToUpdate.title} -> ${updatedEvent.title}');
+              print('   시간: ${eventToUpdate.time} -> ${updatedEvent.time}');
+              print('   종료시간: ${eventToUpdate.endTime} -> ${updatedEvent.endTime}');
+              print('   날짜: ${eventToUpdate.date} -> ${updatedEvent.date}');
+              print('   설명: "${eventToUpdate.description}" -> "${updatedEvent.description}"');
+
+              print('🔄 수정된 Event 객체: ${updatedEvent.toJson()}');
+
+              // EventManager를 통해 수정 (Google 동기화 포함)
+              if (eventManager != null) {
+                await eventManager.updateEvent(
+                  eventToUpdate,
+                  updatedEvent,
+                  syncWithGoogle: true, // Google 캘린더에서도 수정
+                );
+                print('✅ EventManager를 통해 일정 수정 및 Google Calendar 동기화 완료');
+              } else {
+                // 폴백: 로컬에서만 수정
+                await EventStorageService.removeEvent(eventToUpdate.date, eventToUpdate);
+                await EventStorageService.addEvent(updatedDate, updatedEvent);
+                print('⚠️ EventManager가 없어 로컬에서만 수정되었습니다 (Google Calendar 동기화 없음)');
+              }
+
+              print('✅ AI 채팅으로 요청된 일정이 수정되었습니다: ${eventToUpdate.title} -> ${updatedEvent.title}');
+              print('📅 수정된 날짜: $updatedDate');
+
+              // 수정 후 확인
+              final updatedEvents = await EventStorageService.getEvents(updatedDate);
+              print('🔍 수정 후 확인 - 해당 날짜의 이벤트들 (${updatedEvents.length}개):');
+              for (int i = 0; i < updatedEvents.length; i++) {
+                print('  $i: ${updatedEvents[i].toJson()}');
+              }
+
+              // 캘린더 업데이트 콜백 호출
+              if (onCalendarUpdate != null) {
+                onCalendarUpdate();
+                print('📱 캘린더 업데이트 콜백 호출됨');
+              }
+
+              return true; // 캘린더가 업데이트되었음을 반환
+            } else {
+              print('❌ 수정할 이벤트를 찾을 수 없습니다.');
+              print('   검색한 제목: "$originalTitle"');
+              print('   검색한 날짜: $eventDate');
+            }
+          } catch (e) {
+            print('❌ 일정 수정 중 날짜 파싱 오류: $e');
+          }
+        } else {
+          print('❌ 수정할 일정의 날짜 정보가 없습니다');
+        }
+      }
       // 일정 삭제가 성공한 경우
       else if (intent == 'calendar_delete' &&
           calendarResult != null &&
@@ -247,26 +432,44 @@ class ChatService {
               print('  $i: ${existingEvents[i].toJson()}');
             }
 
-            // 삭제할 이벤트 찾기 (제목으로 검색)
+            // 삭제할 이벤트 찾기 (Google Event ID 우선, 제목으로 폴백)
             Event? eventToDelete;
             print('🔍 삭제할 이벤트 검색 중...');
-            for (int i = 0; i < existingEvents.length; i++) {
-              var event = existingEvents[i];
-              print('  검색 $i: "${event.title}" vs "$title"');
-
-              bool titleMatch = false;
-              if (title.isNotEmpty) {
-                titleMatch =
-                    event.title.toLowerCase().contains(title.toLowerCase()) ||
-                    title.toLowerCase().contains(event.title.toLowerCase());
-                print('    제목 일치: $titleMatch');
+            
+            // Google Event ID가 있다면 우선적으로 검색
+            final googleEventId = extractedInfo['google_event_id'] as String?;
+            if (googleEventId != null && googleEventId.isNotEmpty) {
+              print('🔗 Google Event ID로 검색 시도: $googleEventId');
+              for (var event in existingEvents) {
+                if (event.googleEventId == googleEventId) {
+                  eventToDelete = event;
+                  print('✅ Google Event ID로 이벤트 찾음: ${event.toJson()}');
+                  break;
+                }
               }
+            }
+            
+            // Google Event ID로 찾지 못했거나 ID가 없는 경우 제목으로 검색
+            if (eventToDelete == null) {
+              print('🔍 제목으로 이벤트 검색...');
+              for (int i = 0; i < existingEvents.length; i++) {
+                var event = existingEvents[i];
+                print('  검색 $i: "${event.title}" vs "$title"');
 
-              // 제목이 일치하면 시간에 상관없이 삭제 (시간 정보가 부정확할 수 있음)
-              if (titleMatch) {
-                eventToDelete = event;
-                print('✅ 삭제할 이벤트 찾음 (제목 기준): ${event.toJson()}');
-                break;
+                bool titleMatch = false;
+                if (title.isNotEmpty) {
+                  titleMatch =
+                      event.title.toLowerCase().contains(title.toLowerCase()) ||
+                      title.toLowerCase().contains(event.title.toLowerCase());
+                  print('    제목 일치: $titleMatch');
+                }
+
+                // 제목이 일치하면 시간에 상관없이 삭제 (시간 정보가 부정확할 수 있음)
+                if (titleMatch) {
+                  eventToDelete = event;
+                  print('✅ 삭제할 이벤트 찾음 (제목 기준): ${event.toJson()}');
+                  break;
+                }
               }
             }
             if (eventToDelete != null) {
@@ -325,6 +528,7 @@ class ChatService {
         print('일정 작업 조건 불만족:');
         print('- Intent: $intent');
         print('- Intent == calendar_add: ${intent == 'calendar_add'}');
+        print('- Intent == calendar_update: ${intent == 'calendar_update'}');
         print('- Intent == calendar_delete: ${intent == 'calendar_delete'}');
         print('- CalendarResult != null: ${calendarResult != null}');
         print(
@@ -344,6 +548,69 @@ class ChatService {
   // 날씨 관련 질문인지 확인하는 메서드
   bool _isWeatherRelatedQuestion(String text) {
     return _weatherKeywords.any((keyword) => text.contains(keyword));
+  }
+
+  // 일정 조회 관련 키워드 목록
+  final List<String> _calendarQueryKeywords = [
+    '일정',
+    '스케줄',
+    '계획',
+    '약속',
+    '미팅',
+    '회의',
+    '오늘 일정',
+    '내일 일정',
+    '이번 주 일정',
+    '다음 주 일정',
+    '일정 알려줘',
+    '일정 확인',
+    '뭐 있어',
+    '무슨 일',
+    '캘린더',
+    '달력',
+  ];
+
+  // 일정 조회 관련 질문인지 확인하는 메서드
+  bool _isCalendarQueryQuestion(String text) {
+    return _calendarQueryKeywords.any((keyword) => text.contains(keyword));
+  }
+
+  // AI에게 제공할 캘린더 데이터 가져오기
+  Future<List<Map<String, dynamic>>> _getCalendarDataForAI() async {
+    try {
+      final now = DateTime.now();
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final endOfWeek = startOfWeek.add(const Duration(days: 13)); // 2주치 데이터
+
+      List<Map<String, dynamic>> calendarData = [];
+
+      for (DateTime date = startOfWeek; 
+           date.isBefore(endOfWeek) || date.isAtSameMomentAs(endOfWeek); 
+           date = date.add(const Duration(days: 1))) {
+        
+        final events = await EventStorageService.getEvents(date);
+        
+        for (var event in events) {
+          calendarData.add({
+            'id': event.uniqueId,
+            'google_event_id': event.googleEventId,
+            'title': event.title,
+            'date': event.date.toIso8601String().split('T')[0], // yyyy-MM-dd 형식
+            'time': event.time,
+            'end_time': event.endTime,
+            'description': event.description,
+            'source': event.source,
+            'color_id': event.colorId,
+          });
+        }
+      }
+
+      print('🗓️ AI용 캘린더 데이터 준비 완료: ${calendarData.length}개 이벤트');
+      return calendarData;
+    } catch (e) {
+      print('❌ AI용 캘린더 데이터 준비 실패: $e');
+      return [];
+    }
   }
 
   // 이미지를 서버에 전송하는 메서드

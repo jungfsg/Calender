@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
   // 서버 URL (chat_service.dart와 동일하게 맞추는 것이 좋습니다)
-  final String baseUrl = 'https://cea6-220-90-168-2.ngrok-free.app';
+  final String baseUrl = 'https://aea4-59-17-140-26.ngrok-free.app';
 
   // GoogleSignIn 설정을 명시적으로 구성
   final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);

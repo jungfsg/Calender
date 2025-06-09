@@ -192,6 +192,13 @@ class VoiceCommandService {
         lowerCommand.contains('새 일정') ||
         lowerCommand.contains('새일정')) {
       // 컨텍스트가 필요한 작업은 콜백으로 처리
+    } else if (lowerCommand.contains('일정 수정') ||
+        lowerCommand.contains('일정수정') ||
+        lowerCommand.contains('수정') ||
+        lowerCommand.contains('변경') ||
+        lowerCommand.contains('고치') ||
+        lowerCommand.contains('바꿔')) {
+      // 일정 수정 명령어 처리 - 복잡한 처리는 AI로 넘김
     } else if (lowerCommand.contains('일정 삭제') ||
         lowerCommand.contains('일정삭제') ||
         lowerCommand.contains('삭제') ||
