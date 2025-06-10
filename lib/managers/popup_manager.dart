@@ -3,6 +3,7 @@ import '../models/time_slot.dart';
 import '../controllers/calendar_controller.dart';
 import '../managers/event_manager.dart';
 import '../widgets/color_picker_dialog.dart';
+import '../enums/recurrence_type.dart';
 import 'package:flutter/material.dart';
 
 /// 팝업 관련 로직을 처리하는 매니저 클래스
@@ -34,7 +35,7 @@ class PopupManager {
     _controller.hideWeatherDialog();
   }
 
-  /// 이벤트 추가 다이얼로그 표시 (색상 선택 기능 포함)
+  /// 이벤트 추가 다이얼로그 표시
   Future<void> showAddEventDialog(BuildContext context) async {
     final TextEditingController titleController = TextEditingController();
     TimeOfDay selectedStartTime = TimeOfDay.now();
@@ -43,6 +44,8 @@ class PopupManager {
       minute: selectedStartTime.minute,
     );
     int selectedColorId = 1; // 기본 색상: 라벤더
+    RecurrenceType selectedRecurrence = RecurrenceType.none; // 기본 반복: 없음
+    int recurrenceCount = 1; // 기본 반복 횟수
 
     return showDialog<void>(
       context: context,
@@ -60,304 +63,550 @@ class PopupManager {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16.0),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              '새 일정 추가',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.8,
+                      maxWidth: MediaQuery.of(context).size.width * 0.9,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '새 일정 추가',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: titleController,
-                          decoration: InputDecoration(
-                            hintText: '일정 제목',
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            prefixIcon: const Icon(Icons.event_note),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        Material(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          child: InkWell(
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: titleController,
+                            decoration: InputDecoration(
+                              hintText: '일정 제목',
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: const Icon(Icons.event_note),
+                              // 에러 메시지 표시를 위한 헬퍼 텍스트 추가
+                              helperText: ' ', // 공간 확보
+                            ),
+                            // 자동 포커스 추가
+                            autofocus: true,
+                            // 엔터키 입력 시 다음 단계로 이동
+                            textInputAction: TextInputAction.next,
+                          ),
+                          const SizedBox(height: 20),
+                          Material(
+                            color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder:
-                                    (context) => ColorPickerDialog(
-                                      initialColorId: selectedColorId,
-                                      onColorSelected: (colorId) {
-                                        setState(() {
-                                          selectedColorId = colorId;
-                                        });
-                                      },
-                                    ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 12.0,
-                                horizontal: 16.0,
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.color_lens),
-                                  const SizedBox(width: 12),
-                                  const Text('색상 선택'),
-                                  const Spacer(),
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: _getColorByColorId(
-                                        selectedColorId,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder:
+                                      (context) => ColorPickerDialog(
+                                        initialColorId: selectedColorId,
+                                        onColorSelected: (colorId) {
+                                          setState(() {
+                                            selectedColorId = colorId;
+                                          });
+                                        },
                                       ),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.grey,
-                                        width: 1,
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12.0,
+                                  horizontal: 16.0,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.color_lens),
+                                    const SizedBox(width: 12),
+                                    const Text('색상 선택'),
+                                    const Spacer(),
+                                    Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: _getColorByColorId(
+                                          selectedColorId,
+                                        ),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.grey,
+                                          width: 1,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.arrow_forward_ios, size: 16),
-                                ],
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Material(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                                child: InkWell(
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Material(
+                                  color: Colors.grey[100],
                                   borderRadius: BorderRadius.circular(12),
-                                  onTap: () async {
-                                    final TimeOfDay?
-                                    picked = await showTimePicker(
-                                      context: context,
-                                      initialTime: selectedStartTime,
-                                      builder: (context, child) {
-                                        return Theme(
-                                          data: Theme.of(context).copyWith(
-                                            timePickerTheme: TimePickerThemeData(
-                                              backgroundColor: Colors.white,
-                                              hourMinuteTextColor: Colors.black,
-                                              dayPeriodTextColor: Colors.black,
-                                              dayPeriodColor: Colors.grey[200],
-                                              dayPeriodShape:
-                                                  RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                  ),
-                                            ),
-                                          ),
-                                          child: child!,
-                                        );
-                                      },
-                                    );
-                                    if (picked != null) {
-                                      setState(() {
-                                        selectedStartTime = picked;
-                                        // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
-                                        selectedEndTime = TimeOfDay(
-                                          hour:
-                                              (selectedStartTime.hour + 1) % 24,
-                                          minute: selectedStartTime.minute,
-                                        );
-                                      });
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12.0,
-                                      horizontal: 16.0,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          '시작',
-                                          style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.access_time,
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                              style: const TextStyle(
-                                                fontSize: 16,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () async {
+                                      final TimeOfDay?
+                                      picked = await showTimePicker(
+                                        context: context,
+                                        initialTime: selectedStartTime,
+                                        builder: (context, child) {
+                                          return Theme(
+                                            data: Theme.of(context).copyWith(
+                                              timePickerTheme: TimePickerThemeData(
+                                                backgroundColor: Colors.white,
+                                                hourMinuteTextColor:
+                                                    Colors.black,
+                                                dayPeriodTextColor:
+                                                    Colors.black,
+                                                dayPeriodColor:
+                                                    Colors.grey[200],
+                                                dayPeriodShape:
+                                                    RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                    ),
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                      ],
+                                            child: child!,
+                                          );
+                                        },
+                                      );
+                                      if (picked != null) {
+                                        setState(() {
+                                          selectedStartTime = picked;
+                                          // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
+                                          selectedEndTime = TimeOfDay(
+                                            hour:
+                                                (selectedStartTime.hour + 1) %
+                                                24,
+                                            minute: selectedStartTime.minute,
+                                          );
+                                        });
+                                      }
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12.0,
+                                        horizontal: 16.0,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            '시작',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.access_time,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Material(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                                child: InkWell(
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Material(
+                                  color: Colors.grey[100],
                                   borderRadius: BorderRadius.circular(12),
-                                  onTap: () async {
-                                    final TimeOfDay?
-                                    picked = await showTimePicker(
-                                      context: context,
-                                      initialTime: selectedEndTime,
-                                      builder: (context, child) {
-                                        return Theme(
-                                          data: Theme.of(context).copyWith(
-                                            timePickerTheme: TimePickerThemeData(
-                                              backgroundColor: Colors.white,
-                                              hourMinuteTextColor: Colors.black,
-                                              dayPeriodTextColor: Colors.black,
-                                              dayPeriodColor: Colors.grey[200],
-                                              dayPeriodShape:
-                                                  RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                  ),
-                                            ),
-                                          ),
-                                          child: child!,
-                                        );
-                                      },
-                                    );
-                                    if (picked != null) {
-                                      setState(() {
-                                        selectedEndTime = picked;
-                                      });
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12.0,
-                                      horizontal: 16.0,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          '종료',
-                                          style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.access_time,
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                              style: const TextStyle(
-                                                fontSize: 16,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () async {
+                                      final TimeOfDay?
+                                      picked = await showTimePicker(
+                                        context: context,
+                                        initialTime: selectedEndTime,
+                                        builder: (context, child) {
+                                          return Theme(
+                                            data: Theme.of(context).copyWith(
+                                              timePickerTheme: TimePickerThemeData(
+                                                backgroundColor: Colors.white,
+                                                hourMinuteTextColor:
+                                                    Colors.black,
+                                                dayPeriodTextColor:
+                                                    Colors.black,
+                                                dayPeriodColor:
+                                                    Colors.grey[200],
+                                                dayPeriodShape:
+                                                    RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                    ),
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                      ],
+                                            child: child!,
+                                          );
+                                        },
+                                      );
+                                      if (picked != null) {
+                                        setState(() {
+                                          selectedEndTime = picked;
+                                        });
+                                      }
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12.0,
+                                        horizontal: 16.0,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            '종료',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.access_time,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          // 반복 옵션 섹션
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '반복 설정',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              child: const Text('취소'),
-                            ),
-                            const SizedBox(width: 16),
-                            ElevatedButton(
-                              onPressed: () async {
-                                if (titleController.text.isNotEmpty) {
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8.0,
+                                runSpacing: 8.0,
+                                children:
+                                    RecurrenceType.values.map((recurrence) {
+                                      final isSelected =
+                                          selectedRecurrence == recurrence;
+                                      return FilterChip(
+                                        label: Text(
+                                          recurrence.label,
+                                          style: TextStyle(
+                                            color:
+                                                isSelected
+                                                    ? Colors.white
+                                                    : Colors.black87,
+                                            fontWeight:
+                                                isSelected
+                                                    ? FontWeight.w600
+                                                    : FontWeight.normal,
+                                          ),
+                                        ),
+                                        selected: isSelected,
+                                        onSelected: (bool selected) {
+                                          setState(() {
+                                            selectedRecurrence =
+                                                selected
+                                                    ? recurrence
+                                                    : RecurrenceType.none;
+                                            // 반복 타입이 변경되면 해당 타입의 기본 반복 횟수로 설정
+                                            if (selected &&
+                                                recurrence !=
+                                                    RecurrenceType.none) {
+                                              recurrenceCount =
+                                                  recurrence.defaultCount;
+                                            } else if (!selected) {
+                                              recurrenceCount = 1;
+                                            }
+                                          });
+                                        },
+                                        backgroundColor: Colors.grey[100],
+                                        selectedColor: _getColorByColorId(
+                                          selectedColorId,
+                                        ),
+                                        checkmarkColor: Colors.white,
+                                        elevation: isSelected ? 2 : 0,
+                                        shadowColor: _getColorByColorId(
+                                          selectedColorId,
+                                        ).withOpacity(0.3),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          side: BorderSide(
+                                            color:
+                                                isSelected
+                                                    ? _getColorByColorId(
+                                                      selectedColorId,
+                                                    )
+                                                    : Colors.grey[300]!,
+                                            width: 1,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                              ),
+                              // 반복 횟수 선택 (반복이 선택된 경우에만 표시)
+                              if (selectedRecurrence !=
+                                  RecurrenceType.none) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      '반복 횟수:',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      width: 150, // 80에서 100으로 증가
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: Colors.grey[300]!,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.remove,
+                                              size: 14,
+                                            ), // 16에서 14로 감소
+                                            onPressed: () {
+                                              setState(() {
+                                                if (recurrenceCount > 1) {
+                                                  recurrenceCount--;
+                                                }
+                                              });
+                                            },
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 20, // 24에서 20으로 감소
+                                              minHeight: 20, // 24에서 20으로 감소
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              '$recurrenceCount',
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.add,
+                                              size: 14,
+                                            ), // 16에서 14로 감소
+                                            onPressed: () {
+                                              setState(() {
+                                                if (recurrenceCount < 50) {
+                                                  // 최대 50회로 제한
+                                                  recurrenceCount++;
+                                                }
+                                              });
+                                            },
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 20, // 24에서 20으로 감소
+                                              minHeight: 20, // 24에서 20으로 감소
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _getRecurrenceDescription(
+                                        selectedRecurrence,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text('취소'),
+                              ),
+                              const SizedBox(width: 16),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  // 개선: 입력 검증 추가
+                                  if (titleController.text.trim().isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('일정 제목을 입력해주세요.'),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  // 개선: 시간 유효성 검사
+                                  if (selectedStartTime.hour >
+                                          selectedEndTime.hour ||
+                                      (selectedStartTime.hour ==
+                                              selectedEndTime.hour &&
+                                          selectedStartTime.minute >=
+                                              selectedEndTime.minute)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          '종료 시간은 시작 시간보다 늦어야 합니다.',
+                                        ),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  // 기존 코드...
                                   final event = Event(
-                                    title: titleController.text,
+                                    title:
+                                        titleController.text
+                                            .trim(), // 개선: 공백 제거
                                     time:
                                         '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
                                     endTime:
                                         '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
                                     date: _controller.selectedDay,
                                     source: 'local',
+                                    recurrence: selectedRecurrence,
+                                    recurrenceCount: recurrenceCount,
                                   );
 
                                   try {
-                                    // 색상 ID를 지정하여 이벤트 추가 (Google 동기화 활성화)
-                                    await _eventManager.addEventWithColorId(
-                                      event,
-                                      selectedColorId,
-                                      syncWithGoogle: true,
-                                    );
-                                    Navigator.pop(context);
+                                    // 반복 옵션이 있는 경우 반복 이벤트들을 생성
+                                    if (selectedRecurrence !=
+                                        RecurrenceType.none) {
+                                      await _createRecurringEvents(
+                                        event,
+                                        selectedColorId,
+                                        selectedRecurrence,
+                                        recurrenceCount,
+                                      );
+                                      Navigator.pop(context);
 
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '새 일정이 추가되었습니다: ${titleController.text}',
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '${selectedRecurrence.label} 반복 일정이 추가되었습니다: ${titleController.text.trim()}',
+                                          ),
+                                          backgroundColor: Colors.green,
                                         ),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
+                                      );
+                                    } else {
+                                      // 단일 이벤트 추가
+                                      await _eventManager.addEventWithColorId(
+                                        event,
+                                        selectedColorId,
+                                        syncWithGoogle: true,
+                                      );
+                                      Navigator.pop(context);
+
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '새 일정이 추가되었습니다: ${titleController.text.trim()}',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    }
                                   } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -366,28 +615,28 @@ class PopupManager {
                                       ),
                                     );
                                   }
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _getColorByColorId(
-                                  selectedColorId,
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _getColorByColorId(
+                                    selectedColorId,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
+                                child: const Text(
+                                  '추가',
+                                  style: TextStyle(color: Colors.white),
                                 ),
                               ),
-                              child: const Text(
-                                '추가',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -422,8 +671,9 @@ class PopupManager {
         minute: selectedStartTime.minute,
       );
     }
-
     int selectedColorId = event.getColorId() ?? 1; // 기본 색상: 라벤더
+    RecurrenceType selectedRecurrence = event.recurrence; // 현재 반복 타입
+    int recurrenceCount = event.recurrenceCount; // 현재 반복 횟수
 
     return showDialog<void>(
       context: context,
@@ -569,6 +819,143 @@ class PopupManager {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      // 반복 옵션 섹션
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '반복 설정:',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6.0,
+                            runSpacing: 6.0,
+                            children:
+                                RecurrenceType.values.map((recurrence) {
+                                  final isSelected =
+                                      selectedRecurrence == recurrence;
+                                  return FilterChip(
+                                    label: Text(
+                                      recurrence.label,
+                                      style: TextStyle(
+                                        color:
+                                            isSelected
+                                                ? Colors.white
+                                                : Colors.black87,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    selected: isSelected,
+                                    onSelected: (bool selected) {
+                                      setState(() {
+                                        selectedRecurrence =
+                                            selected
+                                                ? recurrence
+                                                : RecurrenceType.none;
+                                        // 반복 타입이 변경되면 해당 타입의 기본 반복 횟수로 설정
+                                        if (selected &&
+                                            recurrence != RecurrenceType.none) {
+                                          recurrenceCount =
+                                              recurrence.defaultCount;
+                                        } else if (!selected) {
+                                          recurrenceCount = 1;
+                                        }
+                                      });
+                                    },
+                                    backgroundColor: Colors.grey[100],
+                                    selectedColor: _getColorByColorId(
+                                      selectedColorId,
+                                    ),
+                                    checkmarkColor: Colors.white,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  );
+                                }).toList(),
+                          ),
+                          // 반복 횟수 설정 (반복이 설정된 경우만 표시)
+                          if (selectedRecurrence != RecurrenceType.none) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Text(
+                                  '반복 횟수:',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(width: 12),
+                                Container(
+                                  width: 100, // 명시적으로 너비 설정
+                                  height: 40, // 높이도 설정
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.remove,
+                                          size: 14,
+                                        ), // 크기 조정
+                                        onPressed: () {
+                                          setState(() {
+                                            if (recurrenceCount > 1) {
+                                              recurrenceCount--;
+                                            }
+                                          });
+                                        },
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 20, // 크기 조정
+                                          minHeight: 20, // 크기 조정
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          '$recurrenceCount',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.add,
+                                          size: 14,
+                                        ), // 크기 조정
+                                        onPressed: () {
+                                          setState(() {
+                                            if (recurrenceCount < 50) {
+                                              // 최대 50회로 제한
+                                              recurrenceCount++;
+                                            }
+                                          });
+                                        },
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 20, // 크기 조정
+                                          minHeight: 20, // 크기 조정
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _getRecurrenceDescription(selectedRecurrence),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                   actions: [
@@ -586,6 +973,8 @@ class PopupManager {
                             endTime:
                                 '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
                             colorId: selectedColorId.toString(),
+                            recurrence: selectedRecurrence, // 🆕 반복 옵션 추가
+                            recurrenceCount: recurrenceCount, // 🆕 반복 횟수 추가
                           );
 
                           try {
@@ -715,5 +1104,96 @@ class PopupManager {
             ],
           ),
     );
+  }
+
+  /// 반복 이벤트들을 생성하는 헬퍼 메서드
+  Future<void> _createRecurringEvents(
+    Event baseEvent,
+    int colorId,
+    RecurrenceType recurrence,
+    int recurrenceCount,
+  ) async {
+    List<Event> eventsToAdd = [];
+    DateTime currentDate = baseEvent.date;
+
+    // 사용자가 지정한 반복 횟수 사용
+    for (int i = 0; i < recurrenceCount; i++) {
+      if (i > 0) {
+        currentDate = _getNextOccurrence(currentDate, recurrence);
+      }
+
+      final recurringEvent = baseEvent.copyWith(
+        date: currentDate,
+        recurrence:
+            i == 0 ? recurrence : RecurrenceType.none, // 첫 번째 이벤트만 원본 반복 타입 유지
+        recurrenceCount: recurrenceCount, // 반복 횟수 정보 저장
+      );
+
+      eventsToAdd.add(recurringEvent);
+    }
+
+    // 모든 반복 이벤트를 추가
+    for (final event in eventsToAdd) {
+      try {
+        await _eventManager.addEventWithColorId(
+          event,
+          colorId,
+          syncWithGoogle: true,
+        );
+      } catch (e) {
+        print('반복 이벤트 추가 실패: ${event.date} - $e');
+        // 하나가 실패해도 계속 진행
+      }
+    }
+  }
+
+  /// 다음 반복 일자 계산
+  DateTime _getNextOccurrence(DateTime current, RecurrenceType recurrence) {
+    switch (recurrence) {
+      case RecurrenceType.daily:
+        return current.add(const Duration(days: 1));
+      case RecurrenceType.weekly:
+        return current.add(const Duration(days: 7));
+      case RecurrenceType.monthly:
+        return DateTime(
+          current.month == 12 ? current.year + 1 : current.year,
+          current.month == 12 ? 1 : current.month + 1,
+          current.day,
+          current.hour,
+          current.minute,
+          current.second,
+          current.millisecond,
+          current.microsecond,
+        );
+      case RecurrenceType.yearly:
+        return DateTime(
+          current.year + 1,
+          current.month,
+          current.day,
+          current.hour,
+          current.minute,
+          current.second,
+          current.millisecond,
+          current.microsecond,
+        );
+      case RecurrenceType.none:
+        return current;
+    }
+  }
+
+  /// 반복 유형에 대한 설명 반환
+  String _getRecurrenceDescription(RecurrenceType recurrence) {
+    switch (recurrence) {
+      case RecurrenceType.daily:
+        return '매일';
+      case RecurrenceType.weekly:
+        return '매주';
+      case RecurrenceType.monthly:
+        return '매월';
+      case RecurrenceType.yearly:
+        return '매년';
+      case RecurrenceType.none:
+        return '반복 없음';
+    }
   }
 }
