@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:uuid/uuid.dart';
@@ -362,38 +363,38 @@ class ChatService {
           extractedInfo != null) {
         print('✏️ 일정 수정 조건 만족! 이벤트 수정 시작...');
 
-        // 추출된 정보로 수정할 이벤트 찾기
-        final originalTitle =
-            extractedInfo['original_title'] as String? ??
-            extractedInfo['title'] as String? ??
-            ''; // title 필드 폴백 추가
-        final newTitle =
-            extractedInfo['new_title'] as String? ??
-            extractedInfo['title'] as String?; // title 필드 폴백 추가
-        final startDate = extractedInfo['start_date'] as String?;
-        final originalStartDate =
-            extractedInfo['original_start_date'] as String?;
-        final newStartTime =
-            extractedInfo['new_start_time'] as String? ??
-            extractedInfo['start_time'] as String?; // start_time 필드 폴백 추가
-        final newEndTime =
-            extractedInfo['new_end_time'] as String? ??
-            extractedInfo['end_time'] as String?; // end_time 필드 폴백 추가
-        final newDescription =
-            extractedInfo['new_description'] as String? ??
-            extractedInfo['description'] as String?; // description 필드 폴백 추가
+        final updateType = extractedInfo['update_type'] as String? ?? 'single';
+        print('🔍 수정 타입: $updateType');
 
-        print('🔍 ExtractedInfo 전체 구조: $extractedInfo');
-        print('🔍 수정 대상 원본 Title: "$originalTitle"');
-        print('🔍 새로운 Title: "$newTitle"');
-        print('🔍 원본 StartDate: "$originalStartDate"');
-        print('🔍 새로운 StartDate: "$startDate"');
-        print('🔍 새로운 StartTime: "$newStartTime"');
-        print('🔍 새로운 EndTime: "$newEndTime"');
-        print('🔍 새로운 Description: "$newDescription"');
+        if (updateType == 'multiple') {
+          // 다중 수정 처리
+          return await _handleMultipleUpdate(extractedInfo, eventManager, onCalendarUpdate);
+        } else {
+          // 단일 수정 처리 (기존 로직)
+          final target = extractedInfo['target'] as Map<String, dynamic>? ?? {};
+          final changes = extractedInfo['changes'] as Map<String, dynamic>? ?? {};
+          
+          // 기존 필드명과의 호환성을 위한 매핑
+          final originalTitle = target['title'] as String? ?? extractedInfo['original_title'] as String? ?? extractedInfo['title'] as String? ?? '';
+          final targetDate = target['date'] as String? ?? extractedInfo['start_date'] as String?;
+                  // 변경 사항 추출
+          final newTitle = changes['title'] as String? ?? extractedInfo['new_title'] as String? ?? extractedInfo['title'] as String?;
+          final newStartTime = changes['start_time'] as String? ?? extractedInfo['new_start_time'] as String? ?? extractedInfo['start_time'] as String?;
+          final newEndTime = changes['end_time'] as String? ?? extractedInfo['new_end_time'] as String? ?? extractedInfo['end_time'] as String?;
+          final newDescription = changes['description'] as String? ?? extractedInfo['new_description'] as String? ?? extractedInfo['description'] as String?;
+          final newDate = changes['start_date'] as String? ?? extractedInfo['start_date'] as String?;
 
-        // 원본 날짜 또는 새로운 날짜 중 하나는 있어야 함
-        final searchDate = originalStartDate ?? startDate;
+          print('🔍 ExtractedInfo 전체 구조: $extractedInfo');
+          print('🔍 수정 대상 원본 Title: "$originalTitle"');
+          print('🔍 새로운 Title: "$newTitle"');
+          print('🔍 대상 날짜: "$targetDate"');
+          print('🔍 새로운 날짜: "$newDate"');
+          print('🔍 새로운 StartTime: "$newStartTime"');
+          print('🔍 새로운 EndTime: "$newEndTime"');
+          print('🔍 새로운 Description: "$newDescription"');
+
+          // 검색할 날짜 설정
+          final searchDate = targetDate;
         if (searchDate != null) {
           try {
             // 날짜 파싱
@@ -470,9 +471,9 @@ class ChatService {
 
               // 새로운 날짜가 지정된 경우 파싱
               DateTime updatedDate = eventToUpdate.date;
-              if (startDate != null && startDate != originalStartDate) {
+              if (newDate != null && newDate != targetDate) {
                 try {
-                  updatedDate = DateTime.parse(startDate);
+                  updatedDate = DateTime.parse(newDate);
                   print('📅 새로운 날짜로 변경: $updatedDate');
                 } catch (e) {
                   print('⚠️ 새로운 날짜 파싱 실패, 기존 날짜 유지: $e');
@@ -564,8 +565,9 @@ class ChatService {
           } catch (e) {
             print('❌ 일정 수정 중 날짜 파싱 오류: $e');
           }
-        } else {
-          print('❌ 수정할 일정의 날짜 정보가 없습니다');
+          } else {
+            print('❌ 수정할 일정의 날짜 정보가 없습니다');
+          }
         }
       }
       // 일정 조회가 성공한 경우 (calendar_query 또는 calendar_search)
@@ -1209,6 +1211,173 @@ class ChatService {
       return hour * 60 + minute;
     } catch (e) {
       return 9999; // 파싱 실패시 맨 뒤로
+    }
+  }
+
+  // 다중 수정 처리 메서드
+  Future<bool> _handleMultipleUpdate(
+    Map<String, dynamic> extractedInfo,
+    EventManager? eventManager,
+    VoidCallback? onCalendarUpdate,
+  ) async {
+    try {
+      final updates = extractedInfo['updates'] as List<dynamic>? ?? [];
+      print('🔍 처리할 수정 요청 개수: ${updates.length}');
+
+      int successCount = 0;
+      List<Map<String, dynamic>> updateResults = [];
+
+      for (int i = 0; i < updates.length; i++) {
+        final updateRequest = updates[i] as Map<String, dynamic>;
+        final target = updateRequest['target'] as Map<String, dynamic>? ?? {};
+        final changes = updateRequest['changes'] as Map<String, dynamic>? ?? {};
+
+        print('🔄 수정 요청 ${i + 1} 처리 중...');
+        print('  대상: $target');
+        print('  변경사항: $changes');
+
+        final originalTitle = target['title'] as String? ?? '';
+        final targetDate = target['date'] as String?;
+
+        if (targetDate != null) {
+          try {
+            final eventDate = DateTime.parse(targetDate);
+            print('📅 수정 대상 날짜: $eventDate');
+
+            // 해당 날짜의 모든 이벤트 가져오기
+            final existingEvents = await EventStorageService.getEvents(eventDate);
+            print('📋 해당 날짜의 이벤트들 (${existingEvents.length}개)');
+
+            // 수정할 이벤트 찾기
+            Event? eventToUpdate;
+
+            // Google Event ID가 있다면 우선적으로 검색
+            final googleEventId = target['google_event_id'] as String?;
+            if (googleEventId != null && googleEventId.isNotEmpty) {
+              print('🔗 Google Event ID로 검색: $googleEventId');
+              for (var event in existingEvents) {
+                if (event.googleEventId == googleEventId) {
+                  eventToUpdate = event;
+                  print('✅ Google Event ID로 이벤트 찾음');
+                  break;
+                }
+              }
+            }
+
+            // Google Event ID로 찾지 못했거나 ID가 없는 경우 제목으로 검색
+            if (eventToUpdate == null && originalTitle.isNotEmpty) {
+              print('🔍 제목으로 이벤트 검색: $originalTitle');
+              for (var event in existingEvents) {
+                bool titleMatch = event.title.toLowerCase() == originalTitle.toLowerCase() ||
+                    event.title.toLowerCase().contains(originalTitle.toLowerCase()) ||
+                    originalTitle.toLowerCase().contains(event.title.toLowerCase());
+
+                if (titleMatch) {
+                  eventToUpdate = event;
+                  print('✅ 제목으로 이벤트 찾음: ${event.title}');
+                  break;
+                }
+              }
+            }
+
+            if (eventToUpdate != null) {
+              // 변경사항 적용
+              final newTitle = changes['title'] as String?;
+              final newStartTime = changes['start_time'] as String?;
+              final newEndTime = changes['end_time'] as String?;
+              final newDate = changes['start_date'] as String?;
+              final newDescription = changes['description'] as String?;
+              final newLocation = changes['location'] as String?;
+
+              // 새로운 날짜 파싱
+              DateTime updatedDate = eventToUpdate.date;
+              if (newDate != null && newDate != targetDate) {
+                try {
+                  updatedDate = DateTime.parse(newDate);
+                  print('📅 새로운 날짜로 변경: $updatedDate');
+                } catch (e) {
+                  print('⚠️ 새로운 날짜 파싱 실패, 기존 날짜 유지: $e');
+                }
+              }
+
+              // 수정된 이벤트 생성
+              final updatedEvent = eventToUpdate.copyWith(
+                title: (newTitle != null && newTitle != eventToUpdate.title) ? newTitle : eventToUpdate.title,
+                time: (newStartTime != null && newStartTime != eventToUpdate.time) ? newStartTime : eventToUpdate.time,
+                endTime: (newEndTime != null && newEndTime != eventToUpdate.endTime) ? newEndTime : eventToUpdate.endTime,
+                date: updatedDate,
+                description: (newDescription != null && newDescription != eventToUpdate.description) ? newDescription : eventToUpdate.description,
+                // location 필드가 Event 모델에 있다면 추가
+              );
+
+              print('🔄 수정 전: ${eventToUpdate.toJson()}');
+              print('🔄 수정 후: ${updatedEvent.toJson()}');
+
+              // EventManager를 통해 수정
+              if (eventManager != null) {
+                await eventManager.updateEvent(
+                  eventToUpdate,
+                  updatedEvent,
+                  syncWithGoogle: true,
+                );
+                print('✅ EventManager를 통해 일정 수정 및 Google Calendar 동기화 완료');
+              } else {
+                // 폴백: 로컬에서만 수정
+                await EventStorageService.removeEvent(eventToUpdate.date, eventToUpdate);
+                await EventStorageService.addEvent(updatedDate, updatedEvent);
+                print('⚠️ EventManager가 없어 로컬에서만 수정되었습니다');
+              }
+
+              successCount++;
+              updateResults.add({
+                'success': true,
+                'original_title': eventToUpdate.title,
+                'updated_title': updatedEvent.title,
+                'original_date': eventToUpdate.date.toString(),
+                'updated_date': updatedEvent.date.toString(),
+              });
+
+              print('✅ 수정 요청 ${i + 1} 완료: ${eventToUpdate.title} -> ${updatedEvent.title}');
+            } else {
+              print('❌ 수정 요청 ${i + 1} 실패: 이벤트를 찾을 수 없음');
+              updateResults.add({
+                'success': false,
+                'error': '이벤트를 찾을 수 없음',
+                'target_title': originalTitle,
+                'target_date': targetDate,
+              });
+            }
+          } catch (e) {
+            print('❌ 수정 요청 ${i + 1} 처리 중 오류: $e');
+            updateResults.add({
+              'success': false,
+              'error': e.toString(),
+              'target_title': originalTitle,
+              'target_date': targetDate,
+            });
+          }
+        } else {
+          print('❌ 수정 요청 ${i + 1} 실패: 날짜 정보 없음');
+          updateResults.add({
+            'success': false,
+            'error': '날짜 정보 없음',
+            'target_title': originalTitle,
+          });
+        }
+      }
+
+      print('🎯 다중 수정 완료: 총 ${updates.length}개 중 ${successCount}개 성공');
+
+      // 캘린더 업데이트 콜백 호출
+      if (onCalendarUpdate != null) {
+        onCalendarUpdate();
+        print('📱 캘린더 업데이트 콜백 호출됨');
+      }
+
+      return successCount > 0; // 하나라도 성공하면 true 반환
+    } catch (e) {
+      print('❌ 다중 수정 처리 중 오류: $e');
+      return false;
     }
   }
 }

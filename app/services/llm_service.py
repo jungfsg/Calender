@@ -98,7 +98,7 @@ def keyword_based_classification(user_input: str) -> dict:
     # 예: '예약'을 추가하거나 특정 도메인 용어 추가
     intent_keywords = {
         'calendar_add': ['추가', '만들', '생성', '등록', '잡아', '스케줄', '예약', '설정'],
-        'calendar_update': ['수정', '변경', '바꿔', '업데이트', '이동', '옮겨'],
+        'calendar_update': ['수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정', '이름 바꿔', '시간 바꿔', '날짜 바꿔'],
         'calendar_delete': ['삭제', '지워', '취소', '없애', '빼', '제거', '다 삭제', '모두 삭제', '전체 삭제', '다 지워', '모두 지워', '전부 삭제'],
         'calendar_search': ['검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인'],
         'calendar_copy': ['복사', '복제', '같은 일정', '동일한']
@@ -316,6 +316,10 @@ Confidence 기준:
                 # 삭제의 경우 특별 처리
                 if state['intent'] == 'calendar_delete':
                     return self._extract_delete_information(state, current_date, rule_text)
+                
+                # 수정의 경우 특별 처리
+                if state['intent'] == 'calendar_update':
+                    return self._extract_update_information(state, current_date, rule_text)
                 
                 # 먼저 여러 일정인지 단일 일정인지 판단
                 detection_prompt = f"""
@@ -540,12 +544,49 @@ Confidence 기준:
                     state['calendar_result'] = {"events": [], "search_query": state['current_input']}
                     
                 elif action_type == 'calendar_update':
-                    state['calendar_result'] = {
-                        "success": True,
-                        "event_id": "mock_event_id",
-                        "message": "일정이 성공적으로 수정되었습니다.",
-                        "updated_data": extracted_info
-                    }
+                    # 다중 수정 처리
+                    update_type = extracted_info.get('update_type', 'single')
+                    
+                    if update_type == 'multiple':
+                        # 다중 수정 처리
+                        updates = extracted_info.get('updates', [])
+                        updated_events = []
+                        
+                        for i, update_request in enumerate(updates):
+                            # 각 수정을 개별적으로 처리
+                            target = update_request.get('target', {})
+                            changes = update_request.get('changes', {})
+                            
+                            update_result = {
+                                "success": True,
+                                "target_info": target,
+                                "changes": changes,
+                                "message": f"수정 {i+1}이 성공적으로 완료되었습니다."
+                            }
+                            updated_events.append(update_result)
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "update_type": "multiple",
+                            "events_count": len(updates),
+                            "updated_events": updated_events,
+                            "message": f"총 {len(updates)}개의 일정이 성공적으로 수정되었습니다."
+                        }
+                        print(f"다중 수정 실행: {len(updates)}개 일정")
+                        
+                    else:
+                        # 단일 수정 처리 (기존 로직)
+                        target = extracted_info.get('target', {})
+                        changes = extracted_info.get('changes', {})
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "update_type": "single",
+                            "target_info": target,
+                            "changes": changes,
+                            "message": "일정이 성공적으로 수정되었습니다."
+                        }
+                        print(f"단일 수정 실행: {target.get('title', '일정')}")
                         
                 elif action_type == 'calendar_delete':
                     # 다중 삭제 처리
@@ -690,8 +731,62 @@ Confidence 기준:
                                 state['current_output'] += "\n일정이 캘린더에 잘 저장되었어요! 😊"
                             
                         elif action_type == 'calendar_update':
-                            title = extracted_info.get('title', '일정')
-                            state['current_output'] = f"✅ '{title}' 일정을 성공적으로 수정했습니다!\n\n변경사항이 캘린더에 반영되었어요. 📝"
+                            update_type = calendar_result.get('update_type', 'single')
+                            
+                            if update_type == 'multiple':
+                                # 다중 수정 응답
+                                events_count = calendar_result.get('events_count', 0)
+                                updated_events = calendar_result.get('updated_events', [])
+                                
+                                state['current_output'] = f"✅ 총 {events_count}개의 일정을 성공적으로 수정했습니다! ✏️✨\n\n"
+                                
+                                for i, event_result in enumerate(updated_events):
+                                    target_info = event_result.get('target_info', {})
+                                    changes = event_result.get('changes', {})
+                                    title = target_info.get('title', f'일정 {i+1}')
+                                    date = target_info.get('date', '')
+                                    
+                                    state['current_output'] += f"✏️ **수정 {i+1}: {title}**\n"
+                                    if date:
+                                        state['current_output'] += f"📅 날짜: {date}\n"
+                                    
+                                    # 변경된 내용 표시
+                                    if changes.get('title'):
+                                        state['current_output'] += f"📝 새로운 제목: {changes['title']}\n"
+                                    if changes.get('start_time'):
+                                        state['current_output'] += f"⏰ 새로운 시간: {changes['start_time']}\n"
+                                    if changes.get('start_date'):
+                                        state['current_output'] += f"📅 새로운 날짜: {changes['start_date']}\n"
+                                    if changes.get('location'):
+                                        state['current_output'] += f"📍 새로운 장소: {changes['location']}\n"
+                                    if changes.get('description'):
+                                        state['current_output'] += f"📄 새로운 설명: {changes['description']}\n"
+                                    
+                                    state['current_output'] += "\n"
+                                
+                                state['current_output'] += "모든 변경사항이 캘린더에 반영되었어요! 😊"
+                                
+                            else:
+                                # 단일 수정 응답 (기존 로직 개선)
+                                target_info = calendar_result.get('target_info', {})
+                                changes = calendar_result.get('changes', {})
+                                title = target_info.get('title', '일정')
+                                
+                                state['current_output'] = f"✅ '{title}' 일정을 성공적으로 수정했습니다! ✏️\n\n"
+                                
+                                # 변경된 내용 표시
+                                if changes.get('title'):
+                                    state['current_output'] += f"📝 새로운 제목: {changes['title']}\n"
+                                if changes.get('start_time'):
+                                    state['current_output'] += f"⏰ 새로운 시간: {changes['start_time']}\n"
+                                if changes.get('start_date'):
+                                    state['current_output'] += f"📅 새로운 날짜: {changes['start_date']}\n"
+                                if changes.get('location'):
+                                    state['current_output'] += f"📍 새로운 장소: {changes['location']}\n"
+                                if changes.get('description'):
+                                    state['current_output'] += f"📄 새로운 설명: {changes['description']}\n"
+                                
+                                state['current_output'] += "\n변경사항이 캘린더에 반영되었어요! 📝"
                             
                         elif action_type == 'calendar_delete':
                             delete_type = calendar_result.get('delete_type', 'single')
@@ -961,6 +1056,160 @@ Confidence 기준:
                 "description": ""
             }
             state['extracted_info'] = default_delete_info
+            return state
+    
+    def _extract_update_information(self, state: CalendarState, current_date: datetime, rule_text: str) -> CalendarState:
+        """수정 관련 정보 추출 (다중 수정 지원)"""
+        try:
+            user_input = state['current_input']
+            
+            # 다중 수정 여부 판단
+            detection_prompt = f"""
+사용자 입력에서 수정할 일정의 개수를 분석해주세요:
+"{user_input}"
+
+다음 중 하나로 응답해주세요:
+- "SINGLE": 하나의 일정만 수정
+- "MULTIPLE": 여러 개의 일정을 수정
+
+다중 수정 판단 기준:
+- "그리고", "또", "그 다음에", "추가로" 등의 연결어로 여러 수정 요청을 언급
+- 예: "오늘 헬스 일정 오후 3시로 바꾸고 다음주 드라이브 일정을 헬스로 이름 바꿔줘"
+- 예: "팀 미팅 시간 4시로 바꾸고 프로젝트 회의도 내일로 옮겨줘"
+"""
+            
+            detection_response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": detection_prompt}],
+                temperature=0.1
+            )
+            
+            is_multiple = "MULTIPLE" in detection_response.choices[0].message.content.strip()
+            
+            if is_multiple:
+                # 다중 수정 처리
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 여러 일정을 수정하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "update_type": "multiple",
+    "updates": [
+        {{
+            "target": {{
+                "title": "수정할 일정 제목",
+                "date": "YYYY-MM-DD",
+                "time": "HH:MM (선택사항)",
+                "description": "일정 설명"
+            }},
+            "changes": {{
+                "title": "새로운 제목 (변경시에만)",
+                "start_time": "새로운 시작 시간 (변경시에만)",
+                "end_time": "새로운 종료 시간 (변경시에만)",
+                "start_date": "새로운 날짜 (변경시에만)",
+                "description": "새로운 설명 (변경시에만)",
+                "location": "새로운 장소 (변경시에만)"
+            }}
+        }}
+    ]
+}}
+
+추출 가이드라인:
+1. 각 수정 요청을 별도의 객체로 분리
+2. 연결어를 기준으로 수정 요청을 분리
+3. target에는 수정할 일정의 식별 정보
+4. changes에는 변경할 내용만 포함 (변경되지 않는 항목은 제외)
+5. 상대적 날짜 표현을 절대 날짜로 변환
+"""
+            else:
+                # 단일 수정 처리
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 특정 일정을 수정하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "update_type": "single",
+    "target": {{
+        "title": "수정할 일정 제목",
+        "date": "YYYY-MM-DD",
+        "time": "HH:MM (선택사항)",
+        "description": "일정 설명"
+    }},
+    "changes": {{
+        "title": "새로운 제목 (변경시에만)",
+        "start_time": "새로운 시작 시간 (변경시에만)",
+        "end_time": "새로운 종료 시간 (변경시에만)",
+        "start_date": "새로운 날짜 (변경시에만)",
+        "description": "새로운 설명 (변경시에만)",
+        "location": "새로운 장소 (변경시에만)"
+    }}
+}}
+
+추출 가이드라인:
+1. target에는 수정할 일정의 식별 정보
+2. changes에는 변경할 내용만 포함 (변경되지 않는 항목은 제외)
+3. 상대적 날짜 표현을 절대 날짜로 변환
+4. 시간이 명시되지 않으면 null로 설정
+"""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            print(f"수정 정보 추출 응답: {response_text}")
+            
+            # 기본값 설정
+            default_update_info = {
+                "update_type": "single",
+                "target": {
+                    "title": "수정할 일정",
+                    "date": current_date.strftime('%Y-%m-%d'),
+                    "time": None,
+                    "description": ""
+                },
+                "changes": {
+                    "title": None
+                }
+            }
+            
+            # 안전한 JSON 파싱
+            extracted_info = safe_json_parse(response_text, default_update_info)
+            
+            state['extracted_info'] = extracted_info
+            return state
+            
+        except Exception as e:
+            print(f"수정 정보 추출 중 오류: {str(e)}")
+            default_update_info = {
+                "update_type": "single",
+                "target": {
+                    "title": "수정할 일정",
+                    "date": current_date.strftime('%Y-%m-%d'),
+                    "time": None,
+                    "description": ""
+                },
+                "changes": {
+                    "title": None
+                }
+            }
+            state['extracted_info'] = default_update_info
             return state
     
     def _create_event_data(self, extracted_info: Dict[str, Any]) -> Dict[str, Any]:
