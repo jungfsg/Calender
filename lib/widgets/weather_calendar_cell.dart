@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/weather_info.dart';
 import '../models/event.dart';
 import 'weather_icon.dart';
@@ -117,6 +116,23 @@ class WeatherCalendarCell extends StatelessWidget {
     return Colors.blue;
   }
 
+  // HH:mm 형식의 시간을 분으로 변환하는 헬퍼 메서드
+  int _parseTimeToMinutes(String timeStr) {
+    try {
+      if (timeStr.isEmpty) return 9999; // 시간이 없는 이벤트는 맨 뒤로
+
+      final parts = timeStr.split(':');
+      if (parts.length != 2) return 9999;
+
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+
+      return hour * 60 + minute;
+    } catch (e) {
+      return 9999; // 파싱 실패시 맨 뒤로
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -159,9 +175,7 @@ class WeatherCalendarCell extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-
-                // 이벤트 리스트 - 하단 유지, Event 객체 기반으로 변경
+                ), // 이벤트 리스트 - 하단 유지, Event 객체 기반으로 변경 + 시간순 정렬
                 if (events.isNotEmpty)
                   Positioned(
                     bottom: 2,
@@ -170,77 +184,95 @@ class WeatherCalendarCell extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
-                      children:
-                          (events.length > 4 ? events.take(3) : events.take(4))
-                              .map((event) {
-                                final bgColor = _getEventColor(event);
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 1),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 2,
-                                    vertical: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: bgColor.withOpacity(0.9),
-                                    border: Border.all(
-                                      color: const Color.fromARGB(
-                                        255,
-                                        141,
-                                        141,
-                                        141,
-                                      ),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    event.title,
-                                    style: getCustomTextStyle(
-                                      fontSize: 10,
-                                      color: const Color.fromARGB(255, 0, 0, 0),
-                                    ),
-                                    overflow: TextOverflow.clip,
-                                    maxLines: 1,
-                                  ),
-                                );
-                              })
-                              .toList() +
-                          (events.length > 4
-                              ? [
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 1),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 2,
-                                    vertical: 1,
-                                  ),
-                                  decoration: BoxDecoration(
+                      children: () {
+                        // 이벤트를 시간순으로 정렬
+                        final sortedEvents = List<Event>.from(events);
+                        sortedEvents.sort((a, b) {
+                          if (a.time.isEmpty && b.time.isEmpty) return 0;
+                          if (a.time.isEmpty) return 1;
+                          if (b.time.isEmpty) return -1;
+
+                          // HH:mm 형식의 시간을 분으로 변환하여 비교
+                          final aTime = _parseTimeToMinutes(a.time);
+                          final bTime = _parseTimeToMinutes(b.time);
+                          return aTime.compareTo(bTime);
+                        });
+
+                        // 정렬된 이벤트에서 표시할 개수만 선택
+                        final eventsToShow =
+                            sortedEvents.length > 4
+                                ? sortedEvents.take(3).toList()
+                                : sortedEvents.take(4).toList();
+
+                        List<Widget> widgets =
+                            eventsToShow.map((event) {
+                              final bgColor = _getEventColor(event);
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 1),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: bgColor.withOpacity(0.9),
+                                  border: Border.all(
                                     color: const Color.fromARGB(
                                       255,
-                                      185,
-                                      185,
-                                      185,
+                                      141,
+                                      141,
+                                      141,
                                     ),
-                                    border: Border.all(
-                                      color: const Color.fromARGB(
-                                        255,
-                                        168,
-                                        168,
-                                        168,
-                                      ),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '+${events.length - 3}',
-                                    style: getCustomTextStyle(
-                                      fontSize: 10,
-                                      color: const Color.fromARGB(135, 0, 0, 0),
-                                    ),
-                                    overflow: TextOverflow.clip,
-                                    maxLines: 1,
+                                    width: 1,
                                   ),
                                 ),
-                              ]
-                              : []),
+                                child: Text(
+                                  event.title,
+                                  style: getCustomTextStyle(
+                                    fontSize: 10,
+                                    color: const Color.fromARGB(255, 0, 0, 0),
+                                  ),
+                                  overflow: TextOverflow.clip,
+                                  maxLines: 1,
+                                ),
+                              );
+                            }).toList();
+
+                        // "+N개 더" 표시 추가
+                        if (sortedEvents.length > 4) {
+                          widgets.add(
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 185, 185, 185),
+                                border: Border.all(
+                                  color: const Color.fromARGB(
+                                    255,
+                                    168,
+                                    168,
+                                    168,
+                                  ),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                '+${sortedEvents.length - 3}',
+                                style: getCustomTextStyle(
+                                  fontSize: 10,
+                                  color: const Color.fromARGB(135, 0, 0, 0),
+                                ),
+                                overflow: TextOverflow.clip,
+                                maxLines: 1,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return widgets;
+                      }(),
                     ),
                   ),
               ],
