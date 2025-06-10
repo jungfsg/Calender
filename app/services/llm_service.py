@@ -99,7 +99,7 @@ def keyword_based_classification(user_input: str) -> dict:
     intent_keywords = {
         'calendar_add': ['추가', '만들', '생성', '등록', '잡아', '스케줄', '예약', '설정'],
         'calendar_update': ['수정', '변경', '바꿔', '업데이트', '이동', '옮겨'],
-        'calendar_delete': ['삭제', '지워', '취소', '없애', '빼'],
+        'calendar_delete': ['삭제', '지워', '취소', '없애', '빼', '제거', '다 삭제', '모두 삭제', '전체 삭제', '다 지워', '모두 지워', '전부 삭제'],
         'calendar_search': ['검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인'],
         'calendar_copy': ['복사', '복제', '같은 일정', '동일한']
     }
@@ -312,6 +312,10 @@ Confidence 기준:
                 
                 # 규칙을 텍스트로 변환
                 rule_text = "\n".join([f'- "{key}" → {value}' for key, value in date_rules.items()])
+                
+                # 삭제의 경우 특별 처리
+                if state['intent'] == 'calendar_delete':
+                    return self._extract_delete_information(state, current_date, rule_text)
                 
                 # 먼저 여러 일정인지 단일 일정인지 판단
                 detection_prompt = f"""
@@ -544,10 +548,59 @@ Confidence 기준:
                     }
                         
                 elif action_type == 'calendar_delete':
-                    state['calendar_result'] = {
-                        "success": True,
-                        "message": "일정이 성공적으로 삭제되었습니다."
-                    }
+                    # 다중 삭제 처리
+                    delete_type = extracted_info.get('delete_type', 'single')
+                    
+                    if delete_type == 'bulk':
+                        # 전체 삭제 처리
+                        target_date = extracted_info.get('target_date')
+                        date_description = extracted_info.get('date_description', '해당 날짜')
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "delete_type": "bulk",
+                            "target_date": target_date,
+                            "date_description": date_description,
+                            "message": f"{date_description}의 모든 일정이 성공적으로 삭제되었습니다."
+                        }
+                        print(f"전체 삭제 실행: {target_date} ({date_description})")
+                        
+                    elif delete_type == 'multiple':
+                        # 다중 개별 삭제 처리
+                        targets = extracted_info.get('targets', [])
+                        deleted_events = []
+                        
+                        for i, target in enumerate(targets):
+                            # 각 일정을 개별적으로 처리
+                            delete_result = {
+                                "success": True,
+                                "target_info": target,
+                                "message": f"일정 {i+1}이 성공적으로 삭제되었습니다."
+                            }
+                            deleted_events.append(delete_result)
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "delete_type": "multiple",
+                            "events_count": len(targets),
+                            "deleted_events": deleted_events,
+                            "message": f"총 {len(targets)}개의 일정이 성공적으로 삭제되었습니다."
+                        }
+                        print(f"다중 삭제 실행: {len(targets)}개 일정")
+                        
+                    else:
+                        # 단일 삭제 처리 (기존 로직)
+                        title = extracted_info.get('title', '일정')
+                        date = extracted_info.get('date', '')
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "delete_type": "single",
+                            "title": title,
+                            "date": date,
+                            "message": f"'{title}' 일정이 성공적으로 삭제되었습니다."
+                        }
+                        print(f"단일 삭제 실행: {title} ({date})")
                 
                 return state
                 
@@ -641,7 +694,49 @@ Confidence 기준:
                             state['current_output'] = f"✅ '{title}' 일정을 성공적으로 수정했습니다!\n\n변경사항이 캘린더에 반영되었어요. 📝"
                             
                         elif action_type == 'calendar_delete':
-                            state['current_output'] = "✅ 일정을 성공적으로 삭제했습니다!\n\n캘린더에서 해당 일정이 제거되었어요. 🗑️"
+                            delete_type = calendar_result.get('delete_type', 'single')
+                            
+                            if delete_type == 'bulk':
+                                # 전체 삭제 응답
+                                date_description = calendar_result.get('date_description', '해당 날짜')
+                                target_date = calendar_result.get('target_date', '')
+                                
+                                state['current_output'] = f"✅ {date_description}의 모든 일정을 성공적으로 삭제했습니다! 🗑️\n\n"
+                                if target_date:
+                                    state['current_output'] += f"📅 삭제된 날짜: {target_date}\n\n"
+                                state['current_output'] += "캘린더에서 모든 일정이 깔끔하게 제거되었어요! ✨"
+                                
+                            elif delete_type == 'multiple':
+                                # 다중 개별 삭제 응답
+                                events_count = calendar_result.get('events_count', 0)
+                                deleted_events = calendar_result.get('deleted_events', [])
+                                
+                                state['current_output'] = f"✅ 총 {events_count}개의 일정을 성공적으로 삭제했습니다! 🗑️✨\n\n"
+                                
+                                for i, event_result in enumerate(deleted_events):
+                                    target_info = event_result.get('target_info', {})
+                                    title = target_info.get('title', f'일정 {i+1}')
+                                    date = target_info.get('date', '')
+                                    time = target_info.get('time', '')
+                                    
+                                    state['current_output'] += f"🗑️ **삭제 {i+1}: {title}**\n"
+                                    if date:
+                                        state['current_output'] += f"📅 날짜: {date}\n"
+                                    if time:
+                                        state['current_output'] += f"⏰ 시간: {time}\n"
+                                    state['current_output'] += "\n"
+                                
+                                state['current_output'] += "모든 요청하신 일정이 캘린더에서 제거되었어요! 😊"
+                                
+                            else:
+                                # 단일 삭제 응답 (기존 로직)
+                                title = calendar_result.get('title', '일정')
+                                date = calendar_result.get('date', '')
+                                
+                                state['current_output'] = f"✅ '{title}' 일정을 성공적으로 삭제했습니다! 🗑️\n\n"
+                                if date:
+                                    state['current_output'] += f"📅 삭제된 날짜: {date}\n\n"
+                                state['current_output'] += "캘린더에서 해당 일정이 제거되었어요! ✨"
                             
                         elif action_type == 'calendar_search':
                             events = calendar_result.get('events', [])
@@ -702,6 +797,171 @@ Confidence 기준:
         
         # 그래프 컴파일
         return builder.compile()
+    
+    def _extract_delete_information(self, state: CalendarState, current_date: datetime, rule_text: str) -> CalendarState:
+        """삭제 관련 정보 추출 (다중 삭제 및 전체 삭제 지원)"""
+        try:
+            user_input = state['current_input']
+            
+            # 전체 삭제 패턴 확인
+            bulk_delete_patterns = [
+                r'(.*?)\s*(모든|모두|전체|다)\s*(일정|스케줄).*?(삭제|지워|제거|없애)',
+                r'(.*?)\s*(일정|스케줄)\s*(모든|모두|전체|다).*?(삭제|지워|제거|없애)',
+                r'(.*?)\s*(다\s*삭제|모두\s*삭제|전체\s*삭제|모두\s*지워|다\s*지워)',
+            ]
+            
+            is_bulk_delete = False
+            target_date = None
+            
+            for pattern in bulk_delete_patterns:
+                match = re.search(pattern, user_input, re.IGNORECASE)
+                if match:
+                    is_bulk_delete = True
+                    date_part = match.group(1).strip()
+                    print(f"전체 삭제 감지: '{date_part}'")
+                    break
+            
+            if is_bulk_delete:
+                # 전체 삭제 처리
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 특정 날짜의 모든 일정을 삭제하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "bulk",
+    "target_date": "YYYY-MM-DD",
+    "date_description": "날짜 설명 (예: 내일, 다음주 월요일)"
+}}
+
+추출 가이드라인:
+1. 삭제할 날짜를 정확히 파악
+2. 상대적 표현을 절대 날짜로 변환
+3. 날짜가 명시되지 않으면 "오늘"로 간주
+"""
+            else:
+                # 개별 삭제 또는 다중 개별 삭제 처리
+                detection_prompt = f"""
+사용자 입력에서 삭제할 일정의 개수를 분석해주세요:
+"{user_input}"
+
+다음 중 하나로 응답해주세요:
+- "SINGLE": 하나의 일정만 삭제
+- "MULTIPLE": 여러 개의 일정을 삭제
+
+다중 삭제 판단 기준:
+- "그리고", "또", "그 다음에", "추가로" 등의 연결어로 여러 일정을 언급
+- 예: "내일 회의 삭제하고 다음주 월요일 점심약속도 삭제해줘"
+- 예: "팀 미팅 지우고 개인 약속도 취소해줘"
+"""
+                
+                detection_response = self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": detection_prompt}],
+                    temperature=0.1
+                )
+                
+                is_multiple = "MULTIPLE" in detection_response.choices[0].message.content.strip()
+                
+                if is_multiple:
+                    # 다중 개별 삭제
+                    prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 여러 일정을 삭제하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "multiple",
+    "targets": [
+        {{
+            "title": "삭제할 일정 제목",
+            "date": "YYYY-MM-DD",
+            "time": "HH:MM (선택사항)",
+            "description": "일정 설명"
+        }}
+    ]
+}}
+
+추출 가이드라인:
+1. 각 삭제 대상을 별도의 객체로 분리
+2. 연결어를 기준으로 일정을 분리
+3. 날짜와 시간을 정확히 추출
+4. 제목이 명확하지 않으면 설명에서 추출
+"""
+                else:
+                    # 단일 개별 삭제
+                    prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 특정 일정을 삭제하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "single",
+    "title": "삭제할 일정 제목",
+    "date": "YYYY-MM-DD",
+    "time": "HH:MM (선택사항)",
+    "description": "일정 설명"
+}}
+
+추출 가이드라인:
+1. 삭제할 일정의 제목, 날짜, 시간을 정확히 추출
+2. 상대적 날짜 표현을 절대 날짜로 변환
+3. 시간이 명시되지 않으면 null로 설정
+"""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            print(f"삭제 정보 추출 응답: {response_text}")
+            
+            # 기본값 설정
+            default_delete_info = {
+                "delete_type": "single",
+                "title": "삭제할 일정",
+                "date": current_date.strftime('%Y-%m-%d'),
+                "time": None,
+                "description": ""
+            }
+            
+            # 안전한 JSON 파싱
+            extracted_info = safe_json_parse(response_text, default_delete_info)
+            
+            state['extracted_info'] = extracted_info
+            return state
+            
+        except Exception as e:
+            print(f"삭제 정보 추출 중 오류: {str(e)}")
+            default_delete_info = {
+                "delete_type": "single",
+                "title": "삭제할 일정",
+                "date": current_date.strftime('%Y-%m-%d'),
+                "time": None,
+                "description": ""
+            }
+            state['extracted_info'] = default_delete_info
+            return state
     
     def _create_event_data(self, extracted_info: Dict[str, Any]) -> Dict[str, Any]:
         """추출된 정보를 Google Calendar API 형식으로 변환"""

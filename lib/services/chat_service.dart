@@ -642,14 +642,24 @@ class ChatService {
           extractedInfo != null) {
         print('🗑️ 일정 삭제 조건 만족! 이벤트 삭제 시작...');
 
-        // 추출된 정보로 삭제할 이벤트 찾기
-        final title = extractedInfo['title'] as String? ?? '';
-        final startDate = extractedInfo['start_date'] as String?;
-        final startTime = extractedInfo['start_time'] as String?;
+        final deleteType = extractedInfo['delete_type'] as String? ?? 'single';
+        print('🔍 삭제 타입: $deleteType');
 
-        print('🔍 삭제할 Title: $title');
-        print('🔍 삭제할 StartDate: $startDate');
-        print('🔍 삭제할 StartTime: $startTime');
+        if (deleteType == 'bulk') {
+          // 전체 삭제 처리
+          return await _handleBulkDelete(extractedInfo, eventManager, onCalendarUpdate);
+        } else if (deleteType == 'multiple') {
+          // 다중 개별 삭제 처리
+          return await _handleMultipleDelete(extractedInfo, eventManager, onCalendarUpdate);
+        } else {
+          // 단일 삭제 처리 (기존 로직)
+          final title = extractedInfo['title'] as String? ?? '';
+          final startDate = extractedInfo['date'] as String? ?? extractedInfo['start_date'] as String?;
+          final startTime = extractedInfo['time'] as String? ?? extractedInfo['start_time'] as String?;
+
+          print('🔍 삭제할 Title: $title');
+          print('🔍 삭제할 StartDate: $startDate');
+          print('🔍 삭제할 StartTime: $startTime');
 
         if (startDate != null) {
           try {
@@ -756,6 +766,8 @@ class ChatService {
         } else {
           print('❌ 삭제할 일정의 startDate가 null입니다');
         }
+        return false;
+        }
       }
       // 일정 작업 조건 불만족
       else {
@@ -778,6 +790,154 @@ class ChatService {
       return false; // 캘린더 업데이트 없음
     } catch (e) {
       print('❌ 캘린더 응답 처리 중 오류: $e');
+      return false;
+    }
+  }
+
+  // 전체 삭제 처리 메서드
+  Future<bool> _handleBulkDelete(
+    Map<String, dynamic> extractedInfo,
+    EventManager? eventManager,
+    Function()? onCalendarUpdate,
+  ) async {
+    try {
+      final targetDate = extractedInfo['target_date'] as String?;
+      final dateDescription = extractedInfo['date_description'] as String? ?? '해당 날짜';
+      
+      print('📋 전체 삭제 처리 시작: $targetDate ($dateDescription)');
+      
+      if (targetDate != null) {
+        final eventDate = DateTime.parse(targetDate);
+        final existingEvents = await EventStorageService.getEvents(eventDate);
+        
+        print('🔍 삭제할 이벤트들: ${existingEvents.length}개');
+        
+        if (existingEvents.isNotEmpty) {
+          int deletedCount = 0;
+          
+          for (var event in existingEvents) {
+            try {
+              if (eventManager != null) {
+                await eventManager.removeEventAndRefresh(
+                  eventDate,
+                  event,
+                  syncWithGoogle: true,
+                );
+              } else {
+                await EventStorageService.removeEvent(eventDate, event);
+              }
+              deletedCount++;
+              print('✅ 삭제 완료: ${event.title}');
+            } catch (e) {
+              print('❌ 삭제 실패: ${event.title} - $e');
+            }
+          }
+          
+          print('📊 전체 삭제 완료: $deletedCount/${existingEvents.length}개');
+          
+          if (onCalendarUpdate != null && deletedCount > 0) {
+            onCalendarUpdate();
+          }
+          
+          return deletedCount > 0;
+        } else {
+          print('📭 해당 날짜에 삭제할 일정이 없습니다');
+          return false;
+        }
+      } else {
+        print('❌ 삭제할 날짜 정보가 없습니다');
+        return false;
+      }
+    } catch (e) {
+      print('❌ 전체 삭제 처리 중 오류: $e');
+      return false;
+    }
+  }
+
+  // 다중 개별 삭제 처리 메서드
+  Future<bool> _handleMultipleDelete(
+    Map<String, dynamic> extractedInfo,
+    EventManager? eventManager,
+    Function()? onCalendarUpdate,
+  ) async {
+    try {
+      final targets = extractedInfo['targets'] as List<dynamic>? ?? [];
+      
+      print('📋 다중 개별 삭제 처리 시작: ${targets.length}개 일정');
+      
+      int deletedCount = 0;
+      bool anyDeleted = false;
+      
+      for (int i = 0; i < targets.length; i++) {
+        final target = targets[i] as Map<String, dynamic>;
+        final title = target['title'] as String? ?? '';
+        final date = target['date'] as String?;
+        final time = target['time'] as String?;
+        
+        print('🗑️ 개별 삭제 ${i + 1}: $title ($date $time)');
+        
+        if (date != null) {
+          try {
+            final eventDate = DateTime.parse(date);
+            final existingEvents = await EventStorageService.getEvents(eventDate);
+            
+            Event? eventToDelete;
+            
+            // 제목으로 이벤트 찾기
+            for (var event in existingEvents) {
+              if (title.isNotEmpty) {
+                bool titleMatch = event.title.toLowerCase().contains(title.toLowerCase()) ||
+                                  title.toLowerCase().contains(event.title.toLowerCase());
+                
+                // 시간이 지정된 경우 시간도 확인
+                if (titleMatch) {
+                  if (time != null && time.isNotEmpty) {
+                    if (event.time == time) {
+                      eventToDelete = event;
+                      break;
+                    }
+                  } else {
+                    eventToDelete = event;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            if (eventToDelete != null) {
+              if (eventManager != null) {
+                await eventManager.removeEventAndRefresh(
+                  eventDate,
+                  eventToDelete,
+                  syncWithGoogle: true,
+                );
+              } else {
+                await EventStorageService.removeEvent(eventDate, eventToDelete);
+              }
+              
+              deletedCount++;
+              anyDeleted = true;
+              print('✅ 개별 삭제 ${i + 1} 완료: ${eventToDelete.title}');
+            } else {
+              print('❌ 개별 삭제 ${i + 1} 실패: 일정을 찾을 수 없음 ($title)');
+            }
+          } catch (e) {
+            print('❌ 개별 삭제 ${i + 1} 처리 중 오류: $e');
+          }
+        } else {
+          print('❌ 개별 삭제 ${i + 1}: 날짜 정보가 없음');
+        }
+      }
+      
+      print('📊 다중 개별 삭제 완료: $deletedCount/${targets.length}개');
+      
+      if (onCalendarUpdate != null && anyDeleted) {
+        onCalendarUpdate();
+      }
+      
+      return anyDeleted;
+    } catch (e) {
+      print('❌ 다중 개별 삭제 처리 중 오류: $e');
       return false;
     }
   }
