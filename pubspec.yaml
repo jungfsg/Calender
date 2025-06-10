@@ -49,7 +49,7 @@ dependencies:
   # Google Calendar API 관련 패키지
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
-  speech_to_text: ^7.0.0
+  manual_speech_to_text: ^1.0.0
   extension_google_sign_in_as_googleapis_auth: ^2.0.12
   # MLKIT OCR
   google_mlkit_text_recognition: ^0.11.0
@@ -93,6 +93,7 @@ flutter:
     - family: KoreanFont
       fonts:
         - asset: assets/fonts/NEXONLv1GothicRegular.ttf # 여기서 폰트 설정
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:
