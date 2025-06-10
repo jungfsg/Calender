@@ -1,5 +1,4 @@
 import '../models/event.dart';
-import '../models/time_slot.dart';
 import '../models/weather_info.dart';
 import 'package:flutter/material.dart';
 
@@ -13,7 +12,6 @@ class CalendarController {
   bool _showEventPopup = false;
   bool _showWeatherPopup = false; // 데이터 캐시
   final Map<String, List<Event>> _events = {};
-  final Map<String, List<TimeSlot>> _timeSlots = {};
   final Map<String, WeatherInfo> _weatherCache = {};
 
   // 색상 매핑 시스템 - 제목 기반에서 고유 ID 기반으로 변경
@@ -82,12 +80,6 @@ class CalendarController {
     return List<Event>.from(_events[key] ?? []);
   }
 
-  /// 특정 날짜의 타임슬롯 가져오기
-  List<TimeSlot> getTimeSlotsForDay(DateTime day) {
-    final key = _getKey(day);
-    return _timeSlots[key] ?? [];
-  }
-
   /// 특정 날짜의 날씨 정보 가져오기
   WeatherInfo? getWeatherForDay(DateTime day) {
     final key = _getKey(day);
@@ -132,15 +124,6 @@ class CalendarController {
       );
       print('🗑️ Controller: 이벤트 삭제됨: ${event.title} (${event.time})');
     }
-  }
-
-  /// 타임슬롯 추가
-  void addTimeSlot(TimeSlot timeSlot) {
-    final key = _getKey(timeSlot.date);
-    if (_timeSlots[key] == null) {
-      _timeSlots[key] = [];
-    }
-    _timeSlots[key]!.add(timeSlot);
   }
 
   /// 날씨 정보 캐시

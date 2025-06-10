@@ -441,6 +441,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                     getEventDisplayColor:
                         (event) =>
                             widget.controller.getEventDisplayColor(event),
+                    popupManager: widget.popupManager, // PopupManager 전달
                     onClose: () {
                       widget.popupManager.hideEventDialog();
                       setState(() {});

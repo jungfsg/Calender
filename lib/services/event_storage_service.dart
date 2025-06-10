@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event.dart';
-import '../models/time_slot.dart';
 
 class EventStorageService {
   static const String _eventPrefix = 'event_';
-  static const String _timeSlotPrefix = 'timeslot_';
   // 이벤트 저장 (강화된 중복 체크)
   static Future<void> addEvent(DateTime date, Event event) async {
     final prefs = await SharedPreferences.getInstance();
@@ -84,27 +82,7 @@ class EventStorageService {
     await prefs.setStringList(dateKey, eventStrings);
   }
 
-  // 타임슬롯 관련 메서드들은 그대로 유지
-  static Future<void> addTimeSlot(DateTime date, TimeSlot timeSlot) async {
-    final prefs = await SharedPreferences.getInstance();
-    final dateKey = _getTimeSlotKey(date);
-    final timeSlots = await getTimeSlots(date);
-    timeSlots.add(timeSlot);
-    final timeSlotStrings =
-        timeSlots.map((ts) => jsonEncode(ts.toJson())).toList();
-    await prefs.setStringList(dateKey, timeSlotStrings);
-  }
-
-  static Future<List<TimeSlot>> getTimeSlots(DateTime date) async {
-    final prefs = await SharedPreferences.getInstance();
-    final dateKey = _getTimeSlotKey(date);
-    final timeSlotStrings = prefs.getStringList(dateKey) ?? [];
-    return timeSlotStrings
-        .map((str) => TimeSlot.fromJson(jsonDecode(str)))
-        .toList();
-  }
-
-  // Google Calendar 동기화 전용 메서드 (중복 체크 강화)
+  // 타임슬롯 관련 메서드들은 그대로 유지  // Google Calendar 동기화 전용 메서드 (중복 체크 강화)
   static Future<void> syncGoogleEvents(
     DateTime date,
     List<Event> googleEvents,
@@ -214,10 +192,6 @@ class EventStorageService {
   // 키 생성 헬퍼 메서드
   static String _getEventKey(DateTime date) {
     return '$_eventPrefix${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  static String _getTimeSlotKey(DateTime date) {
-    return '$_timeSlotPrefix${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   // 디버깅용: 모든 키 출력
