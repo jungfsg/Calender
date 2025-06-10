@@ -13,12 +13,28 @@ Flutter와 FastAPI를 사용한 AI 기반 캘린더 애플리케이션입니다.
 
 ### 지원하는 일정 작업
 - ✅ 일정 추가 (새로운 일정 생성)
+- ✅ **다중 일정 추가** (한 번에 여러 일정 생성) - **NEW!**
 - ✅ 일정 수정 (기존 일정 업데이트)
 - ✅ 일정 삭제 (일정 제거)
 - ✅ 일정 검색 (키워드 기반 검색)
 - ✅ 일정 복사 (일정 복제)
 - ✅ 일정 이동 (캘린더 간 이동)
 - ✅ 충돌 검사 (시간 겹침 확인)
+
+### 🆕 다중 일정 처리 기능
+이제 하나의 메시지로 여러 일정을 한 번에 추가할 수 있습니다!
+
+#### 사용 예시:
+- **"내일 저녁 7시에 카페 일정 추가하고 다음주 월요일 오전 11시에 점심 일정 추가해줘"**
+- **"오늘 오후 2시에 회의 잡고 내일 오전 10시에 병원 예약해줘"**
+- **"다음주 화요일 오후 3시에 프레젠테이션 준비하고 수요일 오전 9시에 팀 미팅 추가해줘"**
+
+#### 기능 특징:
+- 🤖 **자동 감지**: AI가 여러 일정이 포함된 메시지를 자동으로 인식
+- 🎯 **정확한 분리**: 연결어("그리고", "또", "추가로" 등)를 기준으로 각 일정을 정확히 분리
+- 📅 **개별 처리**: 각 일정을 독립적으로 처리하여 오류 시에도 다른 일정에 영향 없음
+- 🔄 **일괄 동기화**: 모든 일정이 로컬 및 Google Calendar에 동시 저장
+- ✨ **스마트 응답**: 추가된 일정 수와 각 일정의 세부 정보를 포함한 종합 응답 제공
 
 ## 설정 방법
 
@@ -92,6 +108,8 @@ flutter run -d chrome
 ## 사용 예시
 
 ### AI 캘린더 채팅 API 사용법
+
+#### 단일 일정 추가
 ```bash
 curl -X POST "http://localhost:8000/api/v1/calendar/ai-chat" \
   -H "Content-Type: application/json" \
@@ -101,7 +119,19 @@ curl -X POST "http://localhost:8000/api/v1/calendar/ai-chat" \
   }'
 ```
 
+#### 다중 일정 추가 (NEW!)
+```bash
+curl -X POST "http://localhost:8000/api/v1/calendar/ai-chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "내일 저녁 7시에 카페 일정 추가하고 다음주 월요일 오전 11시에 점심 일정 추가해줘",
+    "session_id": "user123"
+  }'
+```
+
 ### 응답 예시
+
+#### 단일 일정 응답
 ```json
 {
   "response": "✅ 일정이 성공적으로 추가되었습니다!\n\n📅 제목: 팀 미팅\n🕐 시간: 2024-01-15 14:00\n🔗 링크: https://calendar.google.com/...",
@@ -111,12 +141,57 @@ curl -X POST "http://localhost:8000/api/v1/calendar/ai-chat" \
     "start_date": "2024-01-15",
     "start_time": "14:00",
     "end_date": "2024-01-15",
-    "end_time": "15:00"
+    "end_time": "15:00",
+    "is_multiple": false
   },
   "calendar_result": {
     "success": true,
     "event_id": "abc123",
     "event_link": "https://calendar.google.com/..."
+  }
+}
+```
+
+#### 다중 일정 응답 (NEW!)
+```json
+{
+  "response": "네! 총 2개의 일정을 성공적으로 추가했습니다! 📅✨\n\n📋 **일정 1: 카페 일정**\n📅 날짜: 2024-01-16\n⏰ 시간: 19:00\n\n📋 **일정 2: 점심 일정**\n📅 날짜: 2024-01-22\n⏰ 시간: 11:00\n\n모든 일정이 캘린더에 잘 저장되었어요! 😊",
+  "intent": "calendar_add",
+  "extracted_info": {
+    "is_multiple": true,
+    "events": [
+      {
+        "title": "카페 일정",
+        "start_date": "2024-01-16",
+        "start_time": "19:00",
+        "end_date": "2024-01-16",
+        "end_time": "20:00"
+      },
+      {
+        "title": "점심 일정",
+        "start_date": "2024-01-22",
+        "start_time": "11:00",
+        "end_date": "2024-01-22",
+        "end_time": "12:00"
+      }
+    ]
+  },
+  "calendar_result": {
+    "success": true,
+    "is_multiple": true,
+    "events_count": 2,
+    "created_events": [
+      {
+        "success": true,
+        "event_id": "abc123",
+        "message": "일정 1이 성공적으로 생성되었습니다."
+      },
+      {
+        "success": true,
+        "event_id": "def456",
+        "message": "일정 2가 성공적으로 생성되었습니다."
+      }
+    ]
   }
 }
 ```

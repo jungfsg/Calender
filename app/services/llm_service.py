@@ -300,7 +300,7 @@ Confidence 기준:
                 return state
         
         def extract_information(state: CalendarState) -> CalendarState:
-            """2단계: 정보 추출"""
+            """2단계: 정보 추출 (다중 일정 지원)"""
             try:
                 if state['intent'] == 'general_chat':
                     return state
@@ -313,9 +313,79 @@ Confidence 기준:
                 # 규칙을 텍스트로 변환
                 rule_text = "\n".join([f'- "{key}" → {value}' for key, value in date_rules.items()])
                 
-                # 커스터마이징 포인트: 프롬프트에 도메인별 시간 규칙 추가 가능
-                # 예: 병원이면 "진료 시간은 보통 30분", 회사면 "회의는 보통 1시간"
-                prompt = f"""
+                # 먼저 여러 일정인지 단일 일정인지 판단
+                detection_prompt = f"""
+사용자 입력에서 일정의 개수를 분석해주세요:
+"{state['current_input']}"
+
+다음 중 하나로 응답해주세요:
+- "SINGLE": 하나의 일정만 있음
+- "MULTIPLE": 여러 개의 일정이 있음
+
+여러 일정 판단 기준:
+- "그리고", "또", "그 다음에", "추가로" 등의 연결어가 있고 각각 다른 시간/날짜를 언급
+- 예: "내일 저녁 7시에 카페 일정 추가하고 다음주 월요일 오전 11시에 점심 일정 추가해줘"
+- 예: "오늘 오후 2시에 회의 잡고 내일 오전 10시에 병원 예약해줘"
+"""
+                
+                detection_response = self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": detection_prompt}],
+                    temperature=0.1
+                )
+                
+                is_multiple = "MULTIPLE" in detection_response.choices[0].message.content.strip()
+                
+                if is_multiple:
+                    # 다중 일정 처리
+                    prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자 입력에서 여러 일정 정보를 추출해주세요:
+"{state['current_input']}"
+
+상대적 표현 해석 규칙 (주의 시작: 일요일):
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요 (여러 일정이 있는 경우 배열로):
+{{
+    "events": [
+        {{
+            "title": "일정 제목 (필수)",
+            "start_date": "YYYY-MM-DD (필수)",
+            "start_time": "HH:MM",
+            "end_date": "YYYY-MM-DD",
+            "end_time": "HH:MM",
+            "description": "상세 설명",
+            "location": "장소",
+            "attendees": ["email1@example.com"],
+            "repeat_type": "none|daily|weekly|monthly|yearly",
+            "repeat_interval": 1,
+            "repeat_count": null,
+            "repeat_until": null,
+            "reminders": [15, 60],
+            "all_day": false,
+            "timezone": "Asia/Seoul",
+            "priority": "normal|high|low",
+            "category": "work|personal|meeting|appointment|other"
+        }}
+    ]
+}}
+
+추출 가이드라인:
+1. 각 일정을 별도의 객체로 분리하여 추출
+2. 제목이 명시되지 않으면 사용자 입력에서 핵심 내용을 추출
+3. 시간이 없으면 null로 설정
+4. 종료 시간이 없으면 시작 시간 + 1시간
+5. 반복은 명시적으로 언급된 경우만 설정
+6. 우선순위는 "긴급", "중요" 등의 키워드로 판단
+7. "다음주"는 다음 주 일요일(주의 시작)을 의미함
+8. 연결어("그리고", "또", "추가로" 등)를 기준으로 일정을 분리
+"""
+                else:
+                    # 단일 일정 처리 (기존 로직)
+                    prompt = f"""
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
 현재 시간: {current_date.strftime('%H:%M')}
 
@@ -369,17 +439,32 @@ Confidence 기준:
                 default_info["title"] = extract_title_from_input(state['current_input'])
                 
                 # 안전한 JSON 파싱
-                extracted_info = safe_json_parse(response_text, default_info)
-                
-                # 데이터 검증 및 보정
-                extracted_info = validate_and_correct_info(extracted_info, current_date)
+                if is_multiple:
+                    try:
+                        parsed_data = safe_json_parse(response_text, {"events": [default_info]})
+                        events = parsed_data.get('events', [default_info])
+                        
+                        # 각 이벤트 검증 및 보정
+                        validated_events = []
+                        for event in events:
+                            validated_event = validate_and_correct_info(event, current_date)
+                            validated_events.append(validated_event)
+                        
+                        extracted_info = {"events": validated_events, "is_multiple": True}
+                    except:
+                        extracted_info = {"events": [default_info], "is_multiple": True}
+                else:
+                    extracted_info = safe_json_parse(response_text, default_info)
+                    extracted_info = validate_and_correct_info(extracted_info, current_date)
+                    extracted_info["is_multiple"] = False
                 
                 state['extracted_info'] = extracted_info
                 return state
                 
             except Exception as e:
                 print(f"정보 추출 중 오류: {str(e)}")
-                state['extracted_info'] = get_default_event_info()
+                default_info = get_default_event_info()
+                state['extracted_info'] = {"events": [default_info], "is_multiple": False}
                 return state
         
         def determine_action(state: CalendarState) -> CalendarState:
@@ -403,7 +488,7 @@ Confidence 기준:
                 return state
         
         def execute_calendar_action(state: CalendarState) -> CalendarState:
-            """4단계: 캘린더 작업 실행"""
+            """4단계: 캘린더 작업 실행 (다중 일정 지원)"""
             try:
                 action_type = state.get('action_type')
                 extracted_info = state.get('extracted_info', {})
@@ -411,12 +496,39 @@ Confidence 기준:
                 print("execute_calendar_action 실행")
                 
                 if action_type == 'calendar_add':
-                    state['calendar_result'] = {
-                        "success": True,
-                        "event_id": "mock_event_id",
-                        "message": "일정이 성공적으로 생성되었습니다.",
-                        "event_data": extracted_info  # Flutter로 전달할 데이터
-                    }
+                    is_multiple = extracted_info.get('is_multiple', False)
+                    
+                    if is_multiple:
+                        # 다중 일정 처리
+                        events = extracted_info.get('events', [])
+                        created_events = []
+                        
+                        for i, event in enumerate(events):
+                            # 각 일정을 개별적으로 처리
+                            event_result = {
+                                "success": True,
+                                "event_id": f"mock_event_id_{i+1}",
+                                "message": f"일정 {i+1}이 성공적으로 생성되었습니다.",
+                                "event_data": event
+                            }
+                            created_events.append(event_result)
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "is_multiple": True,
+                            "events_count": len(events),
+                            "created_events": created_events,
+                            "message": f"총 {len(events)}개의 일정이 성공적으로 생성되었습니다."
+                        }
+                    else:
+                        # 단일 일정 처리 (기존 로직)
+                        state['calendar_result'] = {
+                            "success": True,
+                            "event_id": "mock_event_id",
+                            "message": "일정이 성공적으로 생성되었습니다.",
+                            "event_data": extracted_info
+                        }
+                    
                     print("calendar_add 실행됨")
                     
                 elif action_type == 'calendar_search':
@@ -477,22 +589,52 @@ Confidence 기준:
                     # 캘린더 작업 결과 기반 응답
                     if calendar_result.get('success'):
                         if action_type == 'calendar_add':
-                            title = extracted_info.get('title', '새 일정')
-                            start_date = extracted_info.get('start_date', '')
-                            start_time = extracted_info.get('start_time', '')
-                            location = extracted_info.get('location', '')
+                            is_multiple = calendar_result.get('is_multiple', False)
                             
-                            # 커스터마이징 포인트: 응답 형식 변경 가능
-                            state['current_output'] = f"네! '{title}' 일정을 성공적으로 추가했습니다. 📅\n\n"
-                            if start_date and start_time:
-                                state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n"
-                            elif start_date:
-                                state['current_output'] += f"📅 날짜: {start_date}\n"
-                            
-                            if location:
-                                state['current_output'] += f"📍 장소: {location}\n"
-                            
-                            state['current_output'] += "\n일정이 캘린더에 잘 저장되었어요! 😊"
+                            if is_multiple:
+                                # 다중 일정 응답 생성
+                                events_count = calendar_result.get('events_count', 0)
+                                created_events = calendar_result.get('created_events', [])
+                                
+                                state['current_output'] = f"네! 총 {events_count}개의 일정을 성공적으로 추가했습니다! 📅✨\n\n"
+                                
+                                for i, event_result in enumerate(created_events):
+                                    event_data = event_result.get('event_data', {})
+                                    title = event_data.get('title', '새 일정')
+                                    start_date = event_data.get('start_date', '')
+                                    start_time = event_data.get('start_time', '')
+                                    location = event_data.get('location', '')
+                                    
+                                    state['current_output'] += f"📋 **일정 {i+1}: {title}**\n"
+                                    if start_date and start_time:
+                                        state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n"
+                                    elif start_date:
+                                        state['current_output'] += f"📅 날짜: {start_date}\n"
+                                    
+                                    if location:
+                                        state['current_output'] += f"📍 장소: {location}\n"
+                                    
+                                    state['current_output'] += "\n"
+                                
+                                state['current_output'] += "모든 일정이 캘린더에 잘 저장되었어요! 😊"
+                            else:
+                                # 단일 일정 응답 생성 (기존 로직)
+                                title = extracted_info.get('title', '새 일정')
+                                start_date = extracted_info.get('start_date', '')
+                                start_time = extracted_info.get('start_time', '')
+                                location = extracted_info.get('location', '')
+                                
+                                # 커스터마이징 포인트: 응답 형식 변경 가능
+                                state['current_output'] = f"네! '{title}' 일정을 성공적으로 추가했습니다. 📅\n\n"
+                                if start_date and start_time:
+                                    state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n"
+                                elif start_date:
+                                    state['current_output'] += f"📅 날짜: {start_date}\n"
+                                
+                                if location:
+                                    state['current_output'] += f"📍 장소: {location}\n"
+                                
+                                state['current_output'] += "\n일정이 캘린더에 잘 저장되었어요! 😊"
                             
                         elif action_type == 'calendar_update':
                             title = extracted_info.get('title', '일정')
