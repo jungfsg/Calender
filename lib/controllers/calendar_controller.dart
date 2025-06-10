@@ -11,7 +11,6 @@ class CalendarController {
 
   // 팝업 상태
   bool _showEventPopup = false;
-  bool _showTimeTablePopup = false;
   bool _showWeatherPopup = false; // 데이터 캐시
   final Map<String, List<Event>> _events = {};
   final Map<String, List<TimeSlot>> _timeSlots = {};
@@ -37,7 +36,6 @@ class CalendarController {
   DateTime get focusedDay => _focusedDay;
   DateTime get selectedDay => _selectedDay;
   bool get showEventPopup => _showEventPopup;
-  bool get showTimeTablePopup => _showTimeTablePopup;
   bool get showWeatherPopup => _showWeatherPopup;
   bool get loadingWeather => _loadingWeather;
 
@@ -65,16 +63,6 @@ class CalendarController {
   /// 이벤트 팝업 숨기기
   void hideEventDialog() {
     _showEventPopup = false;
-  }
-
-  /// 타임테이블 팝업 표시
-  void showTimeTableDialog() {
-    _showTimeTablePopup = true;
-  }
-
-  /// 타임테이블 팝업 숨기기
-  void hideTimeTableDialog() {
-    _showTimeTablePopup = false;
   }
 
   /// 날씨 팝업 표시
@@ -258,7 +246,6 @@ class CalendarController {
   /// 모든 팝업 숨기기
   void hideAllPopups() {
     _showEventPopup = false;
-    _showTimeTablePopup = false;
     _showWeatherPopup = false;
   }
 

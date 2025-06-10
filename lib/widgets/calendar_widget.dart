@@ -6,7 +6,6 @@ import '../managers/popup_manager.dart';
 import '../widgets/weather_calendar_cell.dart';
 import '../models/weather_info.dart';
 import '../widgets/event_popup.dart';
-import '../widgets/time_table_popup.dart';
 import '../widgets/weather_summary_popup.dart';
 import '../widgets/side_menu.dart';
 import '../widgets/common_navigation_bar.dart';
@@ -459,25 +458,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                     },
                   ),
 
-                // 타임테이블 팝업 오버레이
-                if (widget.controller.showTimeTablePopup)
-                  TimeTablePopup(
-                    selectedDay: widget.controller.selectedDay,
-                    timeSlots: widget.controller.getTimeSlotsForDay(
-                      widget.controller.selectedDay,
-                    ),
-                    onClose: () {
-                      widget.popupManager.hideTimeTableDialog();
-                      setState(() {});
-                    },
-                    onAddTimeSlot: () {
-                      widget.popupManager.showAddTimeSlotDialog(context).then((
-                        _,
-                      ) {
-                        setState(() {});
-                      });
-                    },
-                  ), // 날씨 예보 팝업 오버레이
+                // 날씨 예보 팝업 오버레이
                 if (widget.controller.showWeatherPopup)
                   FutureBuilder<List<WeatherInfo>>(
                     future: WeatherService.get5DayForecast(),

@@ -214,10 +214,6 @@ class VoiceCommandService {
       print('일정 보기 명령어가 감지되었지만 팝업 표시가 비활성화되어 있습니다.');
     } // 타임테이블 관련 명령어
     else if (lowerCommand.contains('타임테이블') || lowerCommand.contains('시간표')) {
-      // 타임테이블 명령어 - 팝업 비활성화 (사용자 요청)
-      // popupManager.showTimeTableDialog();
-      // onStateUpdate();
-      print('타임테이블/시간표 명령어가 감지되었지만 팝업 표시가 비활성화되어 있습니다.');
     }
     // 날씨 정보 명령어 처리
     else if (lowerCommand.contains('날씨')) {
