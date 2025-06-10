@@ -146,7 +146,9 @@ class EventPopup extends StatelessWidget {
                           width: 90,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
-                            event.time,
+                            event.hasEndTime() 
+                              ? '${event.time}-${event.endTime}'
+                              : event.time,
                             style: getTextStyle(
                               fontSize: 12,
                               color: Colors.black,
@@ -189,7 +191,7 @@ class EventPopup extends StatelessWidget {
                                             style: getTextStyle(fontSize: 14),
                                           ),
                                           content: Text(
-                                            '${event.time} ${event.title} 일정을 삭제하시겠습니까?',
+                                            '${event.hasEndTime() ? '${event.time}-${event.endTime}' : event.time} ${event.title} 일정을 삭제하시겠습니까?',
                                             style: getTextStyle(fontSize: 12),
                                           ),
                                           actions: [

@@ -216,9 +216,10 @@ class ChatService {
             final title = eventData['title'] as String? ?? '새 일정 ${i + 1}';
             final startDate = eventData['start_date'] as String?;
             final startTime = eventData['start_time'] as String?;
+            final endTime = eventData['end_time'] as String?; // 종료 시간 추가
             final description = eventData['description'] as String? ?? '';
 
-            print('다중 일정 ${i + 1}: $title, $startDate, $startTime');
+            print('다중 일정 ${i + 1}: $title, $startDate, $startTime, $endTime');
             
             if (startDate != null) {
               try {
@@ -246,6 +247,7 @@ class ChatService {
                 final event = Event(
                   title: title,
                   time: eventTime,
+                  endTime: endTime, // 종료 시간 추가
                   date: eventDate,
                   description: description,
                   source: 'local',
@@ -279,11 +281,13 @@ class ChatService {
           final title = extractedInfo['title'] as String? ?? '새 일정';
           final startDate = extractedInfo['start_date'] as String?;
           final startTime = extractedInfo['start_time'] as String?;
+          final endTime = extractedInfo['end_time'] as String?; // 종료 시간 추가
           final description = extractedInfo['description'] as String? ?? '';
 
           print('Title: $title');
           print('StartDate: $startDate');
           print('StartTime: $startTime');
+          print('EndTime: $endTime'); // 종료 시간 로그 추가
           print('Description: $description');
           
           if (startDate != null) {
@@ -310,10 +314,11 @@ class ChatService {
               if (isDuplicate) {
                 print('🚫 AI 채팅: 중복된 일정이므로 추가하지 않음: $title ($eventTime)');
                 return false; // 중복이므로 추가하지 않음
-              } // Event 객체 생성 (랜덤 colorId 지정)
+              }               // Event 객체 생성 (랜덤 colorId 지정)
               final event = Event(
                 title: title,
                 time: eventTime,
+                endTime: endTime, // 종료 시간 추가
                 date: eventDate,
                 description: description,
                 source: 'local', // 로컬에서 생성된 이벤트
