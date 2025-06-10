@@ -33,6 +33,7 @@ class PopupManager {
   void hideWeatherForecastDialog() {
     _controller.hideWeatherDialog();
   }
+
   /// 이벤트 추가 다이얼로그 표시 (색상 선택 기능 포함)
   Future<void> showAddEventDialog(BuildContext context) async {
     final TextEditingController titleController = TextEditingController();
@@ -45,316 +46,349 @@ class PopupManager {
 
     return showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          elevation: 0,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      '새 일정 추가',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: titleController,
-                  decoration: InputDecoration(
-                    hintText: '일정 제목',
-                    filled: true,
-                    fillColor: Colors.grey[100],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    prefixIcon: const Icon(Icons.event_note),
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.0),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Material(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => ColorPickerDialog(
-                          initialColorId: selectedColorId,
-                          onColorSelected: (colorId) {
-                            setState(() {
-                              selectedColorId = colorId;
-                            });
-                          },
-                        ),
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12.0,
-                        horizontal: 16.0,
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.color_lens),
-                          const SizedBox(width: 12),
-                          const Text('색상 선택'),
-                          const Spacer(),
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: _getColorByColorId(selectedColorId),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.grey, width: 1),
+                  elevation: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16.0),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              '새 일정 추가',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: titleController,
+                          decoration: InputDecoration(
+                            hintText: '일정 제목',
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            prefixIcon: const Icon(Icons.event_note),
                           ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward_ios, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Material(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
+                        ),
+                        const SizedBox(height: 20),
+                        Material(
+                          color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () async {
-                            final TimeOfDay? picked = await showTimePicker(
-                              context: context,
-                              initialTime: selectedStartTime,
-                              builder: (context, child) {
-                                return Theme(
-                                  data: Theme.of(context).copyWith(
-                                    timePickerTheme: TimePickerThemeData(
-                                      backgroundColor: Colors.white,
-                                      hourMinuteTextColor: Colors.black,
-                                      dayPeriodTextColor: Colors.black,
-                                      dayPeriodColor: Colors.grey[200],
-                                      dayPeriodShape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder:
+                                    (context) => ColorPickerDialog(
+                                      initialColorId: selectedColorId,
+                                      onColorSelected: (colorId) {
+                                        setState(() {
+                                          selectedColorId = colorId;
+                                        });
+                                      },
+                                    ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12.0,
+                                horizontal: 16.0,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.color_lens),
+                                  const SizedBox(width: 12),
+                                  const Text('색상 선택'),
+                                  const Spacer(),
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: _getColorByColorId(
+                                        selectedColorId,
+                                      ),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.grey,
+                                        width: 1,
                                       ),
                                     ),
                                   ),
-                                  child: child!,
-                                );
-                              },
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                selectedStartTime = picked;
-                                // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
-                                selectedEndTime = TimeOfDay(
-                                  hour: (selectedStartTime.hour + 1) % 24,
-                                  minute: selectedStartTime.minute,
-                                );
-                              });
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 12.0,
-                              horizontal: 16.0,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  '시작',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.access_time, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward_ios, size: 16),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Material(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () async {
-                            final TimeOfDay? picked = await showTimePicker(
-                              context: context,
-                              initialTime: selectedEndTime,
-                              builder: (context, child) {
-                                return Theme(
-                                  data: Theme.of(context).copyWith(
-                                    timePickerTheme: TimePickerThemeData(
-                                      backgroundColor: Colors.white,
-                                      hourMinuteTextColor: Colors.black,
-                                      dayPeriodTextColor: Colors.black,
-                                      dayPeriodColor: Colors.grey[200],
-                                      dayPeriodShape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Material(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () async {
+                                    final TimeOfDay?
+                                    picked = await showTimePicker(
+                                      context: context,
+                                      initialTime: selectedStartTime,
+                                      builder: (context, child) {
+                                        return Theme(
+                                          data: Theme.of(context).copyWith(
+                                            timePickerTheme: TimePickerThemeData(
+                                              backgroundColor: Colors.white,
+                                              hourMinuteTextColor: Colors.black,
+                                              dayPeriodTextColor: Colors.black,
+                                              dayPeriodColor: Colors.grey[200],
+                                              dayPeriodShape:
+                                                  RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                  ),
+                                            ),
+                                          ),
+                                          child: child!,
+                                        );
+                                      },
+                                    );
+                                    if (picked != null) {
+                                      setState(() {
+                                        selectedStartTime = picked;
+                                        // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
+                                        selectedEndTime = TimeOfDay(
+                                          hour:
+                                              (selectedStartTime.hour + 1) % 24,
+                                          minute: selectedStartTime.minute,
+                                        );
+                                      });
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12.0,
+                                      horizontal: 16.0,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          '시작',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.access_time,
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Material(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () async {
+                                    final TimeOfDay?
+                                    picked = await showTimePicker(
+                                      context: context,
+                                      initialTime: selectedEndTime,
+                                      builder: (context, child) {
+                                        return Theme(
+                                          data: Theme.of(context).copyWith(
+                                            timePickerTheme: TimePickerThemeData(
+                                              backgroundColor: Colors.white,
+                                              hourMinuteTextColor: Colors.black,
+                                              dayPeriodTextColor: Colors.black,
+                                              dayPeriodColor: Colors.grey[200],
+                                              dayPeriodShape:
+                                                  RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                  ),
+                                            ),
+                                          ),
+                                          child: child!,
+                                        );
+                                      },
+                                    );
+                                    if (picked != null) {
+                                      setState(() {
+                                        selectedEndTime = picked;
+                                      });
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12.0,
+                                      horizontal: 16.0,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          '종료',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.access_time,
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: const Text('취소'),
+                            ),
+                            const SizedBox(width: 16),
+                            ElevatedButton(
+                              onPressed: () async {
+                                if (titleController.text.isNotEmpty) {
+                                  final event = Event(
+                                    title: titleController.text,
+                                    time:
+                                        '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                                    endTime:
+                                        '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                                    date: _controller.selectedDay,
+                                    source: 'local',
+                                  );
+
+                                  try {
+                                    // 색상 ID를 지정하여 이벤트 추가 (Google 동기화 활성화)
+                                    await _eventManager.addEventWithColorId(
+                                      event,
+                                      selectedColorId,
+                                      syncWithGoogle: true,
+                                    );
+                                    Navigator.pop(context);
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '새 일정이 추가되었습니다: ${titleController.text}',
+                                        ),
+                                        backgroundColor: Colors.green,
                                       ),
-                                    ),
-                                  ),
-                                  child: child!,
-                                );
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('일정 추가 실패: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
                               },
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                selectedEndTime = picked;
-                              });
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 12.0,
-                              horizontal: 16.0,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  '종료',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _getColorByColorId(
+                                  selectedColorId,
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.access_time, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ],
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('취소'),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (titleController.text.isNotEmpty) {
-                          final event = Event(
-                            title: titleController.text,
-                            time:
-                                '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                            endTime:
-                                '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                            date: _controller.selectedDay,
-                            source: 'local',
-                          );
-
-                          try {
-                            // 색상 ID를 지정하여 이벤트 추가 (Google 동기화 활성화)
-                            await _eventManager.addEventWithColorId(
-                              event,
-                              selectedColorId,
-                              syncWithGoogle: true,
-                            );
-                            Navigator.pop(context);
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '새 일정이 추가되었습니다: ${titleController.text}',
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
                                 ),
-                                backgroundColor: Colors.green,
                               ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('일정 추가 실패: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _getColorByColorId(selectedColorId),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                              child: const Text('추가'),
+                            ),
+                          ],
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('추가'),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ],
-            ),
           ),
-        ),
-      ),
     );
   }
 
