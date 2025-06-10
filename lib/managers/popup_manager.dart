@@ -380,7 +380,10 @@ class PopupManager {
                                   vertical: 12,
                                 ),
                               ),
-                              child: const Text('추가'),
+                              child: const Text(
+                                '추가',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
                           ],
                         ),

@@ -35,7 +35,7 @@ class WeatherCalendarCell extends StatelessWidget {
     final isHoliday = _isHoliday();
 
     if (isSelected) {
-      return const Color.fromARGB(255, 68, 138, 218);
+      return const Color.fromARGB(200, 68, 138, 218);
     } else if (isToday) {
       return Colors.amber[300]!;
     } else if (isHoliday) {
@@ -165,41 +165,82 @@ class WeatherCalendarCell extends StatelessWidget {
                 if (events.isNotEmpty)
                   Positioned(
                     bottom: 2,
-                    left: 2,
-                    right: 2,
+                    left: 0,
+                    right: 0,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children:
-                          events.take(6).map((event) {
-                            final bgColor = _getEventColor(event);
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 1),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 2,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bgColor.withOpacity(0.7),
-                                border: Border.all(
-                                  color: Colors.black,
-                                  width: 1,
+                          (events.length > 4 ? events.take(3) : events.take(4))
+                              .map((event) {
+                                final bgColor = _getEventColor(event);
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: bgColor.withOpacity(0.9),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(
+                                        255,
+                                        141,
+                                        141,
+                                        141,
+                                      ),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    event.title,
+                                    style: getCustomTextStyle(
+                                      fontSize: 10,
+                                      color: const Color.fromARGB(255, 0, 0, 0),
+                                    ),
+                                    overflow: TextOverflow.clip,
+                                    maxLines: 1,
+                                  ),
+                                );
+                              })
+                              .toList() +
+                          (events.length > 4
+                              ? [
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color.fromARGB(
+                                      255,
+                                      185,
+                                      185,
+                                      185,
+                                    ),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(
+                                        255,
+                                        168,
+                                        168,
+                                        168,
+                                      ),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '+${events.length - 3}',
+                                    style: getCustomTextStyle(
+                                      fontSize: 10,
+                                      color: const Color.fromARGB(135, 0, 0, 0),
+                                    ),
+                                    overflow: TextOverflow.clip,
+                                    maxLines: 1,
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                event.title,
-                                style: getCustomTextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                ),
-                                overflow: TextOverflow.clip,
-                                // 글자수 초과 처리 코드
-                                // ellipsis: 초과 시 생략 기호 표시
-                                // clip: 초과 시 자르기
-                                maxLines: 1,
-                              ),
-                            );
-                          }).toList(),
+                              ]
+                              : []),
                     ),
                   ),
               ],

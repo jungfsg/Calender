@@ -109,7 +109,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
           builder: (context, constraints) {
             final availableHeight = constraints.maxHeight;
             const monthHeaderHeight = 65.0;
-            const dayOfWeekHeaderHeight = 35.0;
+            const dayOfWeekHeaderHeight = 33.0; // 요일 표시 영역의 높이
             final weekHeight =
                 (availableHeight -
                     monthHeaderHeight -
@@ -121,7 +121,12 @@ class _CalendarWidgetState extends State<CalendarWidget> {
               children: [
                 // 캘린더 부분
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(3.0, 3.0, 3.0, 0),
+                  padding: const EdgeInsets.fromLTRB(
+                    3.0,
+                    0.0,
+                    3.0,
+                    0,
+                  ), // 달력 영역 패딩
                   child: Container(
                     color: Colors.white,
                     child: TableCalendar(
@@ -362,7 +367,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             child: Text(
                               weekdayNames[weekdayIndex],
                               style: getTextStyle(
-                                fontSize: 14,
+                                fontSize: 12,
                                 color: textColor,
                                 text: weekdayNames[weekdayIndex],
                               ),
@@ -403,7 +408,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                   child: Text(
                                     '${month.year}년 ${monthNames[month.month - 1]}',
                                     style: getTextStyle(
-                                      fontSize: 20,
+                                      fontSize: 16,
                                       color: Colors.black,
                                     ),
                                   ),
