@@ -120,28 +120,55 @@ def keyword_based_classification(user_input: str) -> dict:
 
 def extract_title_from_input(user_input: str) -> str:
     """사용자 입력에서 제목 추출"""
-    # 커스터마이징 포인트: 패턴 추가/수정 가능
-    # 예: 특정 업무 용어나 패턴 추가
-    patterns = [
-        r'(.+?)\s*일정',
-        r'(.+?)\s*미팅',
-        r'(.+?)\s*회의',
-        r'(.+?)\s*만남',
-        r'(.+?)\s*약속',
-        r'(.+?)\s*수업',  # 교육/학습 관련
-        r'(.+?)\s*세미나'  # 비즈니스 관련
+    import re
+    
+    # 불필요한 키워드들을 제거하는 패턴
+    remove_patterns = [
+        r'\s*(일정|스케줄)\s*(추가|만들|생성|등록|잡아|해줘|해주세요).*',
+        r'\s*(추가|만들|생성|등록|잡아|해줘|해주세요).*',
+        r'.*에\s*',  # "내일에", "오늘에" 등
+        r'^\s*(오늘|내일|모레|이번주|다음주|내주|이번달|다음달)\s*',
+        r'\s*(시|시에|시간|분)\s*(에|으로|로)?\s*(추가|만들|생성|등록|잡아|해줘|해주세요).*',
     ]
     
-    for pattern in patterns:
-        match = re.search(pattern, user_input)
+    # 시간 패턴을 먼저 제거
+    time_patterns = [
+        r'\d{1,2}시\d{0,2}분?',
+        r'오전\s*\d{1,2}시\d{0,2}분?',
+        r'오후\s*\d{1,2}시\d{0,2}분?',
+        r'저녁\s*\d{1,2}시\d{0,2}분?',
+        r'아침\s*\d{1,2}시\d{0,2}분?',
+        r'\d{1,2}:\d{2}',
+    ]
+    
+    cleaned_input = user_input
+    
+    # 시간 패턴 제거
+    for pattern in time_patterns:
+        cleaned_input = re.sub(pattern, '', cleaned_input)
+    
+    # 불필요한 키워드 제거
+    for pattern in remove_patterns:
+        cleaned_input = re.sub(pattern, '', cleaned_input)
+    
+    # 특정 패턴으로 제목 추출
+    title_patterns = [
+        r'(.+?)\s*(일정|미팅|회의|만남|약속|수업|세미나)',  # "맥주 일정" -> "맥주"
+        r'(.+)',  # 나머지 모든 텍스트
+    ]
+    
+    for pattern in title_patterns:
+        match = re.search(pattern, cleaned_input.strip())
         if match:
             title = match.group(1).strip()
-            if len(title) > 2:  # 너무 짧은 제목 제외
-                return title + ' 일정'
+            # 추가적인 정리
+            title = re.sub(r'\s+', ' ', title)  # 연속된 공백 제거
+            title = title.strip()
+            
+            if len(title) > 0:  # 빈 문자열이 아니면
+                return title
     
-    # 패턴이 없으면 전체 입력에서 동사 제거
-    cleaned = re.sub(r'(추가|만들|생성|등록|잡아|스케줄)', '', user_input).strip()
-    return cleaned[:20] if cleaned else '새 일정'
+    return '새 일정'
 
 def validate_and_correct_info(info: dict, current_date: datetime) -> dict:
     """추출된 정보 검증 및 보정"""
@@ -411,7 +438,11 @@ Confidence 기준:
 
 추출 가이드라인:
 1. 각 일정을 별도의 객체로 분리하여 추출
-2. 제목이 명시되지 않으면 사용자 입력에서 핵심 내용을 추출
+2. 제목 추출 시 불필요한 키워드 제거:
+   - "추가", "만들어", "생성", "등록", "잡아", "해줘", "해주세요" 등의 동작 키워드 제거
+   - "일정 추가" -> "일정" (X), 핵심 내용만 추출
+   - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
+   - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
 3. 시간이 없으면 null로 설정
 4. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
    - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
@@ -466,7 +497,11 @@ Confidence 기준:
 }}
 
 추출 가이드라인:
-1. 제목이 명시되지 않으면 사용자 입력에서 핵심 내용을 추출
+1. 제목 추출 시 불필요한 키워드 제거:
+   - "추가", "만들어", "생성", "등록", "잡아", "해줘", "해주세요" 등의 동작 키워드 제거
+   - "일정 추가" -> "일정" (X), 핵심 내용만 추출
+   - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
+   - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
 2. 시간이 없으면 null로 설정
 3. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
    - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
