@@ -12,7 +12,7 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://bcae-59-17-140-26.ngrok-free.app';
+  final String baseUrl = 'https://75a3-59-17-140-26.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 날씨 관련 키워드 목록
@@ -519,22 +519,48 @@ class ChatService {
                   }
                 }
 
+                // 시간 수정 처리 - 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 자동으로 1시간으로 설정
+                String finalStartTime = (newStartTime != null && newStartTime != eventToUpdate.time)
+                    ? newStartTime
+                    : eventToUpdate.time;
+                String? finalEndTime;
+                
+                if (newStartTime != null && newStartTime != eventToUpdate.time) {
+                  // 시작 시간이 변경된 경우
+                  if (newEndTime != null && newEndTime != eventToUpdate.endTime) {
+                    // 종료 시간도 명시적으로 변경된 경우
+                    finalEndTime = newEndTime;
+                  } else {
+                    // 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 -> 기본 1시간으로 설정
+                    try {
+                      final startTimeParts = finalStartTime.split(':');
+                      if (startTimeParts.length == 2) {
+                        final startHour = int.parse(startTimeParts[0]);
+                        final startMinute = int.parse(startTimeParts[1]);
+                        final endHour = (startHour + 1) % 24;
+                        finalEndTime = '${endHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}';
+                        print('⏰ 시작 시간만 변경됨 - 종료 시간 자동 설정: $finalStartTime → $finalEndTime');
+                      }
+                    } catch (e) {
+                      print('⚠️ 종료 시간 자동 설정 실패: $e');
+                      finalEndTime = eventToUpdate.endTime; // 기존 종료 시간 유지
+                    }
+                  }
+                } else {
+                  // 시작 시간이 변경되지 않은 경우
+                  finalEndTime = (newEndTime != null && newEndTime != eventToUpdate.endTime)
+                      ? newEndTime
+                      : eventToUpdate.endTime;
+                }
+
                 // 수정된 이벤트 생성 (기존 값들을 더 잘 보존)
                 final updatedEvent = eventToUpdate.copyWith(
                   title:
                       (newTitle != null && newTitle != eventToUpdate.title)
                           ? newTitle
                           : eventToUpdate.title,
-                  time:
-                      (newStartTime != null &&
-                              newStartTime != eventToUpdate.time)
-                          ? newStartTime
-                          : eventToUpdate.time,
-                  endTime:
-                      (newEndTime != null &&
-                              newEndTime != eventToUpdate.endTime)
-                          ? newEndTime
-                          : eventToUpdate.endTime,
+                  time: finalStartTime,
+                  endTime: finalEndTime,
                   date: updatedDate,
                   description:
                       (newDescription != null &&
@@ -1365,20 +1391,48 @@ class ChatService {
                 }
               }
 
+              // 시간 수정 처리 - 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 자동으로 1시간으로 설정
+              String finalStartTime = (newStartTime != null && newStartTime != eventToUpdate.time)
+                  ? newStartTime
+                  : eventToUpdate.time;
+              String? finalEndTime;
+              
+              if (newStartTime != null && newStartTime != eventToUpdate.time) {
+                // 시작 시간이 변경된 경우
+                if (newEndTime != null && newEndTime != eventToUpdate.endTime) {
+                  // 종료 시간도 명시적으로 변경된 경우
+                  finalEndTime = newEndTime;
+                } else {
+                  // 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 -> 기본 1시간으로 설정
+                  try {
+                    final startTimeParts = finalStartTime.split(':');
+                    if (startTimeParts.length == 2) {
+                      final startHour = int.parse(startTimeParts[0]);
+                      final startMinute = int.parse(startTimeParts[1]);
+                      final endHour = (startHour + 1) % 24;
+                      finalEndTime = '${endHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}';
+                      print('⏰ 다중 수정 ${i + 1}: 시작 시간만 변경됨 - 종료 시간 자동 설정: $finalStartTime → $finalEndTime');
+                    }
+                  } catch (e) {
+                    print('⚠️ 다중 수정 ${i + 1}: 종료 시간 자동 설정 실패: $e');
+                    finalEndTime = eventToUpdate.endTime; // 기존 종료 시간 유지
+                  }
+                }
+              } else {
+                // 시작 시간이 변경되지 않은 경우
+                finalEndTime = (newEndTime != null && newEndTime != eventToUpdate.endTime)
+                    ? newEndTime
+                    : eventToUpdate.endTime;
+              }
+
               // 수정된 이벤트 생성
               final updatedEvent = eventToUpdate.copyWith(
                 title:
                     (newTitle != null && newTitle != eventToUpdate.title)
                         ? newTitle
                         : eventToUpdate.title,
-                time:
-                    (newStartTime != null && newStartTime != eventToUpdate.time)
-                        ? newStartTime
-                        : eventToUpdate.time,
-                endTime:
-                    (newEndTime != null && newEndTime != eventToUpdate.endTime)
-                        ? newEndTime
-                        : eventToUpdate.endTime,
+                time: finalStartTime,
+                endTime: finalEndTime,
                 date: updatedDate,
                 description:
                     (newDescription != null &&
