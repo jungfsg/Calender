@@ -7,6 +7,10 @@ class CalendarSideMenu extends StatelessWidget {
   final VoidCallback onGoogleCalendarUpload; // 업로드 콜백
   final VoidCallback onLogoutTap; // 로그아웃 콜백 추가
   final bool isGoogleCalendarConnected; // Google Calendar 연결 상태
+  
+  // --- TTS 관련 추가 ---
+  final bool isTtsEnabled; // TTS 활성화 상태
+  final ValueChanged<bool> onTtsToggle; // TTS 상태 변경 콜백
 
   const CalendarSideMenu({
     super.key,
@@ -15,6 +19,10 @@ class CalendarSideMenu extends StatelessWidget {
     required this.onGoogleCalendarUpload, // 업로드 콜백 필수
     required this.onLogoutTap, // 필수 매개변수로 추가
     this.isGoogleCalendarConnected = false, // 기본값은 연결되지 않음
+
+    // --- TTS 관련 추가 ---
+    required this.isTtsEnabled,
+    required this.onTtsToggle,
   });
 
   @override
@@ -22,7 +30,7 @@ class CalendarSideMenu extends StatelessWidget {
     return Theme(
       // Drawer의 모서리를 직각으로 변경
       data: Theme.of(context).copyWith(
-        drawerTheme: DrawerThemeData(
+        drawerTheme: const DrawerThemeData(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.zero, // 모서리 각도 0으로 설정
           ),
@@ -106,20 +114,26 @@ class CalendarSideMenu extends StatelessWidget {
                   onGoogleCalendarUpload();
                 },
               ),
-            // 공휴일 정보 표시
-            if (isGoogleCalendarConnected)
-              ListTile(
-                leading: const Icon(Icons.celebration, color: Colors.red),
-                title: Text(
-                  '한국 공휴일 표시',
-                  style: getTextStyle(fontSize: 12, color: Colors.black),
-                ),
-                subtitle: Text(
-                  '🇰🇷 표시로 공휴일 확인 가능',
-                  style: getTextStyle(fontSize: 10, color: Colors.grey),
-                ),
-                enabled: false, // 정보 표시용이므로 비활성화
+            
+            // --- TTS 설정 스위치 추가 ---
+            const Divider(), // 구분선
+            SwitchListTile(
+              secondary: Icon(Icons.volume_up, color: isTtsEnabled ? Colors.blueAccent : Colors.grey),
+              title: Text(
+                'AI 음성 (TTS) 사용',
+                style: getTextStyle(fontSize: 12, color: Colors.black),
               ),
+              subtitle: Text(
+                isTtsEnabled ? 'AI 답변을 음성으로 듣습니다.' : '음성 안내가 꺼져 있습니다.',
+                style: getTextStyle(fontSize: 10, color: isTtsEnabled ? Colors.blueAccent : Colors.grey),
+              ),
+              value: isTtsEnabled,
+              onChanged: (bool value) {
+                onTtsToggle(value);
+                // 스위치 클릭 시 메뉴가 닫히지 않도록 Navigator.pop(context)를 호출하지 않음
+              },
+            ),
+
 
             // 하단에 로그아웃 버튼을 배치하기 위한 Spacer
             const Spacer(),

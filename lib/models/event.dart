@@ -1,27 +1,37 @@
 import 'package:flutter/material.dart';
+import '../enums/recurrence_type.dart';
 
 class Event {
   final String title;
-  final String time; // HH:mm 형식의 시간
+  final String time; // HH:mm 형식의 시작 시간
+  final String? endTime; // HH:mm 형식의 종료 시간, null일 경우 시작시간+1시간으로 자동 계산
   final DateTime date;
   final String description; // 이벤트 설명 추가
   final String? colorId; // 구글 캘린더 색상 ID 추가
   final Color? color; // Flutter Color 객체 추가
   final String source; // 🆕 이벤트 출처: 'local', 'google', 'holiday'
   final String uniqueId; // 새로 추가: 이벤트 고유 ID
+  final String? googleEventId; // Google Calendar 이벤트 ID 저장
+  final RecurrenceType recurrence; // 🆕 반복 타입 추가
+  final int recurrenceCount; // 🆕 반복 횟수 추가
 
   Event({
     required this.title,
     required this.time,
+    this.endTime,
     required this.date,
     this.description = '', // 기본값으로 빈 문자열 설정
     this.colorId,
     this.color,
     this.source = 'local', // 🆕 기본값은 'local'
     String? uniqueId, // 고유 ID는 선택적 매개변수
+    this.googleEventId, // Google Calendar 이벤트 ID
+    this.recurrence = RecurrenceType.none, // 🆕 기본값은 반복 없음
+    int? recurrenceCount, // 🆕 반복 횟수는 선택적 매개변수
   }) : uniqueId =
            uniqueId ??
-           '${title}_${date.toIso8601String()}_${time}_${DateTime.now().microsecondsSinceEpoch}';
+           '${title}_${date.toIso8601String()}_${time}_${DateTime.now().microsecondsSinceEpoch}',
+       recurrenceCount = recurrenceCount ?? recurrence.defaultCount;
 
   // 고유 ID 생성 메소드 (날짜+시간+제목 기반)
   static String generateUniqueId(String title, DateTime date, String time) {
@@ -33,15 +43,19 @@ class Event {
     final json = {
       'title': title,
       'time': time,
+      'endTime': endTime, // 종료 시간 추가
       'date': date.toIso8601String(),
       'description': description,
       'colorId': colorId,
       'color': color?.value, // Color를 int 값으로 저장
       'source': source, // 🆕 source 필드 추가
       'uniqueId': uniqueId, // 고유 ID 저장
+      'googleEventId': googleEventId, // Google Calendar 이벤트 ID 저장
+      'recurrence': recurrence.toString(), // 🆕 반복 타입 저장
+      'recurrenceCount': recurrenceCount, // 🆕 반복 횟수 저장
     };
     print(
-      '💾 Event toJson: $title -> colorId: $colorId, color: ${color?.value}, source: $source, uniqueId: $uniqueId',
+      '💾 Event toJson: $title -> colorId: $colorId, color: ${color?.value}, source: $source, uniqueId: $uniqueId, googleEventId: $googleEventId, recurrence: $recurrence, count: $recurrenceCount',
     );
     return json;
   }
@@ -51,15 +65,22 @@ class Event {
     final event = Event(
       title: json['title'],
       time: json['time'],
+      endTime: json['endTime'], // 종료 시간 복원
       date: DateTime.parse(json['date']),
       description: json['description'] ?? '',
       colorId: json['colorId'],
       color: json['color'] != null ? Color(json['color']) : null,
       source: json['source'] ?? 'local', // 🆕 source 필드 추가 (기본값: 'local')
       uniqueId: json['uniqueId'], // 고유 ID 복원
+      googleEventId: json['googleEventId'], // Google Calendar 이벤트 ID 복원
+      recurrence:
+          json['recurrence'] != null
+              ? RecurrenceType.fromString(json['recurrence'])
+              : RecurrenceType.none, // 🆕 반복 타입 복원
+      recurrenceCount: json['recurrenceCount'] ?? 1, // 🆕 반복 횟수 복원
     );
     print(
-      '📖 Event fromJson: ${event.title} -> colorId: ${event.colorId}, color: ${event.color?.value}, source: ${event.source}, uniqueId: ${event.uniqueId}',
+      '📖 Event fromJson: ${event.title} -> colorId: ${event.colorId}, color: ${event.color?.value}, source: ${event.source}, uniqueId: ${event.uniqueId}, googleEventId: ${event.googleEventId}, recurrence: ${event.recurrence}, count: ${event.recurrenceCount}',
     );
     return event;
   }
@@ -67,27 +88,42 @@ class Event {
   // 시간 비교를 위한 메서드
   int compareTo(Event other) {
     return time.compareTo(other.time);
-  } // 색상이 있는 Event 복사본 생성
+  }
 
+  // 종료 시간이 있는지 확인하는 메서드
+  bool hasEndTime() {
+    return endTime != null && endTime!.isNotEmpty;
+  }
+
+  // 색상이 있는 Event 복사본 생성
   Event copyWith({
     String? title,
     String? time,
+    String? endTime,
     DateTime? date,
     String? description,
     String? colorId,
     Color? color,
     String? source, // 🆕 source 필드 추가
     String? uniqueId, // 고유 ID 복사 옵션 추가
+    String? googleEventId, // Google Calendar 이벤트 ID 복사 옵션 추가
+    RecurrenceType? recurrence, // 🆕 반복 타입 추가
+    int? recurrenceCount, // 🆕 반복 횟수 추가
   }) {
     return Event(
       title: title ?? this.title,
       time: time ?? this.time,
+      endTime: endTime ?? this.endTime,
       date: date ?? this.date,
       description: description ?? this.description,
       colorId: colorId ?? this.colorId,
       color: color ?? this.color,
       source: source ?? this.source, // 🆕 source 필드 추가
       uniqueId: uniqueId ?? this.uniqueId, // 고유 ID 유지
+      googleEventId:
+          googleEventId ?? this.googleEventId, // Google Calendar 이벤트 ID 유지
+      recurrence: recurrence ?? this.recurrence, // 🆕 반복 타입 유지
+      recurrenceCount: recurrenceCount ?? this.recurrenceCount, // 🆕 반복 횟수 유지
     );
   }
 
@@ -116,33 +152,30 @@ class Event {
     return googleColors[colorId] ?? googleColors[1]!;
   }
 
-  // 현재 이벤트의 최종 표시 색상 가져오기 (단순화된 우선순위)
-  Color getDisplayColor() {
-    // 1. 직접 색상이 있으면 사용
-    if (color != null) return color!;
+  // 색상 ID를 가져오는 메서드
+  int? getColorId() {
+    if (colorId != null) {
+      final id = int.tryParse(colorId!);
+      if (id != null && id >= 1 && id <= 11) {
+        return id;
+      }
+    }
+    return null;
+  }
 
-    // 2. colorId가 있으면 Google 표준 색상 사용
+  // 표시할 색상 가져오기 (colorId 우선, color 폴백)
+  Color getDisplayColor() {
     if (colorId != null) {
       final id = int.tryParse(colorId!);
       if (id != null && id >= 1 && id <= 11) {
         return _getColorByColorId(id);
       }
     }
-
-    // 3. 기본값: 라벤더 (colorId: 1)
-    return _getColorByColorId(1);
+    return color ?? Colors.blue;
   }
 
-  // 색상 ID 추출 (Google Calendar colorId 호환)
-  int? getColorId() {
-    if (colorId != null) {
-      return int.tryParse(colorId!);
-    }
-    return null;
-  }
-
-  // 이 이벤트가 사용자 지정 색상인지 확인
+  // 커스텀 색상을 가지고 있는지 확인
   bool hasCustomColor() {
-    return colorId != null && getColorId() != null;
+    return colorId != null && colorId!.isNotEmpty;
   }
 }

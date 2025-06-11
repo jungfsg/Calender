@@ -9,19 +9,243 @@ import re
 from datetime import datetime, timedelta
 from dateutil import parser
 import pytz
+import logging
 
 settings = get_settings()
 
+# =============================================================================
+# 유틸리티 함수들 (글로벌 함수)
+# =============================================================================
+
+def get_relative_date_rules(current_date: datetime) -> dict:
+    """상대적 날짜 표현을 절대 날짜로 변환하는 규칙을 생성합니다."""
+    # 현재 요일 (0=월요일, 6=일요일) -> 일요일 기준으로 변환
+    current_weekday = current_date.weekday()
+    # 일요일을 0으로 만들기 위해 조정: (일=0, 월=1, 화=2, ..., 토=6)
+    current_weekday_sunday_base = (current_weekday + 1) % 7
+    
+    # 다음 주 일요일까지의 일수
+    days_to_next_sunday = 7 - current_weekday_sunday_base
+    if days_to_next_sunday == 7:  # 오늘이 일요일인 경우
+        days_to_next_sunday = 7
+    
+    next_sunday = current_date + timedelta(days=days_to_next_sunday)
+    
+    # 이번 주 남은 요일들 (일요일 기준)
+    days_to_this_weekend = 6 - current_weekday_sunday_base  # 이번 주 토요일까지
+    
+    rules = {
+        # 기본 상대적 표현
+        "오늘": current_date.strftime('%Y-%m-%d'),
+        "내일": (current_date + timedelta(days=1)).strftime('%Y-%m-%d'),
+        "모레": (current_date + timedelta(days=2)).strftime('%Y-%m-%d'),
+        "글피": (current_date + timedelta(days=3)).strftime('%Y-%m-%d'),
+        
+        # 주 단위 표현 - 일요일 기준
+        "다음주": next_sunday.strftime('%Y-%m-%d'),
+        "다음주 일요일": next_sunday.strftime('%Y-%m-%d'),
+        "다음주 월요일": (next_sunday + timedelta(days=1)).strftime('%Y-%m-%d'),
+        "다음주 화요일": (next_sunday + timedelta(days=2)).strftime('%Y-%m-%d'),
+        "다음주 수요일": (next_sunday + timedelta(days=3)).strftime('%Y-%m-%d'),
+        "다음주 목요일": (next_sunday + timedelta(days=4)).strftime('%Y-%m-%d'),
+        "다음주 금요일": (next_sunday + timedelta(days=5)).strftime('%Y-%m-%d'),
+        "다음주 토요일": (next_sunday + timedelta(days=6)).strftime('%Y-%m-%d'),
+        
+        # 이번 주 표현
+        "이번 주말": (current_date + timedelta(days=days_to_this_weekend)).strftime('%Y-%m-%d'),
+        "이번주 토요일": (current_date + timedelta(days=days_to_this_weekend)).strftime('%Y-%m-%d'),
+        "이번주 일요일": (current_date + timedelta(days=days_to_this_weekend + 1)).strftime('%Y-%m-%d'),
+        
+        # 월 단위 표현
+        "다음달": (current_date.replace(day=1) + timedelta(days=32)).replace(day=1).strftime('%Y-%m-%d'),
+        "내년": current_date.replace(year=current_date.year + 1, month=1, day=1).strftime('%Y-%m-%d'),
+        
+        # 시간 표현
+        "오전 9시": "09:00",
+        "오전 10시": "10:00",
+        "오전 11시": "11:00",
+        "오후 1시": "13:00",
+        "오후 2시": "14:00",
+        "오후 3시": "15:00",
+        "오후 4시": "16:00",
+        "오후 5시": "17:00",
+        "오후 6시": "18:00",
+        "저녁 7시": "19:00",
+        "저녁 8시": "20:00",
+        "저녁 9시": "21:00",
+        "밤 10시": "22:00",
+        "밤 11시": "23:00",
+    }
+    
+    return rules
+
+def safe_json_parse(response_text: str, fallback_data: dict) -> dict:
+    """JSON 파싱을 안전하게 수행"""
+    try:
+        # JSON 블록 추출 시도
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group())
+        return json.loads(response_text)
+    except json.JSONDecodeError:
+        return fallback_data
+
+def keyword_based_classification(user_input: str) -> dict:
+    """키워드 기반 의도 분류 폴백"""
+    user_input_lower = user_input.lower()
+    
+    # 커스터마이징 포인트: 키워드 추가/수정 가능
+    # 예: '예약'을 추가하거나 특정 도메인 용어 추가
+    intent_keywords = {
+        'calendar_add': ['추가', '만들', '생성', '등록', '잡아', '스케줄', '예약', '설정'],
+        'calendar_update': ['수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정', '이름 바꿔', '시간 바꿔', '날짜 바꿔'],
+        'calendar_delete': ['삭제', '지워', '취소', '없애', '빼', '제거', '다 삭제', '모두 삭제', '전체 삭제', '다 지워', '모두 지워', '전부 삭제'],
+        'calendar_search': ['검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인'],
+        'calendar_copy': ['복사', '복제', '같은 일정', '동일한']
+    }
+    
+    for intent, keywords in intent_keywords.items():
+        if any(keyword in user_input_lower for keyword in keywords):
+            return {
+                "intent": intent,
+                "confidence": 0.7,
+                "reason": f"키워드 기반 분류: {[k for k in keywords if k in user_input_lower]}"
+            }
+    
+    return {
+        "intent": "general_chat",
+        "confidence": 0.8,
+        "reason": "일정 관련 키워드 없음"
+    }
+
+def extract_title_from_input(user_input: str) -> str:
+    """사용자 입력에서 제목 추출"""
+    # 커스터마이징 포인트: 패턴 추가/수정 가능
+    # 예: 특정 업무 용어나 패턴 추가
+    patterns = [
+        r'(.+?)\s*일정',
+        r'(.+?)\s*미팅',
+        r'(.+?)\s*회의',
+        r'(.+?)\s*만남',
+        r'(.+?)\s*약속',
+        r'(.+?)\s*수업',  # 교육/학습 관련
+        r'(.+?)\s*세미나'  # 비즈니스 관련
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, user_input)
+        if match:
+            title = match.group(1).strip()
+            if len(title) > 2:  # 너무 짧은 제목 제외
+                return title + ' 일정'
+    
+    # 패턴이 없으면 전체 입력에서 동사 제거
+    cleaned = re.sub(r'(추가|만들|생성|등록|잡아|스케줄)', '', user_input).strip()
+    return cleaned[:20] if cleaned else '새 일정'
+
+def validate_and_correct_info(info: dict, current_date: datetime) -> dict:
+    """추출된 정보 검증 및 보정"""
+    try:
+        # 날짜 검증
+        start_date = info.get('start_date')
+        if start_date:
+            try:
+                parsed_date = datetime.strptime(start_date, '%Y-%m-%d')
+                # 과거 날짜면 내년으로 보정
+                if parsed_date.date() < current_date.date():
+                    info['start_date'] = (parsed_date + timedelta(days=365)).strftime('%Y-%m-%d')
+            except:
+                info['start_date'] = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        # 시간 검증
+        start_time = info.get('start_time')
+        if start_time and not re.match(r'^\d{2}:\d{2}$', start_time):
+            info['start_time'] = '10:00'
+        
+        # 종료 시간 검증
+        end_time = info.get('end_time')
+        if end_time and not re.match(r'^\d{2}:\d{2}$', end_time):
+            info['end_time'] = None  # 잘못된 형식이면 초기화
+        
+        # 종료 시간 자동 설정
+        if info.get('start_time') and not info.get('end_time'):
+            try:
+                start_dt = datetime.strptime(info['start_time'], '%H:%M')
+                # 커스터마이징 포인트: 기본 일정 길이 변경 가능 (현재 1시간)
+                end_dt = start_dt + timedelta(hours=1)  # 기본 1시간, 필요시 변경
+                info['end_time'] = end_dt.strftime('%H:%M')
+                print(f"🕐 종료 시간 자동 설정: {info['start_time']} → {info['end_time']}")
+            except:
+                info['end_time'] = '11:00'
+        
+        # 종료 시간이 시작 시간보다 빠른 경우 보정 (다음날로 가정하지 않고 기본 1시간으로 설정)
+        if info.get('start_time') and info.get('end_time'):
+            try:
+                start_dt = datetime.strptime(info['start_time'], '%H:%M')
+                end_dt = datetime.strptime(info['end_time'], '%H:%M')
+                
+                if end_dt <= start_dt:
+                    print(f"⚠️ 종료 시간이 시작 시간보다 빠름: {info['start_time']} → {info['end_time']}")
+                    # 다음날로 가정하지 않고 1시간 후로 설정
+                    end_dt = start_dt + timedelta(hours=1)
+                    info['end_time'] = end_dt.strftime('%H:%M')
+                    print(f"✅ 종료 시간 보정됨: {info['end_time']}")
+            except:
+                pass
+        
+        # 종료 날짜 설정
+        if not info.get('end_date'):
+            info['end_date'] = info.get('start_date')
+        
+        return info
+        
+    except Exception as e:
+        logging.error(f"정보 검증 중 오류: {str(e)}")
+        return info
+
+def get_default_event_info() -> dict:
+    """기본 이벤트 정보 반환"""
+    current_date = datetime.now(pytz.timezone('Asia/Seoul'))
+    tomorrow = current_date + timedelta(days=1)
+    
+    # 커스터마이징 포인트: 기본값들 변경 가능
+    return {
+        "title": "새 일정",
+        "start_date": tomorrow.strftime('%Y-%m-%d'),
+        "start_time": "10:00",  # 기본 시작 시간
+        "end_date": tomorrow.strftime('%Y-%m-%d'),
+        "end_time": "11:00",   # 기본 종료 시간
+        "description": "",
+        "location": "",
+        "attendees": [],
+        "repeat_type": "none",
+        "repeat_interval": 1,
+        "repeat_count": None,
+        "repeat_until": None,
+        "reminders": [15],     # 기본 알림: 15분 전
+        "all_day": False,
+        "timezone": "Asia/Seoul",
+        "priority": "normal",
+        "category": "other"
+    }
+
+# =============================================================================
 # 상태 정의
+# =============================================================================
+
 class CalendarState(TypedDict):
     messages: List[Dict[str, str]]
     current_input: str
     current_output: Optional[str]
-    intent: Optional[str]  # 의도 분류 결과
-    extracted_info: Optional[Dict[str, Any]]  # 추출된 정보
-    action_type: Optional[str]  # 작업 유형
-    calendar_result: Optional[Dict[str, Any]]  # 캘린더 API 결과
-    context: Optional[List[str]]  # 벡터 검색 컨텍스트
+    intent: Optional[str]
+    extracted_info: Optional[Dict[str, Any]]
+    action_type: Optional[str]
+    calendar_result: Optional[Dict[str, Any]]
+    context: Optional[List[str]]
+
+# =============================================================================
+# 메인 서비스 클래스
+# =============================================================================
 
 class LLMService:
     def __init__(self):
@@ -31,62 +255,64 @@ class LLMService:
         self.workflow = self._create_calendar_workflow()
         
     def _create_calendar_workflow(self):
-        """
-        AI 캘린더를 위한 LangGraph 워크플로우를 생성합니다.
-        """
+        """AI 캘린더를 위한 LangGraph 워크플로우를 생성합니다."""
         
         def classify_intent(state: CalendarState) -> CalendarState:
-            """1단계: 의도 분류 (일정 관련 여부 판단)"""
+            """1단계: 의도 분류"""
             try:
+                # 커스터마이징 포인트: 프롬프트 수정하여 도메인 특화 가능
+                # 예: 의료진을 위한 '진료', '수술' 등의 분류 추가
                 prompt = f"""
 사용자의 입력을 분석하여 의도를 분류해주세요.
+
+예시:
+"내일 오후 3시에 회의 일정 잡아줘" → {{"intent": "calendar_add", "confidence": 0.95, "reason": "새로운 일정 추가 요청"}}
+"오늘 일정 뭐 있어?" → {{"intent": "calendar_search", "confidence": 0.93, "reason": "일정 조회 요청"}}
+"회의 시간을 4시로 바꿔줘" → {{"intent": "calendar_update", "confidence": 0.90, "reason": "기존 일정 수정 요청"}}
+"내일 미팅 취소해줘" → {{"intent": "calendar_delete", "confidence": 0.88, "reason": "일정 삭제 요청"}}
+"안녕하세요" → {{"intent": "general_chat", "confidence": 0.99, "reason": "일반 인사말"}}
 
 사용자 입력: {state['current_input']}
 
 다음 중 하나로 분류해주세요:
-1. calendar_add - 새로운 일정 추가
-2. calendar_update - 기존 일정 수정
-3. calendar_delete - 일정 삭제
-4. calendar_search - 일정 조회/검색
-5. calendar_copy - 일정 복사
-6. general_chat - 일반 대화 (일정과 무관)
+1. calendar_add - 새로운 일정 추가 (키워드: 추가, 만들기, 생성, 등록, 잡아줘, 스케줄)
+2. calendar_update - 기존 일정 수정 (키워드: 수정, 변경, 바꿔, 업데이트, 이동)
+3. calendar_delete - 일정 삭제 (키워드: 삭제, 지워, 취소, 없애)
+4. calendar_search - 일정 조회/검색 (키워드: 검색, 찾아, 조회, 확인, 뭐 있어, 언제)
+5. calendar_copy - 일정 복사 (키워드: 복사, 복제, 같은 일정)
+6. general_chat - 일반 대화 (일정과 무관한 대화)
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{"intent": "분류결과", "confidence": 0.95, "reason": "분류 이유"}}
+
+Confidence 기준:
+- 0.9-1.0: 매우 명확한 의도 (명확한 키워드 포함)
+- 0.7-0.9: 명확하지만 약간의 모호함 (문맥상 추론 가능)
+- 0.5-0.7: 모호하지만 추론 가능 (여러 해석 가능)
+- 0.3-0.5: 매우 모호함 (추측에 의존)
+- 0.0-0.3: 분류 불가능 (일반 대화로 처리)
 """
                 
                 response = self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1
+                    temperature=0.1,  # 일관된 분류를 위해 낮은 temperature
+                    # response_format={"type": "json_object"}  # gpt-4-turbo 이상에서만 지원
                 )
                 
                 response_text = response.choices[0].message.content.strip()
                 print(f"의도 분류 응답: {response_text}")
                 
-                # JSON 파싱 시도
-                try:
-                    result = json.loads(response_text)
-                    state['intent'] = result.get('intent', 'general_chat')
-                except json.JSONDecodeError as e:
-                    print(f"JSON 파싱 오류: {str(e)}")
-                    print(f"응답 내용: {response_text}")
-                    
-                    # JSON이 아닌 경우 키워드 기반으로 의도 분류
-                    user_input = state['current_input'].lower()
-                    if any(keyword in user_input for keyword in ['추가', '만들', '생성', '등록', '일정']):
-                        state['intent'] = 'calendar_add'
-                    elif any(keyword in user_input for keyword in ['수정', '변경', '바꿔', '업데이트']):
-                        state['intent'] = 'calendar_update'
-                    elif any(keyword in user_input for keyword in ['삭제', '지워', '취소']):
-                        state['intent'] = 'calendar_delete'
-                    elif any(keyword in user_input for keyword in ['검색', '찾아', '조회', '확인']):
-                        state['intent'] = 'calendar_search'
-                    else:
-                        state['intent'] = 'general_chat'
-                    
-                    print(f"키워드 기반 의도 분류 결과: {state['intent']}")
+                # 안전한 JSON 파싱
+                fallback_data = {"intent": "general_chat", "confidence": 0.1, "reason": "파싱 실패"}
+                result = safe_json_parse(response_text, fallback_data)
                 
+                # 커스터마이징 포인트: 신뢰도 임계값 조정 가능
+                # 신뢰도가 낮으면 키워드 기반 보완
+                if result.get('confidence', 0) < 0.5:  # 임계값: 0.5
+                    result = keyword_based_classification(state['current_input'])
+                
+                state['intent'] = result.get('intent', 'general_chat')
                 return state
                 
             except Exception as e:
@@ -95,41 +321,163 @@ class LLMService:
                 return state
         
         def extract_information(state: CalendarState) -> CalendarState:
-            """2단계: 정보 추출 (날짜, 시간, 제목, 반복 여부, 참석자 등)"""
+            """2단계: 정보 추출 (다중 일정 지원)"""
             try:
                 if state['intent'] == 'general_chat':
                     return state
                 
-                current_date = datetime.now()
+                current_date = datetime.now(pytz.timezone('Asia/Seoul'))
                 
-                prompt = f"""
+                # 상대적 날짜 규칙 생성 (일요일 기준)
+                date_rules = get_relative_date_rules(current_date)
+                
+                # 규칙을 텍스트로 변환
+                rule_text = "\n".join([f'- "{key}" → {value}' for key, value in date_rules.items()])
+                
+                # 삭제의 경우 특별 처리
+                if state['intent'] == 'calendar_delete':
+                    return self._extract_delete_information(state, current_date, rule_text)
+                
+                # 수정의 경우 특별 처리
+                if state['intent'] == 'calendar_update':
+                    return self._extract_update_information(state, current_date, rule_text)
+                
+                # 먼저 여러 일정인지 단일 일정인지 판단
+                detection_prompt = f"""
+사용자 입력에서 일정의 개수를 분석해주세요:
+"{state['current_input']}"
+
+다음 중 하나로 응답해주세요:
+- "SINGLE": 하나의 일정만 있음
+- "MULTIPLE": 여러 개의 일정이 있음
+
+여러 일정 판단 기준:
+- "그리고", "또", "그 다음에", "추가로" 등의 연결어가 있고 각각 다른 시간/날짜를 언급
+- 예: "내일 저녁 7시에 카페 일정 추가하고 다음주 월요일 오전 11시에 점심 일정 추가해줘"
+- 예: "오늘 오후 2시에 회의 잡고 내일 오전 10시에 병원 예약해줘"
+"""
+                
+                detection_response = self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": detection_prompt}],
+                    temperature=0.1
+                )
+                
+                is_multiple = "MULTIPLE" in detection_response.choices[0].message.content.strip()
+                
+                if is_multiple:
+                    # 다중 일정 처리
+                    prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자 입력에서 여러 일정 정보를 추출해주세요:
+"{state['current_input']}"
+
+**시간 범위 인식 예시:**
+- "저녁 6시부터 8시까지 영화" → start_time: "18:00", end_time: "20:00"
+- "오후 2시에서 4시까지 회의" → start_time: "14:00", end_time: "16:00"
+- "오전 10시부터 12시까지 수업" → start_time: "10:00", end_time: "12:00"
+- "3시간 동안 스터디" → start_time 기준으로 3시간 후 end_time 계산
+- "2시간 영화 관람" → start_time 기준으로 2시간 후 end_time 계산
+
+상대적 표현 해석 규칙 (주의 시작: 일요일):
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요 (여러 일정이 있는 경우 배열로):
+{{
+    "events": [
+        {{
+            "title": "일정 제목 (필수)",
+            "start_date": "YYYY-MM-DD (필수)",
+            "start_time": "HH:MM",
+            "end_date": "YYYY-MM-DD",
+            "end_time": "HH:MM",
+            "description": "상세 설명",
+            "location": "장소",
+            "attendees": ["email1@example.com"],
+            "repeat_type": "none|daily|weekly|monthly|yearly",
+            "repeat_interval": 1,
+            "repeat_count": null,
+            "repeat_until": null,
+            "reminders": [15, 60],
+            "all_day": false,
+            "timezone": "Asia/Seoul",
+            "priority": "normal|high|low",
+            "category": "work|personal|meeting|appointment|other"
+        }}
+    ]
+}}
+
+추출 가이드라인:
+1. 각 일정을 별도의 객체로 분리하여 추출
+2. 제목이 명시되지 않으면 사용자 입력에서 핵심 내용을 추출
+3. 시간이 없으면 null로 설정
+4. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
+   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
+   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00"
+   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00"
+   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산
+   - "~부터 ~까지" 패턴이 있으면 반드시 end_time을 설정하세요
+   - 종료 시간이 명시되지 않으면 시작 시간 + 1시간
+5. 반복은 명시적으로 언급된 경우만 설정
+6. 우선순위는 "긴급", "중요" 등의 키워드로 판단
+7. "다음주"는 다음 주 일요일(주의 시작)을 의미함
+8. 연결어("그리고", "또", "추가로" 등)를 기준으로 일정을 분리
+"""
+                else:
+                    # 단일 일정 처리 (기존 로직)
+                    prompt = f"""
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
 현재 시간: {current_date.strftime('%H:%M')}
 
 사용자 입력에서 일정 정보를 추출해주세요:
 "{state['current_input']}"
 
+**시간 범위 인식 예시:**
+- "저녁 6시부터 8시까지 영화" → start_time: "18:00", end_time: "20:00"
+- "오후 2시에서 4시까지 회의" → start_time: "14:00", end_time: "16:00"
+- "오전 10시부터 12시까지 수업" → start_time: "10:00", end_time: "12:00"
+- "3시간 동안 스터디" → start_time 기준으로 3시간 후 end_time 계산
+- "2시간 영화 관람" → start_time 기준으로 2시간 후 end_time 계산
+
+상대적 표현 해석 규칙 (주의 시작: 일요일):
+{rule_text}
+
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{
-    "title": "일정 제목",
-    "start_date": "YYYY-MM-DD",
+    "title": "일정 제목 (필수)",
+    "start_date": "YYYY-MM-DD (필수)",
     "start_time": "HH:MM",
-    "end_date": "YYYY-MM-DD", 
+    "end_date": "YYYY-MM-DD",
     "end_time": "HH:MM",
     "description": "상세 설명",
     "location": "장소",
-    "attendees": ["참석자1@email.com", "참석자2@email.com"],
-    "repeat_type": "none",
+    "attendees": ["email1@example.com"],
+    "repeat_type": "none|daily|weekly|monthly|yearly",
     "repeat_interval": 1,
     "repeat_count": null,
     "repeat_until": null,
     "reminders": [15, 60],
     "all_day": false,
-    "timezone": "Asia/Seoul"
+    "timezone": "Asia/Seoul",
+    "priority": "normal|high|low",
+    "category": "work|personal|meeting|appointment|other"
 }}
 
-날짜/시간이 명시되지 않은 경우 적절한 기본값을 설정해주세요.
-상대적 표현(내일, 다음주 등)은 현재 날짜 기준으로 계산해주세요.
+추출 가이드라인:
+1. 제목이 명시되지 않으면 사용자 입력에서 핵심 내용을 추출
+2. 시간이 없으면 null로 설정
+3. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
+   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
+   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00"
+   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00"
+   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산
+   - "~부터 ~까지" 패턴이 있으면 반드시 end_time을 설정하세요
+   - 종료 시간이 명시되지 않으면 시작 시간 + 1시간
+4. 반복은 명시적으로 언급된 경우만 설정
+5. 우선순위는 "긴급", "중요" 등의 키워드로 판단
+6. "다음주"는 다음 주 일요일(주의 시작)을 의미함
 """
                 
                 response = self.client.chat.completions.create(
@@ -141,52 +489,37 @@ class LLMService:
                 response_text = response.choices[0].message.content.strip()
                 print(f"정보 추출 응답: {response_text}")
                 
-                # JSON 파싱 시도
-                try:
-                    extracted_info = json.loads(response_text)
-                    state['extracted_info'] = extracted_info
-                except json.JSONDecodeError as e:
-                    print(f"정보 추출 JSON 파싱 오류: {str(e)}")
-                    print(f"응답 내용: {response_text}")
-                    
-                    # JSON 파싱 실패 시 기본값 설정
-                    tomorrow = current_date + timedelta(days=1)
-                    default_info = {
-                        "title": "새 일정",
-                        "start_date": tomorrow.strftime('%Y-%m-%d'),
-                        "start_time": "10:00",
-                        "end_date": tomorrow.strftime('%Y-%m-%d'),
-                        "end_time": "11:00",
-                        "description": "",
-                        "location": "",
-                        "attendees": [],
-                        "repeat_type": "none",
-                        "repeat_interval": 1,
-                        "repeat_count": None,
-                        "repeat_until": None,
-                        "reminders": [15],
-                        "all_day": False,
-                        "timezone": "Asia/Seoul"
-                    }
-                    
-                    # 사용자 입력에서 제목 추출 시도
-                    user_input = state['current_input']
-                    if '일정' in user_input:
-                        # 간단한 제목 추출
-                        parts = user_input.split()
-                        for i, part in enumerate(parts):
-                            if '일정' in part and i > 0:
-                                default_info['title'] = parts[i-1] + ' 일정'
-                                break
-                    
-                    state['extracted_info'] = default_info
-                    print(f"기본값으로 정보 설정: {default_info}")
+                # 기본값 설정
+                default_info = get_default_event_info()
+                default_info["title"] = extract_title_from_input(state['current_input'])
                 
+                # 안전한 JSON 파싱
+                if is_multiple:
+                    try:
+                        parsed_data = safe_json_parse(response_text, {"events": [default_info]})
+                        events = parsed_data.get('events', [default_info])
+                        
+                        # 각 이벤트 검증 및 보정
+                        validated_events = []
+                        for event in events:
+                            validated_event = validate_and_correct_info(event, current_date)
+                            validated_events.append(validated_event)
+                        
+                        extracted_info = {"events": validated_events, "is_multiple": True}
+                    except:
+                        extracted_info = {"events": [default_info], "is_multiple": True}
+                else:
+                    extracted_info = safe_json_parse(response_text, default_info)
+                    extracted_info = validate_and_correct_info(extracted_info, current_date)
+                    extracted_info["is_multiple"] = False
+                
+                state['extracted_info'] = extracted_info
                 return state
                 
             except Exception as e:
                 print(f"정보 추출 중 오류: {str(e)}")
-                state['extracted_info'] = {}
+                default_info = get_default_event_info()
+                state['extracted_info'] = {"events": [default_info], "is_multiple": False}
                 return state
         
         def determine_action(state: CalendarState) -> CalendarState:
@@ -210,38 +543,152 @@ class LLMService:
                 return state
         
         def execute_calendar_action(state: CalendarState) -> CalendarState:
-            """캘린더 작업 실행"""
+            """4단계: 캘린더 작업 실행 (다중 일정 지원)"""
             try:
                 action_type = state.get('action_type')
                 extracted_info = state.get('extracted_info', {})
                 
-                # Google Calendar 서비스가 초기화되지 않은 경우를 처리
-                # Flutter에서 캘린더 연동을 하므로 백엔드에서는 모의 응답 생성
-                print("Google Calendar 서비스 없이 모의 응답 생성")
+                print("execute_calendar_action 실행")
                 
                 if action_type == 'calendar_add':
-                    state['calendar_result'] = {
-                        "success": True,
-                        "event_id": "mock_event_id",
-                        "event_link": "https://calendar.google.com/mock_link",
-                        "message": "일정이 성공적으로 생성되었습니다."
-                    }
+                    is_multiple = extracted_info.get('is_multiple', False)
+                    
+                    if is_multiple:
+                        # 다중 일정 처리
+                        events = extracted_info.get('events', [])
+                        created_events = []
+                        
+                        for i, event in enumerate(events):
+                            # 각 일정을 개별적으로 처리
+                            event_result = {
+                                "success": True,
+                                "event_id": f"mock_event_id_{i+1}",
+                                "message": f"일정 {i+1}이 성공적으로 생성되었습니다.",
+                                "event_data": event
+                            }
+                            created_events.append(event_result)
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "is_multiple": True,
+                            "events_count": len(events),
+                            "created_events": created_events,
+                            "message": f"총 {len(events)}개의 일정이 성공적으로 생성되었습니다."
+                        }
+                    else:
+                        # 단일 일정 처리 (기존 로직)
+                        state['calendar_result'] = {
+                            "success": True,
+                            "event_id": "mock_event_id",
+                            "message": "일정이 성공적으로 생성되었습니다.",
+                            "event_data": extracted_info
+                        }
+                    
+                    print("calendar_add 실행됨")
                     
                 elif action_type == 'calendar_search':
-                    state['calendar_result'] = {"events": []}
+                    # 커스터마이징 포인트: 실제 검색 로직 구현 필요
+                    state['calendar_result'] = {"events": [], "search_query": state['current_input']}
                     
                 elif action_type == 'calendar_update':
-                    state['calendar_result'] = {
-                        "success": True,
-                        "event_id": "mock_event_id",
-                        "message": "일정이 성공적으로 수정되었습니다."
-                    }
+                    # 다중 수정 처리
+                    update_type = extracted_info.get('update_type', 'single')
+                    
+                    if update_type == 'multiple':
+                        # 다중 수정 처리
+                        updates = extracted_info.get('updates', [])
+                        updated_events = []
+                        
+                        for i, update_request in enumerate(updates):
+                            # 각 수정을 개별적으로 처리
+                            target = update_request.get('target', {})
+                            changes = update_request.get('changes', {})
+                            
+                            update_result = {
+                                "success": True,
+                                "target_info": target,
+                                "changes": changes,
+                                "message": f"수정 {i+1}이 성공적으로 완료되었습니다."
+                            }
+                            updated_events.append(update_result)
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "update_type": "multiple",
+                            "events_count": len(updates),
+                            "updated_events": updated_events,
+                            "message": f"총 {len(updates)}개의 일정이 성공적으로 수정되었습니다."
+                        }
+                        print(f"다중 수정 실행: {len(updates)}개 일정")
+                        
+                    else:
+                        # 단일 수정 처리 (기존 로직)
+                        target = extracted_info.get('target', {})
+                        changes = extracted_info.get('changes', {})
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "update_type": "single",
+                            "target_info": target,
+                            "changes": changes,
+                            "message": "일정이 성공적으로 수정되었습니다."
+                        }
+                        print(f"단일 수정 실행: {target.get('title', '일정')}")
                         
                 elif action_type == 'calendar_delete':
-                    state['calendar_result'] = {
-                        "success": True,
-                        "message": "일정이 성공적으로 삭제되었습니다."
-                    }
+                    # 다중 삭제 처리
+                    delete_type = extracted_info.get('delete_type', 'single')
+                    
+                    if delete_type == 'bulk':
+                        # 전체 삭제 처리
+                        target_date = extracted_info.get('target_date')
+                        date_description = extracted_info.get('date_description', '해당 날짜')
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "delete_type": "bulk",
+                            "target_date": target_date,
+                            "date_description": date_description,
+                            "message": f"{date_description}의 모든 일정이 성공적으로 삭제되었습니다."
+                        }
+                        print(f"전체 삭제 실행: {target_date} ({date_description})")
+                        
+                    elif delete_type == 'multiple':
+                        # 다중 개별 삭제 처리
+                        targets = extracted_info.get('targets', [])
+                        deleted_events = []
+                        
+                        for i, target in enumerate(targets):
+                            # 각 일정을 개별적으로 처리
+                            delete_result = {
+                                "success": True,
+                                "target_info": target,
+                                "message": f"일정 {i+1}이 성공적으로 삭제되었습니다."
+                            }
+                            deleted_events.append(delete_result)
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "delete_type": "multiple",
+                            "events_count": len(targets),
+                            "deleted_events": deleted_events,
+                            "message": f"총 {len(targets)}개의 일정이 성공적으로 삭제되었습니다."
+                        }
+                        print(f"다중 삭제 실행: {len(targets)}개 일정")
+                        
+                    else:
+                        # 단일 삭제 처리 (기존 로직)
+                        title = extracted_info.get('title', '일정')
+                        date = extracted_info.get('date', '')
+                        
+                        state['calendar_result'] = {
+                            "success": True,
+                            "delete_type": "single",
+                            "title": title,
+                            "date": date,
+                            "message": f"'{title}' 일정이 성공적으로 삭제되었습니다."
+                        }
+                        print(f"단일 삭제 실행: {title} ({date})")
                 
                 return state
                 
@@ -251,7 +698,7 @@ class LLMService:
                 return state
         
         def generate_response(state: CalendarState) -> CalendarState:
-            """4단계: 응답 생성"""
+            """5단계: 응답 생성"""
             try:
                 action_type = state.get('action_type', 'chat')
                 calendar_result = state.get('calendar_result', {})
@@ -260,12 +707,21 @@ class LLMService:
                 if action_type == 'chat':
                     # 일반 대화
                     messages = state['messages'].copy()
+                    
+                    # 커스터마이징 포인트: 시스템 메시지로 AI 성격 조정 가능
+                    if not any(msg.get("role") == "system" for msg in messages):
+                        system_msg = {
+                            "role": "system", 
+                            "content": "당신은 친근하고 도움이 되는 AI 캘린더 어시스턴트입니다. 사용자의 일정을 관리하고 자연어로 대화하며 도움을 줍니다."
+                        }
+                        messages.insert(0, system_msg)
+                    
                     messages.append({"role": "user", "content": state['current_input']})
                     
                     response = self.client.chat.completions.create(
                         model="gpt-4o-mini",
                         messages=messages,
-                        temperature=0.7
+                        temperature=0.7  # 자연스러운 대화를 위해 약간 높은 temperature
                     )
                     
                     state['current_output'] = response.choices[0].message.content
@@ -274,25 +730,155 @@ class LLMService:
                     # 캘린더 작업 결과 기반 응답
                     if calendar_result.get('success'):
                         if action_type == 'calendar_add':
-                            title = extracted_info.get('title', '새 일정')
-                            start_date = extracted_info.get('start_date', '')
-                            start_time = extracted_info.get('start_time', '')
+                            is_multiple = calendar_result.get('is_multiple', False)
                             
-                            # 더 자연스러운 응답 생성
-                            state['current_output'] = f"네! '{title}' 일정을 성공적으로 추가했습니다. 📅\n\n"
-                            if start_date and start_time:
-                                state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n\n"
-                            elif start_date:
-                                state['current_output'] += f"📅 날짜: {start_date}\n\n"
-                            
-                            state['current_output'] += "일정이 캘린더에 잘 저장되었어요! 😊"
+                            if is_multiple:
+                                # 다중 일정 응답 생성
+                                events_count = calendar_result.get('events_count', 0)
+                                created_events = calendar_result.get('created_events', [])
+                                
+                                state['current_output'] = f"네! 총 {events_count}개의 일정을 성공적으로 추가했습니다! 📅✨\n\n"
+                                
+                                for i, event_result in enumerate(created_events):
+                                    event_data = event_result.get('event_data', {})
+                                    title = event_data.get('title', '새 일정')
+                                    start_date = event_data.get('start_date', '')
+                                    start_time = event_data.get('start_time', '')
+                                    location = event_data.get('location', '')
+                                    
+                                    state['current_output'] += f"📋 **일정 {i+1}: {title}**\n"
+                                    if start_date and start_time:
+                                        state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n"
+                                    elif start_date:
+                                        state['current_output'] += f"📅 날짜: {start_date}\n"
+                                    
+                                    if location:
+                                        state['current_output'] += f"📍 장소: {location}\n"
+                                    
+                                    state['current_output'] += "\n"
+                                
+                                state['current_output'] += "모든 일정이 캘린더에 잘 저장되었어요! 😊"
+                            else:
+                                # 단일 일정 응답 생성 (기존 로직)
+                                title = extracted_info.get('title', '새 일정')
+                                start_date = extracted_info.get('start_date', '')
+                                start_time = extracted_info.get('start_time', '')
+                                location = extracted_info.get('location', '')
+                                
+                                # 커스터마이징 포인트: 응답 형식 변경 가능
+                                state['current_output'] = f"네! '{title}' 일정을 성공적으로 추가했습니다. 📅\n\n"
+                                if start_date and start_time:
+                                    state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n"
+                                elif start_date:
+                                    state['current_output'] += f"📅 날짜: {start_date}\n"
+                                
+                                if location:
+                                    state['current_output'] += f"📍 장소: {location}\n"
+                                
+                                state['current_output'] += "\n일정이 캘린더에 잘 저장되었어요! 😊"
                             
                         elif action_type == 'calendar_update':
-                            title = extracted_info.get('title', '일정')
-                            state['current_output'] = f"✅ '{title}' 일정을 성공적으로 수정했습니다!\n\n변경사항이 캘린더에 반영되었어요. 📝"
+                            update_type = calendar_result.get('update_type', 'single')
+                            
+                            if update_type == 'multiple':
+                                # 다중 수정 응답
+                                events_count = calendar_result.get('events_count', 0)
+                                updated_events = calendar_result.get('updated_events', [])
+                                
+                                state['current_output'] = f"✅ 총 {events_count}개의 일정을 성공적으로 수정했습니다! ✏️✨\n\n"
+                                
+                                for i, event_result in enumerate(updated_events):
+                                    target_info = event_result.get('target_info', {})
+                                    changes = event_result.get('changes', {})
+                                    title = target_info.get('title', f'일정 {i+1}')
+                                    date = target_info.get('date', '')
+                                    
+                                    state['current_output'] += f"✏️ **수정 {i+1}: {title}**\n"
+                                    if date:
+                                        state['current_output'] += f"📅 날짜: {date}\n"
+                                    
+                                    # 변경된 내용 표시
+                                    if changes.get('title'):
+                                        state['current_output'] += f"📝 새로운 제목: {changes['title']}\n"
+                                    if changes.get('start_time'):
+                                        state['current_output'] += f"⏰ 새로운 시간: {changes['start_time']}\n"
+                                    if changes.get('start_date'):
+                                        state['current_output'] += f"📅 새로운 날짜: {changes['start_date']}\n"
+                                    if changes.get('location'):
+                                        state['current_output'] += f"📍 새로운 장소: {changes['location']}\n"
+                                    if changes.get('description'):
+                                        state['current_output'] += f"📄 새로운 설명: {changes['description']}\n"
+                                    
+                                    state['current_output'] += "\n"
+                                
+                                state['current_output'] += "모든 변경사항이 캘린더에 반영되었어요! 😊"
+                                
+                            else:
+                                # 단일 수정 응답 (기존 로직 개선)
+                                target_info = calendar_result.get('target_info', {})
+                                changes = calendar_result.get('changes', {})
+                                title = target_info.get('title', '일정')
+                                
+                                state['current_output'] = f"✅ '{title}' 일정을 성공적으로 수정했습니다! ✏️\n\n"
+                                
+                                # 변경된 내용 표시
+                                if changes.get('title'):
+                                    state['current_output'] += f"📝 새로운 제목: {changes['title']}\n"
+                                if changes.get('start_time'):
+                                    state['current_output'] += f"⏰ 새로운 시간: {changes['start_time']}\n"
+                                if changes.get('start_date'):
+                                    state['current_output'] += f"📅 새로운 날짜: {changes['start_date']}\n"
+                                if changes.get('location'):
+                                    state['current_output'] += f"📍 새로운 장소: {changes['location']}\n"
+                                if changes.get('description'):
+                                    state['current_output'] += f"📄 새로운 설명: {changes['description']}\n"
+                                
+                                state['current_output'] += "\n변경사항이 캘린더에 반영되었어요! 📝"
                             
                         elif action_type == 'calendar_delete':
-                            state['current_output'] = "✅ 일정을 성공적으로 삭제했습니다!\n\n캘린더에서 해당 일정이 제거되었어요. 🗑️"
+                            delete_type = calendar_result.get('delete_type', 'single')
+                            
+                            if delete_type == 'bulk':
+                                # 전체 삭제 응답
+                                date_description = calendar_result.get('date_description', '해당 날짜')
+                                target_date = calendar_result.get('target_date', '')
+                                
+                                state['current_output'] = f"✅ {date_description}의 모든 일정을 성공적으로 삭제했습니다! 🗑️\n\n"
+                                if target_date:
+                                    state['current_output'] += f"📅 삭제된 날짜: {target_date}\n\n"
+                                state['current_output'] += "캘린더에서 모든 일정이 깔끔하게 제거되었어요! ✨"
+                                
+                            elif delete_type == 'multiple':
+                                # 다중 개별 삭제 응답
+                                events_count = calendar_result.get('events_count', 0)
+                                deleted_events = calendar_result.get('deleted_events', [])
+                                
+                                state['current_output'] = f"✅ 총 {events_count}개의 일정을 성공적으로 삭제했습니다! 🗑️✨\n\n"
+                                
+                                for i, event_result in enumerate(deleted_events):
+                                    target_info = event_result.get('target_info', {})
+                                    title = target_info.get('title', f'일정 {i+1}')
+                                    date = target_info.get('date', '')
+                                    time = target_info.get('time', '')
+                                    
+                                    state['current_output'] += f"🗑️ **삭제 {i+1}: {title}**\n"
+                                    if date:
+                                        state['current_output'] += f"📅 날짜: {date}\n"
+                                    if time:
+                                        state['current_output'] += f"⏰ 시간: {time}\n"
+                                    state['current_output'] += "\n"
+                                
+                                state['current_output'] += "모든 요청하신 일정이 캘린더에서 제거되었어요! 😊"
+                                
+                            else:
+                                # 단일 삭제 응답 (기존 로직)
+                                title = calendar_result.get('title', '일정')
+                                date = calendar_result.get('date', '')
+                                
+                                state['current_output'] = f"✅ '{title}' 일정을 성공적으로 삭제했습니다! 🗑️\n\n"
+                                if date:
+                                    state['current_output'] += f"📅 삭제된 날짜: {date}\n\n"
+                                state['current_output'] += "캘린더에서 해당 일정이 제거되었어요! ✨"
                             
                         elif action_type == 'calendar_search':
                             events = calendar_result.get('events', [])
@@ -354,6 +940,325 @@ class LLMService:
         # 그래프 컴파일
         return builder.compile()
     
+    def _extract_delete_information(self, state: CalendarState, current_date: datetime, rule_text: str) -> CalendarState:
+        """삭제 관련 정보 추출 (다중 삭제 및 전체 삭제 지원)"""
+        try:
+            user_input = state['current_input']
+            
+            # 전체 삭제 패턴 확인
+            bulk_delete_patterns = [
+                r'(.*?)\s*(모든|모두|전체|다)\s*(일정|스케줄).*?(삭제|지워|제거|없애)',
+                r'(.*?)\s*(일정|스케줄)\s*(모든|모두|전체|다).*?(삭제|지워|제거|없애)',
+                r'(.*?)\s*(다\s*삭제|모두\s*삭제|전체\s*삭제|모두\s*지워|다\s*지워)',
+            ]
+            
+            is_bulk_delete = False
+            target_date = None
+            
+            for pattern in bulk_delete_patterns:
+                match = re.search(pattern, user_input, re.IGNORECASE)
+                if match:
+                    is_bulk_delete = True
+                    date_part = match.group(1).strip()
+                    print(f"전체 삭제 감지: '{date_part}'")
+                    break
+            
+            if is_bulk_delete:
+                # 전체 삭제 처리
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 특정 날짜의 모든 일정을 삭제하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "bulk",
+    "target_date": "YYYY-MM-DD",
+    "date_description": "날짜 설명 (예: 내일, 다음주 월요일)"
+}}
+
+추출 가이드라인:
+1. 삭제할 날짜를 정확히 파악
+2. 상대적 표현을 절대 날짜로 변환
+3. 날짜가 명시되지 않으면 "오늘"로 간주
+"""
+            else:
+                # 개별 삭제 또는 다중 개별 삭제 처리
+                detection_prompt = f"""
+사용자 입력에서 삭제할 일정의 개수를 분석해주세요:
+"{user_input}"
+
+다음 중 하나로 응답해주세요:
+- "SINGLE": 하나의 일정만 삭제
+- "MULTIPLE": 여러 개의 일정을 삭제
+
+다중 삭제 판단 기준:
+- "그리고", "또", "그 다음에", "추가로" 등의 연결어로 여러 일정을 언급
+- 예: "내일 회의 삭제하고 다음주 월요일 점심약속도 삭제해줘"
+- 예: "팀 미팅 지우고 개인 약속도 취소해줘"
+"""
+                
+                detection_response = self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": detection_prompt}],
+                    temperature=0.1
+                )
+                
+                is_multiple = "MULTIPLE" in detection_response.choices[0].message.content.strip()
+                
+                if is_multiple:
+                    # 다중 개별 삭제
+                    prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 여러 일정을 삭제하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "multiple",
+    "targets": [
+        {{
+            "title": "삭제할 일정 제목",
+            "date": "YYYY-MM-DD",
+            "time": "HH:MM (선택사항)",
+            "description": "일정 설명"
+        }}
+    ]
+}}
+
+추출 가이드라인:
+1. 각 삭제 대상을 별도의 객체로 분리
+2. 연결어를 기준으로 일정을 분리
+3. 날짜와 시간을 정확히 추출
+4. 제목이 명확하지 않으면 설명에서 추출
+"""
+                else:
+                    # 단일 개별 삭제
+                    prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 특정 일정을 삭제하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "single",
+    "title": "삭제할 일정 제목",
+    "date": "YYYY-MM-DD",
+    "time": "HH:MM (선택사항)",
+    "description": "일정 설명"
+}}
+
+추출 가이드라인:
+1. 삭제할 일정의 제목, 날짜, 시간을 정확히 추출
+2. 상대적 날짜 표현을 절대 날짜로 변환
+3. 시간이 명시되지 않으면 null로 설정
+"""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            print(f"삭제 정보 추출 응답: {response_text}")
+            
+            # 기본값 설정
+            default_delete_info = {
+                "delete_type": "single",
+                "title": "삭제할 일정",
+                "date": current_date.strftime('%Y-%m-%d'),
+                "time": None,
+                "description": ""
+            }
+            
+            # 안전한 JSON 파싱
+            extracted_info = safe_json_parse(response_text, default_delete_info)
+            
+            state['extracted_info'] = extracted_info
+            return state
+            
+        except Exception as e:
+            print(f"삭제 정보 추출 중 오류: {str(e)}")
+            default_delete_info = {
+                "delete_type": "single",
+                "title": "삭제할 일정",
+                "date": current_date.strftime('%Y-%m-%d'),
+                "time": None,
+                "description": ""
+            }
+            state['extracted_info'] = default_delete_info
+            return state
+    
+    def _extract_update_information(self, state: CalendarState, current_date: datetime, rule_text: str) -> CalendarState:
+        """수정 관련 정보 추출 (다중 수정 지원)"""
+        try:
+            user_input = state['current_input']
+            
+            # 다중 수정 여부 판단
+            detection_prompt = f"""
+사용자 입력에서 수정할 일정의 개수를 분석해주세요:
+"{user_input}"
+
+다음 중 하나로 응답해주세요:
+- "SINGLE": 하나의 일정만 수정
+- "MULTIPLE": 여러 개의 일정을 수정
+
+다중 수정 판단 기준:
+- "그리고", "또", "그 다음에", "추가로" 등의 연결어로 여러 수정 요청을 언급
+- 예: "오늘 헬스 일정 오후 3시로 바꾸고 다음주 드라이브 일정을 헬스로 이름 바꿔줘"
+- 예: "팀 미팅 시간 4시로 바꾸고 프로젝트 회의도 내일로 옮겨줘"
+"""
+            
+            detection_response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": detection_prompt}],
+                temperature=0.1
+            )
+            
+            is_multiple = "MULTIPLE" in detection_response.choices[0].message.content.strip()
+            
+            if is_multiple:
+                # 다중 수정 처리
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 여러 일정을 수정하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "update_type": "multiple",
+    "updates": [
+        {{
+            "target": {{
+                "title": "수정할 일정 제목",
+                "date": "YYYY-MM-DD",
+                "time": "HH:MM (선택사항)",
+                "description": "일정 설명"
+            }},
+            "changes": {{
+                "title": "새로운 제목 (변경시에만)",
+                "start_time": "새로운 시작 시간 (변경시에만)",
+                "end_time": "새로운 종료 시간 (변경시에만)",
+                "start_date": "새로운 날짜 (변경시에만)",
+                "description": "새로운 설명 (변경시에만)",
+                "location": "새로운 장소 (변경시에만)"
+            }}
+        }}
+    ]
+}}
+
+추출 가이드라인:
+1. 각 수정 요청을 별도의 객체로 분리
+2. 연결어를 기준으로 수정 요청을 분리
+3. target에는 수정할 일정의 식별 정보
+4. changes에는 변경할 내용만 포함 (변경되지 않는 항목은 제외)
+5. 상대적 날짜 표현을 절대 날짜로 변환
+"""
+            else:
+                # 단일 수정 처리
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 특정 일정을 수정하고 싶어합니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "update_type": "single",
+    "target": {{
+        "title": "수정할 일정 제목",
+        "date": "YYYY-MM-DD",
+        "time": "HH:MM (선택사항)",
+        "description": "일정 설명"
+    }},
+    "changes": {{
+        "title": "새로운 제목 (변경시에만)",
+        "start_time": "새로운 시작 시간 (변경시에만)",
+        "end_time": "새로운 종료 시간 (변경시에만)",
+        "start_date": "새로운 날짜 (변경시에만)",
+        "description": "새로운 설명 (변경시에만)",
+        "location": "새로운 장소 (변경시에만)"
+    }}
+}}
+
+추출 가이드라인:
+1. target에는 수정할 일정의 식별 정보
+2. changes에는 변경할 내용만 포함 (변경되지 않는 항목은 제외)
+3. 상대적 날짜 표현을 절대 날짜로 변환
+4. 시간이 명시되지 않으면 null로 설정
+"""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            print(f"수정 정보 추출 응답: {response_text}")
+            
+            # 기본값 설정
+            default_update_info = {
+                "update_type": "single",
+                "target": {
+                    "title": "수정할 일정",
+                    "date": current_date.strftime('%Y-%m-%d'),
+                    "time": None,
+                    "description": ""
+                },
+                "changes": {
+                    "title": None
+                }
+            }
+            
+            # 안전한 JSON 파싱
+            extracted_info = safe_json_parse(response_text, default_update_info)
+            
+            state['extracted_info'] = extracted_info
+            return state
+            
+        except Exception as e:
+            print(f"수정 정보 추출 중 오류: {str(e)}")
+            default_update_info = {
+                "update_type": "single",
+                "target": {
+                    "title": "수정할 일정",
+                    "date": current_date.strftime('%Y-%m-%d'),
+                    "time": None,
+                    "description": ""
+                },
+                "changes": {
+                    "title": None
+                }
+            }
+            state['extracted_info'] = default_update_info
+            return state
+    
     def _create_event_data(self, extracted_info: Dict[str, Any]) -> Dict[str, Any]:
         """추출된 정보를 Google Calendar API 형식으로 변환"""
         try:
@@ -400,17 +1305,6 @@ class LLMService:
             attendees = extracted_info.get('attendees', [])
             if attendees:
                 event_data['attendees'] = [{'email': email} for email in attendees]
-            
-            # 반복 설정
-            repeat_type = extracted_info.get('repeat_type', 'none')
-            if repeat_type != 'none':
-                rrule = self.calendar_service.create_rrule(
-                    repeat_type,
-                    interval=extracted_info.get('repeat_interval', 1),
-                    count=extracted_info.get('repeat_count'),
-                    until=extracted_info.get('repeat_until')
-                )
-                event_data['recurrence'] = [f"RRULE:{rrule}"]
             
             # 알림 설정
             reminders = extracted_info.get('reminders', [15])
@@ -486,16 +1380,17 @@ class LLMService:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.workflow.invoke, initial_state)
     
-    # 기존 메서드들 유지
+    # =============================================================================
+    # 기존 메서드들 (호환성 유지)
+    # =============================================================================
+    
     async def generate_response(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 1000
     ) -> str:
-        """
-        사용자 메시지에 대한 응답을 생성합니다.
-        """
+        """사용자 메시지에 대한 응답을 생성합니다."""
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -513,9 +1408,7 @@ class LLMService:
         user_input: str,
         context: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """
-        사용자 입력을 처리하여 일정 정보를 추출합니다.
-        """
+        """사용자 입력을 처리하여 일정 정보를 추출합니다."""
         # 새로운 워크플로우 사용
         return await self.process_calendar_input_with_workflow(user_input)
     
@@ -525,8 +1418,120 @@ class LLMService:
         session_id: str = "default",
         chat_history: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
-        """
-        LangGraph를 사용하여 대화형 응답을 생성합니다.
-        """
+        """LangGraph를 사용하여 대화형 응답을 생성합니다."""
         # 새로운 워크플로우 사용
-        return await self.process_calendar_input_with_workflow(message, chat_history) 
+        return await self.process_calendar_input_with_workflow(message, chat_history)
+
+# =============================================================================
+# 테스트 및 디버깅용 함수들
+# =============================================================================
+
+def test_relative_date_rules():
+    """상대적 날짜 규칙 테스트 함수"""
+    # 테스트 날짜들
+    test_dates = [
+        datetime(2025, 6, 9),   # 월요일
+        datetime(2025, 6, 11),  # 수요일  
+        datetime(2025, 6, 13),  # 금요일
+        datetime(2025, 6, 15),  # 일요일
+    ]
+    
+    for test_date in test_dates:
+        print(f"\n{'='*50}")
+        print(f"기준 날짜: {test_date.strftime('%Y년 %m월 %d일 %A')}")
+        print(f"{'='*50}")
+        
+        rules = get_relative_date_rules(test_date)
+        
+        # 주요 규칙들만 출력
+        key_rules = ['오늘', '내일', '모레', '다음주', '다음주 월요일', '다음주 일요일']
+        for key in key_rules:
+            if key in rules:
+                print(f"{key}: {rules[key]}")
+
+def test_llm_service():
+    """
+    LLM 서비스 테스트 함수
+    
+    커스터마이징 포인트: 테스트 케이스 추가/수정 가능
+    """
+    import asyncio
+    
+    async def run_tests():
+        service = LLMService()
+        
+        # 테스트 케이스들 - 일요일 기준 주 계산 테스트 포함
+        test_cases = [
+            "내일 오후 3시에 팀 회의 일정 잡아줘",
+            "다음주 월요일 오전 10시에 프레젠테이션",
+            "다음주 일요일에 가족 모임",
+            "오늘 일정 뭐 있어?",
+            "회의 시간을 4시로 바꿔줘",
+            "내일 미팅 취소해줘",
+            "안녕하세요",
+        ]
+        
+        for test_input in test_cases:
+            print(f"\n{'='*50}")
+            print(f"테스트 입력: {test_input}")
+            print(f"{'='*50}")
+            
+            result = await service.process_calendar_input_with_workflow(test_input)
+            
+            print(f"의도: {result.get('intent')}")
+            print(f"추출된 정보: {result.get('extracted_info')}")
+            print(f"응답: {result.get('response')}")
+    
+    # 비동기 테스트 실행
+    # asyncio.run(run_tests())
+
+def debug_intent_classification(user_input: str):
+    """
+    의도 분류 디버깅 함수
+    
+    사용법: debug_intent_classification("내일 회의 일정 잡아줘")
+    """
+    result = keyword_based_classification(user_input)
+    print(f"입력: {user_input}")
+    print(f"키워드 분류 결과: {result}")
+    
+    # 제목 추출 테스트
+    title = extract_title_from_input(user_input)
+    print(f"추출된 제목: {title}")
+
+def debug_time_parsing():
+    """
+    시간 파싱 디버깅 함수
+    """
+    current_date = datetime.now(pytz.timezone('Asia/Seoul'))
+    test_info = {
+        "start_date": current_date.strftime('%Y-%m-%d'),
+        "start_time": "14:30",
+        "end_time": None
+    }
+    
+    validated = validate_and_correct_info(test_info, current_date)
+    print(f"검증 전: {test_info}")
+    print(f"검증 후: {validated}")
+
+def debug_date_calculation():
+    """
+    날짜 계산 디버깅 함수 - 일요일 기준 주 계산 테스트
+    """
+    print("=== 일요일 기준 주 계산 테스트 ===")
+    test_relative_date_rules()
+    
+    # 특정 입력에 대한 날짜 해석 테스트
+    current_date = datetime.now(pytz.timezone('Asia/Seoul'))
+    rules = get_relative_date_rules(current_date)
+    
+    print(f"\n현재 요일: {current_date.strftime('%A')}")
+    print(f"다음주 = 다음 주 일요일: {rules.get('다음주')}")
+    print(f"다음주 월요일: {rules.get('다음주 월요일')}")
+
+# 사용 예시:
+# if __name__ == "__main__":
+#     debug_date_calculation()
+#     test_llm_service()
+#     debug_intent_classification("다음주 일요일에 가족 모임")
+#     debug_time_parsing()

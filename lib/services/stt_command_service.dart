@@ -15,6 +15,15 @@ class VoiceCommandService {
   VoiceCommandService._();
 
   final ChatService _chatService = ChatService();
+  
+  // 일정 관리 키워드들 - 이런 키워드가 포함되면 AI로 전달해야 함
+  static const List<String> _calendarActionKeywords = [
+    '추가', '생성', '만들', '등록', '잡아', '스케줄', '예약', '설정',
+    '수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정',
+    '삭제', '지워', '취소', '없애', '빼', '제거', '다 삭제', '모두 삭제', '전체 삭제',
+    '검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인',
+    '복사', '복제', '같은 일정', '동일한'
+  ];
 
   /// 음성 입력 다이얼로그 표시
   Future<void> showVoiceInput({
@@ -114,9 +123,14 @@ class VoiceCommandService {
   /// 간단한 명령어인지 확인
   bool _isSimpleCommand(String command) {
     command = command.toLowerCase();
+    
+    // 일정 관리 키워드가 포함되어 있으면 AI로 전달
+    if (_calendarActionKeywords.any((keyword) => command.contains(keyword))) {
+      print('🤖 일정 관리 키워드 감지 - AI로 전달: $command');
+      return false; // AI로 전달
+    }
+    
     final simpleCommands = [
-      '오늘',
-      '투데이',
       '다음 달',
       '다음달',
       '이전 달',
@@ -127,11 +141,15 @@ class VoiceCommandService {
       '날씨 보여',
       '날씨보여',
       '날씨 정보',
-      '일정 보기',
-      '일정보기',
       '타임테이블',
       '시간표',
     ];
+
+    // "오늘"이나 "투데이"는 일정 관리 키워드가 없을 때만 간단한 명령어로 처리
+    if ((command.contains('오늘') || command.contains('투데이')) && 
+        !_calendarActionKeywords.any((keyword) => command.contains(keyword))) {
+      return true; // 간단한 명령어 (단순 날짜 이동)
+    }
 
     return simpleCommands.any((cmd) => command.contains(cmd)) ||
         RegExp(r'\d{4}년|\d{1,2}월').hasMatch(command); // 연도/월 패턴도 간단한 명령어로 처리
@@ -141,7 +159,9 @@ class VoiceCommandService {
   String _processSimpleCommand(String command) {
     command = command.toLowerCase();
 
-    if (command.contains('오늘') || command.contains('투데이')) {
+    // "오늘"이나 "투데이"는 일정 관리 키워드가 없을 때만 처리
+    if ((command.contains('오늘') || command.contains('투데이')) && 
+        !_calendarActionKeywords.any((keyword) => command.contains(keyword))) {
       return '오늘 날짜로 이동했습니다.';
     } else if (command.contains('다음 달') || command.contains('다음달')) {
       return '다음 달로 이동했습니다.';
@@ -182,7 +202,10 @@ class VoiceCommandService {
         lowerCommand.contains('지난달')) {
       _moveToPreviousMonth(controller, onStateUpdate);
     } else if (lowerCommand.contains('오늘') || lowerCommand.contains('투데이')) {
-      _moveToToday(controller, popupManager, onStateUpdate);
+      // 일정 관리 키워드가 포함되어 있지 않은 경우에만 오늘로 이동
+      if (!_calendarActionKeywords.any((keyword) => lowerCommand.contains(keyword))) {
+        _moveToToday(controller, popupManager, onStateUpdate);
+      }
     } else if (_checkForDateMovement(lowerCommand, controller)) {
       // 연도/월 이동 처리됨
       onStateUpdate();
@@ -192,6 +215,13 @@ class VoiceCommandService {
         lowerCommand.contains('새 일정') ||
         lowerCommand.contains('새일정')) {
       // 컨텍스트가 필요한 작업은 콜백으로 처리
+    } else if (lowerCommand.contains('일정 수정') ||
+        lowerCommand.contains('일정수정') ||
+        lowerCommand.contains('수정') ||
+        lowerCommand.contains('변경') ||
+        lowerCommand.contains('고치') ||
+        lowerCommand.contains('바꿔')) {
+      // 일정 수정 명령어 처리 - 복잡한 처리는 AI로 넘김
     } else if (lowerCommand.contains('일정 삭제') ||
         lowerCommand.contains('일정삭제') ||
         lowerCommand.contains('삭제') ||
@@ -207,10 +237,6 @@ class VoiceCommandService {
       print('일정 보기 명령어가 감지되었지만 팝업 표시가 비활성화되어 있습니다.');
     } // 타임테이블 관련 명령어
     else if (lowerCommand.contains('타임테이블') || lowerCommand.contains('시간표')) {
-      // 타임테이블 명령어 - 팝업 비활성화 (사용자 요청)
-      // popupManager.showTimeTableDialog();
-      // onStateUpdate();
-      print('타임테이블/시간표 명령어가 감지되었지만 팝업 표시가 비활성화되어 있습니다.');
     }
     // 날씨 정보 명령어 처리
     else if (lowerCommand.contains('날씨')) {
