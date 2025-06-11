@@ -172,7 +172,8 @@ class _EmptyPageState extends State<EmptyPage> {
         try {
           // OCR 처리
           final inputImage = InputImage.fromFilePath(imageFile.path);
-          final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
+          final RecognizedText recognizedText = await _textRecognizer
+              .processImage(inputImage);
           if (recognizedText.text.isNotEmpty) {
             // 인식된 텍스트 메시지 생성
             final textMessage = types.TextMessage(
@@ -222,9 +223,9 @@ class _EmptyPageState extends State<EmptyPage> {
     } catch (e) {
       print('카메라 촬영 중 오류 발생: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('카메라 촬영 중 오류가 발생했습니다: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('카메라 촬영 중 오류가 발생했습니다: $e')));
       }
     }
   }
@@ -416,11 +417,12 @@ class _EmptyPageState extends State<EmptyPage> {
         // --- TTS 관련 추가 ---
         // 화면을 나가기 전에 TTS 중지
         TtsService.instance.stop();
-        return true;
+        Navigator.of(context).pop({'refreshNavigation': true});
+        return false;
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true, // 입력시 네비게이션 바 위치 고정 여부(false시 고정)
-        backgroundColor: const Color.fromARGB(255, 154, 96, 207),
+        backgroundColor: const Color.fromARGB(255, 162, 222, 141),
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: Text(
@@ -431,7 +433,7 @@ class _EmptyPageState extends State<EmptyPage> {
               text: 'AI 채팅',
             ),
           ),
-          backgroundColor: const Color.fromARGB(255, 154, 96, 207),
+          backgroundColor: const Color.fromARGB(255, 162, 222, 141),
         ),
         body: Column(
           children: [

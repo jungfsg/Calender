@@ -537,10 +537,11 @@ class _CalendarWidgetState extends State<CalendarWidget> {
     }
   }
 
-  /// EmptyPage로 이동
+  /// ChatPage로 이동
   void _navigateToEmptyPage() async {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
+        fullscreenDialog: true,
         builder:
             (context) => EmptyPage(
               onCalendarUpdate: () {
@@ -548,9 +549,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                 widget.eventManager.refreshCurrentMonthEvents();
                 setState(() {});
               },
-              eventManager:
-                  widget
-                      .eventManager, // EventManager 전달하여 Google Calendar 동기화 활성화
+              eventManager: widget.eventManager,
             ),
       ),
     );

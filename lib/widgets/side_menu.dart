@@ -7,7 +7,7 @@ class CalendarSideMenu extends StatelessWidget {
   final VoidCallback onGoogleCalendarUpload; // 업로드 콜백
   final VoidCallback onLogoutTap; // 로그아웃 콜백 추가
   final bool isGoogleCalendarConnected; // Google Calendar 연결 상태
-  
+
   // --- TTS 관련 추가 ---
   final bool isTtsEnabled; // TTS 활성화 상태
   final ValueChanged<bool> onTtsToggle; // TTS 상태 변경 콜백
@@ -19,7 +19,6 @@ class CalendarSideMenu extends StatelessWidget {
     required this.onGoogleCalendarUpload, // 업로드 콜백 필수
     required this.onLogoutTap, // 필수 매개변수로 추가
     this.isGoogleCalendarConnected = false, // 기본값은 연결되지 않음
-
     // --- TTS 관련 추가 ---
     required this.isTtsEnabled,
     required this.onTtsToggle,
@@ -37,7 +36,7 @@ class CalendarSideMenu extends StatelessWidget {
         ),
       ),
       child: Drawer(
-        width: MediaQuery.of(context).size.width * 0.6, // 화면 너비의 60%로 설정
+        width: MediaQuery.of(context).size.width * 0.75, // 화면 너비의 75%로 설정
         backgroundColor: Colors.white,
         child: Column(
           children: [
@@ -114,18 +113,24 @@ class CalendarSideMenu extends StatelessWidget {
                   onGoogleCalendarUpload();
                 },
               ),
-            
+
             // --- TTS 설정 스위치 추가 ---
             const Divider(), // 구분선
             SwitchListTile(
-              secondary: Icon(Icons.volume_up, color: isTtsEnabled ? Colors.blueAccent : Colors.grey),
+              secondary: Icon(
+                Icons.volume_up,
+                color: isTtsEnabled ? Colors.blueAccent : Colors.grey,
+              ),
               title: Text(
                 'AI 음성 (TTS) 사용',
                 style: getTextStyle(fontSize: 12, color: Colors.black),
               ),
               subtitle: Text(
                 isTtsEnabled ? 'AI 답변을 음성으로 듣습니다.' : '음성 안내가 꺼져 있습니다.',
-                style: getTextStyle(fontSize: 10, color: isTtsEnabled ? Colors.blueAccent : Colors.grey),
+                style: getTextStyle(
+                  fontSize: 10,
+                  color: isTtsEnabled ? Colors.blueAccent : Colors.grey,
+                ),
               ),
               value: isTtsEnabled,
               onChanged: (bool value) {
@@ -133,7 +138,84 @@ class CalendarSideMenu extends StatelessWidget {
                 // 스위치 클릭 시 메뉴가 닫히지 않도록 Navigator.pop(context)를 호출하지 않음
               },
             ),
+            const Divider(), // 구분선
+            // 색상 카테고리 팔레트 부분
+            // 색상 카테고리 팔레트 부분
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '카테고리',
+                    style: getTextStyle(fontSize: 12, color: Colors.black),
+                  ),
+                  const SizedBox(height: 12),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4, // 한 줄에 4개씩
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 1,
+                        ),
+                    itemCount: 11, // 총 11개 색상
+                    itemBuilder: (context, index) {
+                      final colors = [
+                        const Color(0xFF9AA0F5), // 라벤더
+                        const Color(0xFF33B679), // 세이지
+                        const Color(0xFF8E24AA), // 포도
+                        const Color(0xFFE67C73), // 플라밍고
+                        const Color(0xFFF6BF26), // 바나나
+                        const Color(0xFFFF8A65), // 귤
+                        const Color(0xFF039BE5), // 공작새
+                        const Color(0xFF616161), // 그래파이트
+                        const Color(0xFF3F51B5), // 블루베리
+                        const Color(0xFF0B8043), // 바질
+                        const Color(0xFFD50000), // 토마토
+                      ];
 
+                      final categories = [
+                        '업무',
+                        '집안일',
+                        '기념일',
+                        '학교',
+                        '운동',
+                        '공부',
+                        '여행',
+                        '기타',
+                        '친구',
+                        '가족',
+                        '병원',
+                      ];
+
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: colors[index],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            categories[index],
+                            style: getTextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
 
             // 하단에 로그아웃 버튼을 배치하기 위한 Spacer
             const Spacer(),
