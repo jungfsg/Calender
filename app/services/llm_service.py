@@ -51,10 +51,18 @@ def get_relative_date_rules(current_date: datetime) -> dict:
         "다음주 금요일": (next_sunday + timedelta(days=5)).strftime('%Y-%m-%d'),
         "다음주 토요일": (next_sunday + timedelta(days=6)).strftime('%Y-%m-%d'),
         
+        # 이번 주 각 요일 (일요일 기준)
+        "이번주": (current_date - timedelta(days=current_weekday_sunday_base)).strftime('%Y-%m-%d'),
+        "이번주 일요일": (current_date - timedelta(days=current_weekday_sunday_base)).strftime('%Y-%m-%d'),
+        "이번주 월요일": (current_date - timedelta(days=current_weekday_sunday_base - 1)).strftime('%Y-%m-%d'),
+        "이번주 화요일": (current_date - timedelta(days=current_weekday_sunday_base - 2)).strftime('%Y-%m-%d'),
+        "이번주 수요일": (current_date - timedelta(days=current_weekday_sunday_base - 3)).strftime('%Y-%m-%d'),
+        "이번주 목요일": (current_date - timedelta(days=current_weekday_sunday_base - 4)).strftime('%Y-%m-%d'),
+        "이번주 금요일": (current_date - timedelta(days=current_weekday_sunday_base - 5)).strftime('%Y-%m-%d'),
+        "이번주 토요일": (current_date - timedelta(days=current_weekday_sunday_base - 6)).strftime('%Y-%m-%d'),
+        
         # 이번 주 표현
         "이번 주말": (current_date + timedelta(days=days_to_this_weekend)).strftime('%Y-%m-%d'),
-        "이번주 토요일": (current_date + timedelta(days=days_to_this_weekend)).strftime('%Y-%m-%d'),
-        "이번주 일요일": (current_date + timedelta(days=days_to_this_weekend + 1)).strftime('%Y-%m-%d'),
         
         # 월 단위 표현
         "다음달": (current_date.replace(day=1) + timedelta(days=32)).replace(day=1).strftime('%Y-%m-%d'),
@@ -360,10 +368,16 @@ class LLMService:
 다음 중 하나로 분류해주세요:
 1. calendar_add - 새로운 일정 추가 (키워드: 추가, 만들기, 생성, 등록, 잡아줘, 스케줄)
 2. calendar_update - 기존 일정 수정 (키워드: 수정, 변경, 바꿔, 업데이트, 이동)
-3. calendar_delete - 일정 삭제 (키워드: 삭제, 지워, 취소, 없애)
+3. calendar_delete - 일정 삭제 (키워드: 삭제, 지워, 취소, 없애, 제거, 모든 삭제, 모두 삭제, 전체 삭제, 다 삭제, 모든 일정 삭제, 전체 일정 삭제)
 4. calendar_search - 일정 조회/검색 (키워드: 검색, 찾아, 조회, 확인, 뭐 있어, 언제)
 5. calendar_copy - 일정 복사 (키워드: 복사, 복제, 같은 일정)
 6. general_chat - 일반 대화 (일정과 무관한 대화)
+
+**중요**: 전체 삭제 관련 표현들은 모두 calendar_delete로 분류해야 합니다:
+- "오늘 일정 전체 삭제해줘" → calendar_delete
+- "내일 모든 일정 지워줘" → calendar_delete  
+- "18일 일정 다 삭제해줘" → calendar_delete
+- "이번주 일정 모두 삭제해줘" → calendar_delete
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{"intent": "분류결과", "confidence": 0.95, "reason": "분류 이유"}}
@@ -1036,25 +1050,163 @@ Confidence 기준:
         try:
             user_input = state['current_input']
             
-            # 전체 삭제 패턴 확인
-            bulk_delete_patterns = [
-                r'(.*?)\s*(모든|모두|전체|다)\s*(일정|스케줄).*?(삭제|지워|제거|없애)',
-                r'(.*?)\s*(일정|스케줄)\s*(모든|모두|전체|다).*?(삭제|지워|제거|없애)',
-                r'(.*?)\s*(다\s*삭제|모두\s*삭제|전체\s*삭제|모두\s*지워|다\s*지워)',
+            # 먼저 키워드 기반으로 전체 삭제 여부를 확인
+            bulk_keywords = ['모든', '모두', '전체', '다 삭제', '다삭제', '다 지워', '다지워', '모두 삭제', '모두삭제', '전체 삭제', '전체삭제']
+            mixed_keywords = ['그리고', '또', '그 다음에', '추가로', '또한', '그리고는', '와', '과', '하고']
+            
+            has_bulk_keyword = any(keyword in user_input for keyword in bulk_keywords)
+            has_mixed_keyword = any(keyword in user_input for keyword in mixed_keywords)
+            has_delete_keyword = any(keyword in user_input for keyword in ['삭제', '지워', '제거', '없애'])
+            
+            print(f"키워드 감지: 전체삭제={has_bulk_keyword}, 혼합={has_mixed_keyword}, 삭제={has_delete_keyword}")
+            print(f"사용자 입력: '{user_input}'")
+            
+            # 혼합 삭제 패턴 강화 - "일정과"나 "의 전체" 패턴 감지
+            enhanced_mixed_patterns = [
+                r'.*일정[과와].*전체.*일정',  # "헬스 일정과 ... 전체 일정"
+                r'.*[과와].*[의의].*전체',    # "일정과 ... 의 전체"
+                r'.*삭제.*[과와하고].*전체',  # "삭제하고 ... 전체"
+                r'.*전체.*[과와하고].*삭제',  # "전체 ... 와 삭제"
+                r'.*일정[과와].*금요일.*전체', # "일정과 금요일 전체"
+                r'.*[과와].*요일.*전체',       # "과 ... 요일 전체"
+                r'.*요일.*전체.*일정',        # "요일 ... 전체 일정"
             ]
             
-            is_bulk_delete = False
-            target_date = None
-            
-            for pattern in bulk_delete_patterns:
-                match = re.search(pattern, user_input, re.IGNORECASE)
-                if match:
-                    is_bulk_delete = True
-                    date_part = match.group(1).strip()
-                    print(f"전체 삭제 감지: '{date_part}'")
+            enhanced_mixed_detected = False
+            matched_pattern = ""
+            for pattern in enhanced_mixed_patterns:
+                if re.search(pattern, user_input, re.IGNORECASE):
+                    enhanced_mixed_detected = True
+                    matched_pattern = pattern
+                    print(f"강화된 혼합 패턴 감지: '{pattern}' in '{user_input}'")
                     break
             
-            if is_bulk_delete:
+            print(f"Enhanced mixed detection: {enhanced_mixed_detected}, Pattern: {matched_pattern}")
+            
+            is_mixed_delete = (has_bulk_keyword and has_mixed_keyword and has_delete_keyword) or enhanced_mixed_detected
+            is_bulk_only = has_bulk_keyword and not has_mixed_keyword and has_delete_keyword and not enhanced_mixed_detected
+            
+            print(f"Final decision details:")
+            print(f"  - has_bulk_keyword: {has_bulk_keyword}")
+            print(f"  - has_mixed_keyword: {has_mixed_keyword}")
+            print(f"  - has_delete_keyword: {has_delete_keyword}")
+            print(f"  - enhanced_mixed_detected: {enhanced_mixed_detected}")
+            print(f"  - is_mixed_delete: {is_mixed_delete}")
+            print(f"  - is_bulk_only: {is_bulk_only}")
+            
+            # 더 간단한 패턴으로 전체 삭제 감지 강화
+            simple_bulk_patterns = [
+                '전체 삭제', '모두 삭제', '다 삭제', '모든 삭제', '전부 삭제',
+                '전체 지워', '모두 지워', '다 지워', '모든 지워', '전부 지워',
+                '전체삭제', '모두삭제', '다삭제', '모든삭제', '전부삭제',
+                '일정 전체', '일정 모두', '일정 다', '일정 모든',
+                '스케줄 전체', '스케줄 모두', '스케줄 다', '스케줄 모든'
+            ]
+            
+            if not is_bulk_only and not is_mixed_delete:
+                for pattern in simple_bulk_patterns:
+                    if pattern in user_input:
+                        if any(mixed_word in user_input for mixed_word in mixed_keywords):
+                            is_mixed_delete = True
+                            print(f"간단 패턴으로 혼합 삭제 감지: '{pattern}'")
+                        else:
+                            is_bulk_only = True
+                            print(f"간단 패턴으로 전체 삭제 감지: '{pattern}'")
+                        break
+            
+            # 정규표현식으로 추가 확인 (더 유연한 패턴)
+            if not is_mixed_delete and not is_bulk_only:
+                # 혼합 삭제 패턴 확인 (개별 삭제 + 전체 삭제)
+                mixed_patterns = [
+                    r'.*(삭제|지워|제거).*(그리고|또|그 다음에|추가로).*(모든|모두|전체|다)\s*(일정|스케줄)?.*(삭제|지워|제거)',
+                    r'.*(모든|모두|전체|다)\s*(일정|스케줄)?.*(삭제|지워|제거).*(그리고|또|그 다음에|추가로).*(삭제|지워|제거)',
+                ]
+                
+                # 전체 삭제만 있는 패턴 확인 (더 유연하게)
+                bulk_only_patterns = [
+                    r'(모든|모두|전체|다)\s*(일정|스케줄)?\s*(삭제|지워|제거|없애)',
+                    r'(일정|스케줄)?\s*(모든|모두|전체|다)\s*(삭제|지워|제거|없애)',
+                    r'(다\s*삭제|모두\s*삭제|전체\s*삭제|모두\s*지워|다\s*지워)',
+                ]
+                
+                # 혼합 삭제 패턴 확인
+                for pattern in mixed_patterns:
+                    if re.search(pattern, user_input, re.IGNORECASE):
+                        is_mixed_delete = True
+                        print(f"정규식으로 혼합 삭제 감지: '{user_input}'")
+                        break
+                
+                # 전체 삭제만 있는 패턴 확인 (혼합이 아닌 경우에만)
+                if not is_mixed_delete:
+                    for pattern in bulk_only_patterns:
+                        if re.search(pattern, user_input, re.IGNORECASE):
+                            is_bulk_only = True
+                            print(f"정규식으로 전체 삭제만 감지: '{user_input}'")
+                            break
+            
+            print(f"최종 판단: 혼합삭제={is_mixed_delete}, 전체삭제={is_bulk_only}")
+            
+            if is_mixed_delete:
+                # 혼합 삭제 처리 (개별 삭제 + 전체 삭제)
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 개별 일정 삭제와 전체 일정 삭제를 함께 요청했습니다:
+"{user_input}"
+
+**중요**: 이 입력에는 2개의 서로 다른 삭제 작업이 포함되어 있습니다.
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+**단계별 분석 과정:**
+1. 먼저 연결어("와", "과", "하고", "그리고" 등)로 문장을 분리하세요
+2. 각 부분에서 날짜와 일정명을 따로 추출하세요
+3. "전체", "모든", "모두", "다" 키워드가 있는 부분은 bulk 타입
+4. 구체적인 일정명이 있는 부분은 individual 타입
+
+**구체적 분석 예시:**
+"내일 헬스 일정과 금요일의 전체 일정을 삭제해줘"
+→ 분리: ["내일 헬스 일정", "금요일의 전체 일정"]
+→ 1번째: "내일 헬스" = individual, 날짜="내일", 제목="헬스"
+→ 2번째: "금요일의 전체" = bulk, 날짜="금요일"
+
+"16일 회의 삭제하고 18일 일정 전체 삭제해줘"
+→ 분리: ["16일 회의", "18일 일정 전체"]
+→ 1번째: "16일 회의" = individual, 날짜="16일", 제목="회의"
+→ 2번째: "18일 일정 전체" = bulk, 날짜="18일"
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "mixed",
+    "actions": [
+        {{
+            "type": "individual",
+            "title": "첫 번째 일정의 제목만 (헬스, 회의 등)",
+            "date": "첫 번째 날짜를 YYYY-MM-DD 형식으로",
+            "time": null,
+            "description": "첫 번째 일정 설명"
+        }},
+        {{
+            "type": "bulk", 
+            "target_date": "두 번째 날짜를 YYYY-MM-DD 형식으로",
+            "date_description": "두 번째 날짜 설명 (금요일, 18일 등)"
+        }}
+    ]
+}}
+
+**날짜 변환 주의사항:**
+- "내일" → {(current_date + timedelta(days=1)).strftime('%Y-%m-%d')}
+- "이번주 금요일" → 상대적 표현 규칙 참조하여 정확한 날짜
+- "16일", "18일" → 현재 월 기준으로 2024-01-16, 2024-01-18
+- 반드시 각 액션마다 서로 다른 날짜를 설정하세요
+
+**제목 추출 주의사항:**
+- "헬스 일정과" → title: "헬스" (일정, 과 제거)
+- "회의 삭제하고" → title: "회의" (삭제하고 제거)
+- 순수한 일정명만 추출하세요"""
+            elif is_bulk_only:
                 # 전체 삭제 처리
                 prompt = f"""
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
@@ -1074,9 +1226,16 @@ Confidence 기준:
 }}
 
 추출 가이드라인:
-1. 삭제할 날짜를 정확히 파악
-2. 상대적 표현을 절대 날짜로 변환
-3. 날짜가 명시되지 않으면 "오늘"로 간주
+1. 삭제할 날짜를 정확히 파악하세요
+2. 상대적 표현을 절대 날짜로 변환하세요
+3. 날짜가 명시되지 않으면 "오늘"로 간주하세요
+4. 전체 삭제 예시:
+   - "오늘 일정 전체 삭제해줘" → target_date: "{current_date.strftime('%Y-%m-%d')}"
+   - "내일 모든 일정 지워줘" → target_date: "{(current_date + timedelta(days=1)).strftime('%Y-%m-%d')}"
+   - "18일 일정 다 삭제해줘" → target_date: "2024-01-18" (적절한 월/년 추가)
+   - "이번주 금요일 일정 모두 삭제" → 해당 금요일 날짜로 변환
+
+반드시 target_date 필드를 정확한 YYYY-MM-DD 형식으로 제공해야 합니다.
 """
             else:
                 # 개별 삭제 또는 다중 개별 삭제 처리
@@ -1089,9 +1248,14 @@ Confidence 기준:
 - "MULTIPLE": 여러 개의 일정을 삭제
 
 다중 삭제 판단 기준:
-- "그리고", "또", "그 다음에", "추가로" 등의 연결어로 여러 일정을 언급
+- "그리고", "또", "그 다음에", "추가로", "와", "과", "하고" 등의 연결어로 여러 일정을 언급
 - 예: "내일 회의 삭제하고 다음주 월요일 점심약속도 삭제해줘"
 - 예: "팀 미팅 지우고 개인 약속도 취소해줘"
+- 예: "헬스 일정과 요가 일정 삭제해줘" (두 개의 개별 일정)
+
+주의: 다음과 같은 경우는 MULTIPLE이 아닌 SINGLE로 판단하세요:
+- "내일 헬스 일정과 금요일의 전체 일정을 삭제해줘" (이미 혼합삭제로 처리됨)
+- 개별 일정과 전체 삭제가 섞인 경우 (혼합삭제 패턴)
 """
                 
                 detection_response = self.client.chat.completions.create(
@@ -1185,6 +1349,41 @@ Confidence 기준:
             
             # 안전한 JSON 파싱
             extracted_info = safe_json_parse(response_text, default_delete_info)
+            
+            # 혼합 삭제의 경우 추출된 정보 상세 로깅
+            if extracted_info.get('delete_type') == 'mixed':
+                print("=== 혼합 삭제 정보 추출 결과 ===")
+                actions = extracted_info.get('actions', [])
+                print(f"총 액션 수: {len(actions)}")
+                
+                for i, action in enumerate(actions):
+                    print(f"액션 {i+1}:")
+                    print(f"  - type: {action.get('type')}")
+                    if action.get('type') == 'individual':
+                        print(f"  - title: {action.get('title')}")
+                        print(f"  - date: {action.get('date')}")
+                        print(f"  - time: {action.get('time')}")
+                    elif action.get('type') == 'bulk':
+                        print(f"  - target_date: {action.get('target_date')}")
+                        print(f"  - date_description: {action.get('date_description')}")
+                
+                # 날짜 유효성 검사
+                for i, action in enumerate(actions):
+                    if action.get('type') == 'individual' and action.get('date'):
+                        try:
+                            parsed_date = datetime.strptime(action['date'], '%Y-%m-%d')
+                            print(f"액션 {i+1} 개별 삭제 날짜 파싱 성공: {parsed_date}")
+                        except ValueError as e:
+                            print(f"액션 {i+1} 개별 삭제 날짜 파싱 실패: {e}")
+                    
+                    if action.get('type') == 'bulk' and action.get('target_date'):
+                        try:
+                            parsed_date = datetime.strptime(action['target_date'], '%Y-%m-%d')
+                            print(f"액션 {i+1} 전체 삭제 날짜 파싱 성공: {parsed_date}")
+                        except ValueError as e:
+                            print(f"액션 {i+1} 전체 삭제 날짜 파싱 실패: {e}")
+                
+                print("=== 혼합 삭제 정보 추출 완료 ===")
             
             state['extracted_info'] = extracted_info
             return state

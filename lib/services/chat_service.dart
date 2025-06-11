@@ -728,6 +728,13 @@ class ChatService {
             eventManager,
             onCalendarUpdate,
           );
+        } else if (deleteType == 'mixed') {
+          // 혼합 삭제 처리 (개별 삭제 + 전체 삭제)
+          return await _handleMixedDelete(
+            extractedInfo,
+            eventManager,
+            onCalendarUpdate,
+          );
         } else {
           // 단일 삭제 처리 (기존 로직)
           final title = extractedInfo['title'] as String? ?? '';
@@ -1028,6 +1035,151 @@ class ChatService {
       return anyDeleted;
     } catch (e) {
       print('❌ 다중 개별 삭제 처리 중 오류: $e');
+      return false;
+    }
+  }
+
+  // 혼합 삭제 처리 메서드 (개별 삭제 + 전체 삭제)
+  Future<bool> _handleMixedDelete(
+    Map<String, dynamic> extractedInfo,
+    EventManager? eventManager,
+    Function()? onCalendarUpdate,
+  ) async {
+    try {
+      final actions = extractedInfo['actions'] as List<dynamic>? ?? [];
+
+      print('📋 혼합 삭제 처리 시작: ${actions.length}개 액션');
+
+      bool anyDeleted = false;
+      int totalDeletedCount = 0;
+
+      for (int i = 0; i < actions.length; i++) {
+        final action = actions[i] as Map<String, dynamic>;
+        final actionType = action['type'] as String?;
+
+        print('🎯 액션 ${i + 1}: $actionType');
+
+        if (actionType == 'individual') {
+          // 개별 일정 삭제
+          final title = action['title'] as String? ?? '';
+          final date = action['date'] as String?;
+          final time = action['time'] as String?;
+
+          print('🗑️ 개별 삭제: $title ($date $time)');
+
+          if (date != null) {
+            try {
+              final eventDate = DateTime.parse(date);
+              final existingEvents = await EventStorageService.getEvents(
+                eventDate,
+              );
+
+              Event? eventToDelete;
+
+              // 제목으로 이벤트 찾기
+              for (var event in existingEvents) {
+                if (title.isNotEmpty) {
+                  bool titleMatch = event.title
+                          .toLowerCase()
+                          .contains(title.toLowerCase()) ||
+                      title.toLowerCase().contains(event.title.toLowerCase());
+
+                  if (titleMatch) {
+                    eventToDelete = event;
+                    break;
+                  }
+                }
+              }
+
+              if (eventToDelete != null) {
+                if (eventManager != null) {
+                  await eventManager.removeEventAndRefresh(
+                    eventDate,
+                    eventToDelete,
+                    syncWithGoogle: true,
+                  );
+                } else {
+                  await EventStorageService.removeEvent(
+                    eventDate,
+                    eventToDelete,
+                  );
+                }
+
+                totalDeletedCount++;
+                anyDeleted = true;
+                print('✅ 개별 삭제 완료: ${eventToDelete.title}');
+              } else {
+                print('❌ 개별 삭제 실패: 일정을 찾을 수 없음 ($title)');
+              }
+            } catch (e) {
+              print('❌ 개별 삭제 처리 중 오류: $e');
+            }
+          } else {
+            print('❌ 개별 삭제: 날짜 정보가 없음');
+          }
+        } else if (actionType == 'bulk') {
+          // 전체 일정 삭제
+          final targetDate = action['target_date'] as String?;
+          final dateDescription =
+              action['date_description'] as String? ?? '해당 날짜';
+
+          print('📋 전체 삭제: $targetDate ($dateDescription)');
+
+          if (targetDate != null) {
+            try {
+              final eventDate = DateTime.parse(targetDate);
+              final existingEvents = await EventStorageService.getEvents(
+                eventDate,
+              );
+
+              print('🔍 전체 삭제할 이벤트들: ${existingEvents.length}개');
+
+              int bulkDeletedCount = 0;
+
+              for (var event in existingEvents) {
+                try {
+                  if (eventManager != null) {
+                    await eventManager.removeEventAndRefresh(
+                      eventDate,
+                      event,
+                      syncWithGoogle: true,
+                    );
+                  } else {
+                    await EventStorageService.removeEvent(eventDate, event);
+                  }
+                  bulkDeletedCount++;
+                  print('✅ 전체 삭제 완료: ${event.title}');
+                } catch (e) {
+                  print('❌ 전체 삭제 실패: ${event.title} - $e');
+                }
+              }
+
+              totalDeletedCount += bulkDeletedCount;
+              if (bulkDeletedCount > 0) {
+                anyDeleted = true;
+              }
+
+              print('📊 전체 삭제 완료: $bulkDeletedCount/${existingEvents.length}개');
+            } catch (e) {
+              print('❌ 전체 삭제 처리 중 오류: $e');
+            }
+          } else {
+            print('❌ 전체 삭제: 날짜 정보가 없음');
+          }
+        } else {
+          print('❌ 알 수 없는 액션 타입: $actionType');
+        }
+      }
+
+      print('📊 혼합 삭제 총 완료: $totalDeletedCount개');
+
+      if (onCalendarUpdate != null && anyDeleted) {
+        onCalendarUpdate();
+      }
+
+      return anyDeleted;
+    } catch (e) {
+      print('❌ 혼합 삭제 처리 중 오류: $e');
       return false;
     }
   }
