@@ -186,6 +186,50 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // ... 기존 생명주기 코드는 동일 ...
+    print('📱 앱 생명주기 상태 변경: $state');
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // 앱이 다시 활성화되었을 때 (다른 화면에서 돌아왔을 때)
+        print('🔄 앱이 다시 활성화됨 - 데이터 새로고침 시작');
+        _refreshDataOnResume();
+        break;
+      case AppLifecycleState.paused:
+        print('⏸️ 앱이 일시정지됨');
+        break;
+      case AppLifecycleState.inactive:
+        print('😴 앱이 비활성화됨');
+        break;
+      case AppLifecycleState.detached:
+        print('🔌 앱이 분리됨');
+        break;
+      case AppLifecycleState.hidden:
+        print('🙈 앱이 숨겨짐');
+        break;
+    }
+  }
+
+  /// 앱이 다시 활성화되었을 때 데이터 새로고침
+  Future<void> _refreshDataOnResume() async {
+    if (!_isInitialized) return;
+    
+    try {
+      print('🔄 화면 복귀 시 데이터 새로고침 시작...');
+      
+      // 현재 월의 이벤트 새로고침
+      await _eventManager.refreshCurrentMonthEvents();
+      
+      // 날씨 정보도 새로고침
+      await WeatherService.loadCalendarWeather(_controller);
+      
+      // UI 업데이트
+      if (mounted) {
+        setState(() {});
+      }
+      
+      print('✅ 화면 복귀 시 데이터 새로고침 완료');
+    } catch (e) {
+      print('❌ 화면 복귀 시 데이터 새로고침 실패: $e');
+    }
   }
 }

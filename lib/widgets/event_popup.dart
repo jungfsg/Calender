@@ -16,6 +16,7 @@ class EventPopup extends StatelessWidget {
   final Function(Event)? onEditEvent; // 이벤트 수정 콜백 함수 추가
   final Function(Event)? getEventDisplayColor; // 이벤트 색상 가져오는 콜백 함수
   final PopupManager? popupManager; // PopupManager 추가
+  final Function()? onAddMultiDayEvent; // 🆕 멀티데이 이벤트 추가 콜백
 
   const EventPopup({
     super.key,
@@ -30,6 +31,7 @@ class EventPopup extends StatelessWidget {
     this.onEditEvent, // 이벤트 수정 콜백 추가
     this.getEventDisplayColor,
     this.popupManager, // PopupManager 추가
+    this.onAddMultiDayEvent, // 🆕 멀티데이 이벤트 추가 콜백
   });
 
   // 이벤트 색상 가져오기 - 고유 ID 기반 시스템 우선
@@ -148,10 +150,11 @@ class EventPopup extends StatelessWidget {
                           width: 90,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
-                            event
-                                    .hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
-                                ? '${event.time}\n-${event.endTime}'
-                                : event.time,
+                            event.isMultiDay // 🆕 멀티데이 이벤트 처리
+                                ? '며칠 일정'
+                                : event.hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
+                                    ? '${event.time}\n-${event.endTime}'
+                                    : event.time,
                             style: getTextStyle(
                               fontSize: 12,
                               color: Colors.black,
@@ -159,12 +162,25 @@ class EventPopup extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        title: Text(
-                          event.title,
-                          style: getTextStyle(
-                            fontSize: 12,
-                            color: Colors.black,
-                          ),
+                        title: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              event.title,
+                              style: getTextStyle(
+                                fontSize: 12,
+                                color: Colors.black,
+                              ),
+                            ),
+                            if (event.isMultiDay && event.startDate != null && event.endDate != null)
+                              Text(
+                                '${DateFormat('MM/dd').format(event.startDate!)} - ${DateFormat('MM/dd').format(event.endDate!)}',
+                                style: getTextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600]!,
+                                ),
+                              ),
+                          ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -173,7 +189,19 @@ class EventPopup extends StatelessWidget {
                             // 수정 버튼
                             if (onEditEvent != null)
                               GestureDetector(
-                                onTap: () => onEditEvent!(event),
+                                onTap: () {
+                                  if (event.isMultiDay) {
+                                    // 멀티데이 이벤트 수정 알림
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('며칠 일정은 삭제 후 다시 생성해주세요.'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  } else {
+                                    onEditEvent!(event);
+                                  }
+                                },
                                 child: Container(
                                   width: 24,
                                   height: 24,
@@ -261,7 +289,7 @@ class EventPopup extends StatelessWidget {
                   },
                 ),
               ),
-              // 하단 버튼
+              // 하단 버튼들
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
@@ -269,45 +297,94 @@ class EventPopup extends StatelessWidget {
                     top: BorderSide(color: Colors.black, width: 1),
                   ),
                 ),
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.5),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
+                child: Column(
+                  children: [
+                    // 일반 일정 추가 버튼
+                    Container(
+                      height: 50,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.5),
+                            spreadRadius: 1,
+                            blurRadius: 3,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Material(
-                    color: const Color.fromARGB(255, 162, 222, 141),
-                    child: InkWell(
-                      onTap: onAddEvent,
-                      child: Container(
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.add_box_outlined,
-                              color: Colors.white,
+                      child: Material(
+                        color: const Color.fromARGB(255, 162, 222, 141),
+                        child: InkWell(
+                          onTap: onAddEvent,
+                          child: Container(
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.add_box_outlined,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '새 일정 추가',
+                                  style: getTextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '새 일정 추가',
-                              style: getTextStyle(
-                                fontSize: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    
+                    // 🆕 멀티데이 일정 추가 버튼
+                    if (onAddMultiDayEvent != null)
+                      Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.5),
+                              spreadRadius: 1,
+                              blurRadius: 3,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: const Color.fromARGB(255, 101, 157, 189),
+                          child: InkWell(
+                            onTap: onAddMultiDayEvent,
+                            child: Container(
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.date_range,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '며칠 일정 추가',
+                                    style: getTextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],

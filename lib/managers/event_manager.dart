@@ -175,6 +175,12 @@ class EventManager {
   /// 이벤트 추가 (중복 체크 강화, 동기화 개선)
   Future<void> addEvent(Event event, {bool syncWithGoogle = true}) async {
     try {
+      // 멀티데이 이벤트인 경우 특별 처리
+      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+        await addMultiDayEvent(event, syncWithGoogle: syncWithGoogle);
+        return;
+      }
+
       // 1. 기존 이벤트와 중복 체크
       final existingEvents = await EventStorageService.getEvents(event.date);
       final isDuplicate = existingEvents.any(
@@ -187,8 +193,8 @@ class EventManager {
       );
 
       if (isDuplicate) {
-        print('🚫 중복 이벤트로 추가하지 않음: ${event.title} (${event.time})');
-        throw Exception('이미 동일한 일정이 존재합니다');
+        print('⚠️ 중복 이벤트 감지되었지만 계속 진행: ${event.title} (${event.time})');
+        // 중복이어도 계속 진행
       }
 
       // 2. 컨트롤러 캐시에서도 중복 체크
@@ -203,8 +209,8 @@ class EventManager {
       );
 
       if (isCacheDuplicate) {
-        print('🚫 캐시에 중복 이벤트 존재: ${event.title} (${event.time})');
-        throw Exception('이미 동일한 일정이 존재합니다');
+        print('⚠️ 캐시에 중복 이벤트 감지되었지만 계속 진행: ${event.title} (${event.time})');
+        // 중복이어도 계속 진행
       } // 3. 색상 ID가 없는 경우 랜덤 색상 ID 할당 (Google Calendar와 동기화를 위해)
       Event eventToSave = event;
       if (event.colorId == null) {
@@ -258,6 +264,72 @@ class EventManager {
       print('✅ 이벤트 추가됨: ${event.title}');
     } catch (e) {
       print('❌ 이벤트 추가 중 오류: $e');
+      rethrow;
+    }
+  }
+
+  /// 🆕 멀티데이 이벤트 추가 (영구 저장 포함)
+  Future<void> addMultiDayEvent(Event event, {bool syncWithGoogle = true}) async {
+    try {
+      if (!event.isMultiDay || event.startDate == null || event.endDate == null) {
+        throw Exception('유효하지 않은 멀티데이 이벤트입니다.');
+      }
+
+      print('📅 멀티데이 이벤트 추가 시작: ${event.title} (${event.startDate} ~ ${event.endDate})');
+
+      final startDate = event.startDate!;
+      final endDate = event.endDate!;
+      
+      // 각 날짜에 멀티데이 이벤트 저장
+      for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+        final currentDate = startDate.add(Duration(days: i));
+        
+        // 해당 날짜용 이벤트 생성
+        final dailyEvent = event.copyWith(
+          date: currentDate,
+          // 멀티데이 이벤트임을 식별할 수 있도록 uniqueId에 특별한 패턴 추가
+          uniqueId: event.uniqueId.contains('_multiday_') 
+              ? event.uniqueId 
+              : '${event.uniqueId}_multiday_${i}',
+        );
+
+        // 중복 체크
+        final existingEvents = await EventStorageService.getEvents(currentDate);
+        final isDuplicate = existingEvents.any(
+          (e) => e.uniqueId == dailyEvent.uniqueId || 
+                 (e.title.trim().toLowerCase() == dailyEvent.title.trim().toLowerCase() &&
+                  e.time == dailyEvent.time &&
+                  e.isMultiDay),
+        );
+
+        if (!isDuplicate) {
+          // 스토리지에 저장
+          await EventStorageService.addEvent(currentDate, dailyEvent);
+          
+          // 컨트롤러에 추가
+          _controller.addEvent(dailyEvent);
+          
+          // 색상 설정
+          if (_controller.getEventIdColor(dailyEvent.uniqueId) == null) {
+            final color = event.color ?? Colors.purple;
+            _controller.setEventIdColor(dailyEvent.uniqueId, color);
+            _controller.setEventColor(dailyEvent.title, color);
+          }
+          
+          print('✅ 멀티데이 이벤트 날짜별 저장: ${currentDate.toString().substring(0, 10)}');
+        } else {
+          print('⚠️ 멀티데이 이벤트 중복 감지: ${currentDate.toString().substring(0, 10)}');
+        }
+      }
+
+      // Google 동기화 (필요한 경우)
+      if (syncWithGoogle && event.source == 'local') {
+        await _syncManager.syncEventAddition(event);
+      }
+
+      print('✅ 멀티데이 이벤트 추가 완료: ${event.title}');
+    } catch (e) {
+      print('❌ 멀티데이 이벤트 추가 중 오류: $e');
       rethrow;
     }
   }
@@ -330,9 +402,9 @@ class EventManager {
 
       if (isDuplicate) {
         print(
-          '🚫 중복 이벤트로 추가하지 않음: ${coloredEvent.title} (${coloredEvent.time})',
+          '⚠️ 중복 이벤트 감지되었지만 계속 진행: ${coloredEvent.title} (${coloredEvent.time})',
         );
-        throw Exception('이미 동일한 일정이 존재합니다');
+        // 중복이어도 계속 진행
       }
 
       // 컨트롤러 캐시에서도 중복 체크
@@ -348,8 +420,8 @@ class EventManager {
       );
 
       if (isCacheDuplicate) {
-        print('🚫 캐시에 중복 이벤트 존재: ${coloredEvent.title} (${coloredEvent.time})');
-        throw Exception('이미 동일한 일정이 존재합니다');
+        print('⚠️ 캐시에 중복 이벤트 감지되었지만 계속 진행: ${coloredEvent.title} (${coloredEvent.time})');
+        // 중복이어도 계속 진행
       }
 
       // 저장 및 캐시 추가
@@ -375,6 +447,12 @@ class EventManager {
   /// 이벤트 제거 (동기화 개선)
   Future<void> removeEvent(Event event, {bool syncWithGoogle = true}) async {
     try {
+      // 멀티데이 이벤트인 경우 특별 처리
+      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+        await removeMultiDayEvent(event, syncWithGoogle: syncWithGoogle);
+        return;
+      }
+
       // 로컬 스토리지에서 삭제
       await EventStorageService.removeEvent(event.date, event);
 
@@ -389,6 +467,54 @@ class EventManager {
       print('✅ 이벤트 삭제됨: ${event.title}');
     } catch (e) {
       print('❌ 이벤트 삭제 중 오류: $e');
+      rethrow;
+    }
+  }
+
+  /// 🆕 멀티데이 이벤트 제거 (영구 저장소에서도 제거)
+  Future<void> removeMultiDayEvent(Event event, {bool syncWithGoogle = true}) async {
+    try {
+      if (!event.isMultiDay || event.startDate == null || event.endDate == null) {
+        throw Exception('유효하지 않은 멀티데이 이벤트입니다.');
+      }
+
+      print('🗑️ 멀티데이 이벤트 제거 시작: ${event.title}');
+
+      final startDate = event.startDate!;
+      final endDate = event.endDate!;
+      
+      // 각 날짜에서 멀티데이 이벤트 제거
+      for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+        final currentDate = startDate.add(Duration(days: i));
+        
+        // 해당 날짜의 모든 이벤트 가져오기
+        final existingEvents = await EventStorageService.getEvents(currentDate);
+        
+        // 같은 uniqueId 패턴을 가진 이벤트들 찾기
+        final eventsToRemove = existingEvents.where((e) => 
+          e.uniqueId.contains(event.uniqueId.split('_multiday_')[0]) && 
+          e.isMultiDay &&
+          e.title == event.title
+        ).toList();
+        
+        // 스토리지에서 제거
+        for (final eventToRemove in eventsToRemove) {
+          await EventStorageService.removeEvent(currentDate, eventToRemove);
+          print('🗑️ 멀티데이 이벤트 날짜별 제거: ${currentDate.toString().substring(0, 10)}');
+        }
+        
+        // 컨트롤러에서도 제거
+        _controller.removeMultiDayEvent(event);
+      }
+
+      // Google 동기화 (필요한 경우)
+      if (syncWithGoogle) {
+        await _syncManager.syncEventDeletion(event);
+      }
+
+      print('✅ 멀티데이 이벤트 제거 완료: ${event.title}');
+    } catch (e) {
+      print('❌ 멀티데이 이벤트 제거 중 오류: $e');
       rethrow;
     }
   }

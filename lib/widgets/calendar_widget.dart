@@ -9,6 +9,7 @@ import '../widgets/event_popup.dart';
 import '../widgets/weather_summary_popup.dart';
 import '../widgets/side_menu.dart';
 import '../widgets/common_navigation_bar.dart';
+import '../widgets/multi_day_event_popup.dart'; // 🆕 멀티데이 이벤트 팝업 추가
 import '../utils/font_utils.dart';
 import '../services/google_calendar_service.dart';
 import '../services/weather_service.dart';
@@ -46,6 +47,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   int _selectedIndex = 0;
   final CalendarFormat _calendarFormat = CalendarFormat.month;
   final GoogleCalendarService _googleCalendarService = GoogleCalendarService();
+  bool _showMultiDayEventPopup = false; // 🆕 멀티데이 이벤트 팝업 상태
   @override
   void initState() {
     super.initState();
@@ -276,13 +278,14 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                               widget.popupManager.showEventDialog();
                               setState(() {});
                             },
-                            events: widget.controller.getEventsForDay(day),
+                            events: widget.controller.getEventsForDay(day).where((event) => !event.isMultiDay && !event.uniqueId.contains('_multiday_')).toList(),
                             eventColors: widget.controller.eventColors,
                             eventIdColors: widget.controller.eventIdColors,
                             colorIdColors: widget.controller.colorIdColors,
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents: widget.controller.getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         },
                         // 선택된 날짜 셀 빌더
@@ -295,13 +298,14 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                               widget.popupManager.showEventDialog();
                               setState(() {});
                             },
-                            events: widget.controller.getEventsForDay(day),
+                            events: widget.controller.getEventsForDay(day).where((event) => !event.isMultiDay && !event.uniqueId.contains('_multiday_')).toList(),
                             eventColors: widget.controller.eventColors,
                             eventIdColors: widget.controller.eventIdColors,
                             colorIdColors: widget.controller.colorIdColors,
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents: widget.controller.getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         }, // 오늘 날짜 셀 빌더
                         todayBuilder: (context, day, focusedDay) {
@@ -329,13 +333,14 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                               widget.popupManager.showEventDialog();
                               setState(() {});
                             },
-                            events: widget.controller.getEventsForDay(day),
+                            events: widget.controller.getEventsForDay(day).where((event) => !event.isMultiDay && !event.uniqueId.contains('_multiday_')).toList(),
                             eventColors: widget.controller.eventColors,
                             eventIdColors: widget.controller.eventIdColors,
                             colorIdColors: widget.controller.colorIdColors,
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents: widget.controller.getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         },
                         // 요일 헤더 빌더
@@ -459,8 +464,31 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                           });
                     },
                     onDeleteEvent: (event) async {
+                      // EventManager를 통해 이벤트 제거 (멀티데이/일반 이벤트 자동 구분)
                       await widget.eventManager.removeEvent(event);
                       setState(() {});
+                    },
+                    // 🆕 멀티데이 이벤트 추가 콜백
+                    onAddMultiDayEvent: () {
+                      _showMultiDayEventDialog();
+                    },
+                  ),
+
+                // 🆕 멀티데이 이벤트 팝업 오버레이
+                if (_showMultiDayEventPopup)
+                  MultiDayEventPopup(
+                    initialDate: widget.controller.selectedDay, // 클릭한 날짜를 초기 날짜로 설정
+                    onSave: (event) async {
+                      // EventManager를 통해 멀티데이 이벤트 추가 (영구 저장 포함)
+                      await widget.eventManager.addEvent(event);
+                      setState(() {
+                        _showMultiDayEventPopup = false;
+                      });
+                    },
+                    onClose: () {
+                      setState(() {
+                        _showMultiDayEventPopup = false;
+                      });
                     },
                   ),
 
@@ -553,19 +581,31 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       .eventManager, // EventManager 전달하여 Google Calendar 동기화 활성화
             ),
       ),
-    ); // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
-    if (result != null && result['refreshNavigation'] == true) {
+    ); 
+    
+    // 채팅 화면에서 돌아왔을 때 데이터 새로고침 및 네비게이션 바 상태 리셋
+    print('🔄 채팅 화면에서 캘린더로 복귀 - 데이터 새로고침');
+    
+    // 항상 데이터 새로고침 (멀티데이 이벤트 복원을 위해)
+    try {
+      await widget.eventManager.refreshCurrentMonthEvents();
       setState(() {
         _selectedIndex = 0; // 캘린더 탭으로 리셋
       });
+      print('✅ 채팅 화면 복귀 시 데이터 새로고침 완료');
+    } catch (e) {
+      print('❌ 채팅 화면 복귀 시 데이터 새로고침 실패: $e');
+      setState(() {
+        _selectedIndex = 0; // 에러가 있어도 네비게이션은 리셋
+      });
+    }
 
-      // 음성 인식 UI 표시가 요청된 경우
-      if (result['showVoiceInput'] == true) {
-        // 약간의 딜레이 후 음성 인식 UI 표시 (화면 전환 완료 후)
-        Future.delayed(const Duration(milliseconds: 100), () {
-          _showVoiceInput();
-        });
-      }
+    // 음성 인식 UI 표시가 요청된 경우
+    if (result != null && result['showVoiceInput'] == true) {
+      // 약간의 딜레이 후 음성 인식 UI 표시 (화면 전환 완료 후)
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _showVoiceInput();
+      });
     }
   }
 
@@ -574,6 +614,15 @@ class _CalendarWidgetState extends State<CalendarWidget> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// 🆕 멀티데이 이벤트 생성 다이얼로그 표시
+  void _showMultiDayEventDialog() {
+    widget.controller.hideEventDialog(); // 기존 팝업 닫기
+    setState(() {
+      // 멀티데이 이벤트 팝업 표시 상태 추가 (showMultiDayEventPopup)
+      _showMultiDayEventPopup = true;
+    });
   }
 
   /// 음성 입력 다이얼로그 표시
