@@ -1,4 +1,4 @@
-// lib/screens/chat_screen.dart (최종 수정본)
+// lib/screens/chat_screen.dart (최종 수정본 - TTS 기능 완전 제거)
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
@@ -7,26 +7,27 @@ import '../utils/font_utils.dart';
 import '../services/chat_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:convert';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
 
-// --- TTS 관련 추가 ---
-import '../services/tts_service.dart'; // TTS 서비스 임포트
+// --- ★★★ 삭제: TTS 서비스 임포트 제거 ★★★ ---
+// import '../services/tts_service.dart'; 
 
-class EmptyPage extends StatefulWidget {
+// --- ★★★ 수정: 클래스 이름을 파일명과 일치시켜 명확성 향상 ★★★ ---
+class ChatScreen extends StatefulWidget {
   final VoidCallback? onCalendarUpdate;
-  final dynamic eventManager; // EventManager 타입을 추가 (동적 타입으로 사용)
+  final dynamic eventManager;
 
-  const EmptyPage({super.key, this.onCalendarUpdate, this.eventManager});
+  // --- ★★★ 수정: 생성자에서 TTS 관련 매개변수 제거 ★★★ ---
+  const ChatScreen({super.key, this.onCalendarUpdate, this.eventManager});
 
   @override
-  State createState() => _EmptyPageState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _EmptyPageState extends State<EmptyPage> {
+class _ChatScreenState extends State<ChatScreen> {
   final List<types.Message> _messages = [];
   final _user = types.User(id: 'user');
   final _botUser = types.User(id: 'bot', firstName: 'AMATTA');
@@ -38,16 +39,16 @@ class _EmptyPageState extends State<EmptyPage> {
   );
   bool _isLoading = false;
   int _selectedIndex = 2;
+  
+  final TextEditingController _chatInputController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // 초기 시스템 메시지도 음성으로 재생
     const initialMessage = '안녕하세요! 무엇을 도와드릴까요?';
     _addSystemMessage(initialMessage);
-    // --- TTS 관련 추가 ---
-    // 앱 시작 시 초기 메시지 재생 (TTS가 활성화 되어있을 경우)
-    TtsService.instance.speak(initialMessage);
+    // --- ★★★ 삭제: 초기 메시지 TTS 호출 제거 ★★★ ---
+    // TtsService.instance.speak(initialMessage);
   }
 
   void _addSystemMessage(String text) {
@@ -84,14 +85,11 @@ class _EmptyPageState extends State<EmptyPage> {
         message.text,
         _user.id,
         onCalendarUpdate: () {
-          // 일정이 추가되었을 때 사용자에게 알림
           print('🎉 캘린더 업데이트 콜백이 호출되었습니다!');
           _showCalendarUpdateNotification();
-
-          // 부모 위젯(캘린더 화면)의 콜백도 호출
           widget.onCalendarUpdate?.call();
         },
-        eventManager: widget.eventManager, // EventManager 전달하여 Google 동기화 활성화
+        eventManager: widget.eventManager,
       );
 
       if (!mounted) return;
@@ -100,9 +98,8 @@ class _EmptyPageState extends State<EmptyPage> {
         _isLoading = false;
       });
 
-      // --- TTS 관련 추가 ---
-      // 봇의 응답이 텍스트 메시지일 경우에만 음성으로 재생
-      TtsService.instance.speak(botResponse.text);
+      // --- ★★★ 삭제: 봇 응답 TTS 호출 제거 ★★★ ---
+      // TtsService.instance.speak(botResponse.text);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -110,13 +107,12 @@ class _EmptyPageState extends State<EmptyPage> {
       });
       final errorMessage = '죄송합니다. 서버 통신 중 오류가 발생했습니다: $e';
       _addSystemMessage(errorMessage);
-      // --- TTS 관련 추가 ---
-      TtsService.instance.speak(errorMessage);
+      // --- ★★★ 삭제: 에러 메시지 TTS 호출 제거 ★★★ ---
+      // TtsService.instance.speak(errorMessage);
     }
   }
 
-  // ... (기존 _handleImageSelection 함수는 변경 없음) ...
-  Future _handleImageSelection() async {
+  Future<void> _handleImageSelection() async {
     final XFile? result = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 70,
@@ -127,8 +123,8 @@ class _EmptyPageState extends State<EmptyPage> {
     }
   }
 
-  Future _handleCameraCapture() async {
-    if (kIsWeb) return; // 웹에서는 기능을 호출하지 않음
+  Future<void> _handleCameraCapture() async {
+    if (kIsWeb) return;
 
     try {
       final XFile? result = await _picker.pickImage(
@@ -138,7 +134,6 @@ class _EmptyPageState extends State<EmptyPage> {
       );
 
       if (result != null) {
-        // 갤러리에 저장
         try {
           await Gal.putImage(result.path);
           if (mounted) {
@@ -151,8 +146,6 @@ class _EmptyPageState extends State<EmptyPage> {
         }
 
         final File imageFile = File(result.path);
-
-        // 이미지 메시지 생성
         final imageMessage = types.ImageMessage(
           author: _user,
           createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -168,12 +161,9 @@ class _EmptyPageState extends State<EmptyPage> {
         });
 
         try {
-          // OCR 처리
           final inputImage = InputImage.fromFilePath(imageFile.path);
-          final RecognizedText recognizedText = await _textRecognizer
-              .processImage(inputImage);
+          final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
           if (recognizedText.text.isNotEmpty) {
-            // 인식된 텍스트 메시지 생성
             final textMessage = types.TextMessage(
               author: _user,
               createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -184,7 +174,6 @@ class _EmptyPageState extends State<EmptyPage> {
               _messages.insert(0, textMessage);
             });
 
-            // 인식된 텍스트를 서버로 전송
             final botResponse = await _chatService.sendMessage(
               recognizedText.text,
               _user.id,
@@ -200,10 +189,9 @@ class _EmptyPageState extends State<EmptyPage> {
               _messages.insert(0, botResponse);
               _isLoading = false;
             });
-            // --- TTS 관련 추가 ---
-            TtsService.instance.speak(botResponse.text);
+            // --- ★★★ 삭제: OCR 결과 TTS 호출 제거 ★★★ ---
+            // TtsService.instance.speak(botResponse.text);
           } else {
-            // 텍스트가 인식되지 않은 경우 이미지만 전송
             await _handleImageUpload(imageFile);
           }
         } catch (e) {
@@ -212,16 +200,16 @@ class _EmptyPageState extends State<EmptyPage> {
           });
           final errorMessage = '이미지 처리 중 오류가 발생했습니다: $e';
           _addSystemMessage(errorMessage);
-          // --- TTS 관련 추가 ---
-          TtsService.instance.speak(errorMessage);
+          // --- ★★★ 삭제: 에러 메시지 TTS 호출 제거 ★★★ ---
+          // TtsService.instance.speak(errorMessage);
         }
       }
     } catch (e) {
       print('카메라 촬영 중 오류 발생: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('카메라 촬영 중 오류가 발생했습니다: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('카메라 촬영 중 오류가 발생했습니다: $e')),
+        );
       }
     }
   }
@@ -255,8 +243,8 @@ class _EmptyPageState extends State<EmptyPage> {
         _messages.insert(0, botResponse);
         _isLoading = false;
       });
-      // --- TTS 관련 추가 ---
-      TtsService.instance.speak(botResponse.text);
+      // --- ★★★ 삭제: 이미지 업로드 결과 TTS 호출 제거 ★★★ ---
+      // TtsService.instance.speak(botResponse.text);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -264,13 +252,11 @@ class _EmptyPageState extends State<EmptyPage> {
       });
       final errorMessage = '죄송합니다. 이미지 전송 중 오류가 발생했습니다: $e';
       _addSystemMessage(errorMessage);
-      // --- TTS 관련 추가 ---
-      TtsService.instance.speak(errorMessage);
+      // --- ★★★ 삭제: 에러 메시지 TTS 호출 제거 ★★★ ---
+      // TtsService.instance.speak(errorMessage);
     }
   }
 
-  // ... (이후 _buildCustomInput, _onItemTapped 등 나머지 코드는 기존과 동일합니다) ...
-  // 커스텀 입력 영역 위젯
   Widget _buildCustomInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -278,13 +264,11 @@ class _EmptyPageState extends State<EmptyPage> {
       child: SafeArea(
         child: Row(
           children: [
-            // 카메라 버튼 (이제 다이얼로그를 보여줌)
             IconButton(
               icon: const Icon(Icons.camera_alt),
               onPressed: _showImageSourceDialog,
               tooltip: '이미지 선택',
             ),
-            // 메시지 입력 필드
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -305,7 +289,6 @@ class _EmptyPageState extends State<EmptyPage> {
                 ),
               ),
             ),
-            // 전송 버튼
             IconButton(
               icon: const Icon(Icons.send),
               onPressed: _handleSubmitPressed,
@@ -316,8 +299,6 @@ class _EmptyPageState extends State<EmptyPage> {
       ),
     );
   }
-
-  final TextEditingController _chatInputController = TextEditingController();
 
   void _handleSubmitted(String text) {
     if (text.trim().isNotEmpty) {
@@ -332,22 +313,16 @@ class _EmptyPageState extends State<EmptyPage> {
 
   void _onItemTapped(int index) {
     if (index == 0) {
-      // 캘린더로 돌아가기 - 결과와 함께 pop
       Navigator.of(context).pop({'refreshNavigation': true});
     } else if (index == 1) {
-      // 마이크 버튼 - 캘린더로 돌아가기 (캘린더 화면에서 음성 인식 UI 표시)
-      Navigator.of(
-        context,
-      ).pop({'refreshNavigation': true, 'showVoiceInput': true});
+      Navigator.of(context).pop({'refreshNavigation': true, 'showVoiceInput': true});
     } else {
       setState(() {
         _selectedIndex = index;
       });
     }
   }
-  // 음성 명령 관련 함수는 캘린더 화면으로 이동하므로 이 화면에서는 제거
 
-  // 이미지 소스 선택 다이얼로그
   Future<void> _showImageSourceDialog() async {
     showModalBottomSheet(
       context: context,
@@ -388,17 +363,14 @@ class _EmptyPageState extends State<EmptyPage> {
     );
   }
 
-  // 캘린더 업데이트 알림 표시
   void _showCalendarUpdateNotification() {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('일정이 캘린더에 추가되었습니다!'),
         action: SnackBarAction(
           label: '캘린더 보기',
           onPressed: () {
-            // 캘린더 탭으로 이동 (이전 화면으로 돌아가기)
             Navigator.of(context).pop();
           },
         ),
@@ -414,14 +386,13 @@ class _EmptyPageState extends State<EmptyPage> {
         if (_isLoading) {
           return false;
         }
-        // --- TTS 관련 추가 ---
-        // 화면을 나가기 전에 TTS 중지
-        TtsService.instance.stop();
+        // --- ★★★ 삭제: 화면 나가기 전 TTS 중지 호출 제거 ★★★ ---
+        // TtsService.instance.stop();
         Navigator.of(context).pop({'refreshNavigation': true});
         return false;
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: true, // 입력시 네비게이션 바 위치 고정 여부(false시 고정)
+        resizeToAvoidBottomInset: true,
         backgroundColor: const Color.fromARGB(255, 162, 222, 141),
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -440,7 +411,6 @@ class _EmptyPageState extends State<EmptyPage> {
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(8.0),
-
                 child: LinearProgressIndicator(),
               ),
             Expanded(
@@ -454,36 +424,12 @@ class _EmptyPageState extends State<EmptyPage> {
                   inputBackgroundColor: Colors.black12,
                   backgroundColor: Colors.white,
                   inputTextColor: Colors.black,
-                  sentMessageBodyTextStyle: getTextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    text: '보낸 메시지',
-                  ),
-                  receivedMessageBodyTextStyle: getTextStyle(
-                    fontSize: 16,
-                    color: Colors.black,
-                    text: '받은 메시지',
-                  ),
-                  inputTextStyle: getTextStyle(
-                    fontSize: 14,
-                    color: Colors.black,
-                    text: '메시지 입력',
-                  ),
-                  emptyChatPlaceholderTextStyle: getTextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    text: '메시지가 없습니다',
-                  ),
-                  userNameTextStyle: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
-                    text: '사용자 이름',
-                  ),
-                  dateDividerTextStyle: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    text: '날짜 구분선',
-                  ),
+                  sentMessageBodyTextStyle: getTextStyle(fontSize: 16, color: Colors.white, text: '보낸 메시지'),
+                  receivedMessageBodyTextStyle: getTextStyle(fontSize: 16, color: Colors.black, text: '받은 메시지'),
+                  inputTextStyle: getTextStyle(fontSize: 14, color: Colors.black, text: '메시지 입력'),
+                  emptyChatPlaceholderTextStyle: getTextStyle(fontSize: 14, color: Colors.grey, text: '메시지가 없습니다'),
+                  userNameTextStyle: getTextStyle(fontSize: 12, color: Colors.grey[700], text: '사용자 이름'),
+                  dateDividerTextStyle: getTextStyle(fontSize: 12, color: Colors.grey[600], text: '날짜 구분선'),
                 ),
                 l10n: const ChatL10nKo(),
               ),
@@ -502,16 +448,14 @@ class _EmptyPageState extends State<EmptyPage> {
   void dispose() {
     _chatInputController.dispose();
     if (!kIsWeb) {
-      _textRecognizer.close(); // 웹이 아닐 때만 리소스 해제
+      _textRecognizer.close();
     }
-    // --- TTS 관련 추가 ---
-    // 화면이 완전히 종료될 때 TTS 중지
-    TtsService.instance.stop();
+    // --- ★★★ 삭제: 화면 종료 시 TTS 중지 호출 제거 ★★★ ---
+    // TtsService.instance.stop();
     super.dispose();
   }
 }
 
-// 한국어 지역화 클래스
 class ChatL10nKo extends ChatL10n {
   const ChatL10nKo({
     super.attachmentButtonAccessibilityLabel = '파일 첨부',

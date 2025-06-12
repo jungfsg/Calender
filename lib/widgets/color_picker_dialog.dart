@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/font_utils.dart';
 
 /// Google Calendar 표준 색상 선택 다이얼로그
 class ColorPickerDialog extends StatefulWidget {
@@ -20,17 +21,17 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
 
   // Google Calendar 표준 11가지 색상 (colorId 1-11)
   static const Map<int, Map<String, dynamic>> googleColors = {
-    1: {'name': '라벤더', 'color': Color(0xFF9AA0F5)},
-    2: {'name': '세이지', 'color': Color(0xFF33B679)},
-    3: {'name': '포도', 'color': Color(0xFF8E24AA)},
-    4: {'name': '플라밍고', 'color': Color(0xFFE67C73)},
-    5: {'name': '바나나', 'color': Color(0xFFF6BF26)},
-    6: {'name': '귤', 'color': Color(0xFFFF8A65)},
-    7: {'name': '공작새', 'color': Color(0xFF039BE5)},
-    8: {'name': '그래파이트', 'color': Color(0xFF616161)},
-    9: {'name': '블루베리', 'color': Color(0xFF3F51B5)},
-    10: {'name': '바질', 'color': Color(0xFF0B8043)},
-    11: {'name': '토마토', 'color': Color(0xFFD50000)},
+    1: {'name': '라벤더', 'color': Color(0xFF9AA0F5), 'text': '업무'},
+    2: {'name': '세이지', 'color': Color(0xFF33B679), 'text': '집안일'},
+    3: {'name': '포도', 'color': Color(0xFF8E24AA), 'text': '기념일'},
+    4: {'name': '플라밍고', 'color': Color(0xFFE67C73), 'text': '학교'},
+    5: {'name': '바나나', 'color': Color(0xFFF6BF26), 'text': '운동'},
+    6: {'name': '귤', 'color': Color(0xFFFF8A65), 'text': '공부'},
+    7: {'name': '공작새', 'color': Color(0xFF039BE5), 'text': '여행'},
+    8: {'name': '그래파이트', 'color': Color(0xFF616161), 'text': '기타'},
+    9: {'name': '블루베리', 'color': Color(0xFF3F51B5), 'text': '친구'},
+    10: {'name': '바질', 'color': Color(0xFF0B8043), 'text': '가족'},
+    11: {'name': '토마토', 'color': Color(0xFFD50000), 'text': '병원'},
   };
 
   @override
@@ -42,15 +43,15 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text(
+      title: Text(
         '색상 선택',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        style: getTextStyle(fontSize: 18, color: Colors.black, text: '색상 선택'),
       ),
       content: SizedBox(
         width: double.maxFinite,
         child: GridView.builder(
           shrinkWrap: true,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
@@ -87,10 +88,23 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
                           ]
                           : null,
                 ),
-                child:
-                    isSelected
-                        ? const Icon(Icons.check, color: Colors.white, size: 20)
-                        : null,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isSelected)
+                        Icon(Icons.check, color: Colors.white, size: 20),
+                      Text(
+                        colorData['text'],
+                        style: getTextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                          text: colorData['text'],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
           },
@@ -99,16 +113,31 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(
+            '취소',
+            style: getTextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+              text: '취소',
+            ),
+          ),
         ),
         ElevatedButton(
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(
+              googleColors[selectedColorId]!['color'],
+            ),
+          ),
           onPressed: () {
             if (selectedColorId != null) {
               widget.onColorSelected(selectedColorId!);
               Navigator.of(context).pop();
             }
           },
-          child: const Text('확인'),
+          child: Text(
+            '확인',
+            style: getTextStyle(fontSize: 14, color: Colors.white, text: '확인'),
+          ),
         ),
       ],
     );

@@ -34,38 +34,75 @@ class EventPopup extends StatelessWidget {
     this.onAddMultiDayEvent, // 🆕 멀티데이 이벤트 추가 콜백
   });
 
-  // 이벤트 색상 가져오기 - 고유 ID 기반 시스템 우선
+  // 이벤트 색상 가져오기 - 색상 출력의 우선순위가 설정됨
   Color _getEventColor(Event event) {
-    // 콜백 함수가 있으면 사용 (CalendarController의 getEventDisplayColor)
-    if (getEventDisplayColor != null) {
-      return getEventDisplayColor!(event);
-    }
-
-    // 콜백 함수가 없으면 기본 로직 사용
-    // 1. Event 객체의 color 속성 우선
-    if (event.color != null) {
-      return event.color!;
-    }
-
-    // 2. Google colorId 기반 매핑
+    // 1. Google colorId 기반 매핑 (최우선)
     if (event.colorId != null &&
         colorIdColors != null &&
         colorIdColors!.containsKey(event.colorId)) {
       return colorIdColors![event.colorId]!;
     }
 
-    // // 3. 고유 ID 기반 색상 매핑 (새로운 방식)
-    // if (eventIdColors != null && eventIdColors!.containsKey(event.uniqueId)) {
-    //   return eventIdColors![event.uniqueId]!;
-    // }
+    // 2. 콜백 함수 사용 (CalendarController의 getEventDisplayColor)
+    if (getEventDisplayColor != null) {
+      return getEventDisplayColor!(event);
+    }
 
-    // // 4. 제목 기반 색상 매핑 (이전 방식, 호환성 유지)
-    // if (eventColors.containsKey(event.title)) {
-    //   return eventColors[event.title]!;
-    // }
+    // 3. Event 객체의 color 속성
+    if (event.color != null) {
+      return event.color!;
+    }
 
-    // 5. 기본 색상
+    // 4. 기본 색상
     return Colors.blue;
+  }
+
+  // 카테고리 이름 매핑 함수
+  String _getCategoryName(dynamic colorId) {
+    if (colorId == null) return '기타';
+
+    // 문자열 colorId 처리
+    if (colorId is String) {
+      switch (colorId) {
+        case 'holiday_red':
+          return '공휴일';
+        default:
+          // 숫자 문자열인 경우 정수로 변환 시도
+          int? numericId = int.tryParse(colorId);
+          if (numericId != null) {
+            return _getCategoryFromNumber(numericId);
+          }
+          return '기타';
+      }
+    }
+
+    // 숫자 colorId 처리
+    if (colorId is int) {
+      return _getCategoryFromNumber(colorId);
+    }
+
+    return '기타';
+  }
+
+  String _getCategoryFromNumber(int colorId) {
+    const categories = [
+      '업무', // colorId 1
+      '집안일', // colorId 2
+      '기념일', // colorId 3
+      '학교', // colorId 4
+      '운동', // colorId 5
+      '공부', // colorId 6
+      '여행', // colorId 7
+      '기타', // colorId 8
+      '친구', // colorId 9
+      '가족', // colorId 10
+      '병원', // colorId 11
+    ];
+
+    if (colorId > 0 && colorId <= categories.length) {
+      return categories[colorId - 1];
+    }
+    return '기타';
   }
 
   @override
@@ -136,8 +173,9 @@ class EventPopup extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   itemCount: sortedEvents.length,
                   itemBuilder: (context, index) {
-                    final event = sortedEvents[index]; // 이벤트 색상 가져오기
+                    final event = sortedEvents[index];
                     Color eventColor = _getEventColor(event).withAlpha(200);
+                    String categoryName = _getCategoryName(event.colorId);
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
@@ -147,7 +185,7 @@ class EventPopup extends StatelessWidget {
                       ),
                       child: ListTile(
                         leading: Container(
-                          width: 90,
+                          width: 70,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
                             event.isMultiDay // 🆕 멀티데이 이벤트 처리
@@ -162,25 +200,12 @@ class EventPopup extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        title: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              event.title,
-                              style: getTextStyle(
-                                fontSize: 12,
-                                color: Colors.black,
-                              ),
-                            ),
-                            if (event.isMultiDay && event.startDate != null && event.endDate != null)
-                              Text(
-                                '${DateFormat('MM/dd').format(event.startDate!)} - ${DateFormat('MM/dd').format(event.endDate!)}',
-                                style: getTextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600]!,
-                                ),
-                              ),
-                          ],
+                        title: Text(
+                          event.title,
+                          style: getTextStyle(
+                            fontSize: 12,
+                            color: Colors.black,
+                          ),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

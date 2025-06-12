@@ -1,9 +1,15 @@
+// lib/screens/login_screen.dart (최종 수정본)
 import 'package:flutter/material.dart';
 import 'calendar_screen.dart';
 import '../services/auth_service.dart';
+import '../services/tts_service.dart'; // TtsService 임포트
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  // 상위 위젯(main.dart)으로부터 TtsService를 전달받기 위한 변수
+  final TtsService ttsService;
+
+  // 생성자에서 ttsService를 필수로 받도록 변경
+  const LoginScreen({super.key, required this.ttsService});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -28,27 +34,19 @@ class _LoginScreenState extends State<LoginScreen> {
         if (success) {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
-              pageBuilder:
-                  (context, animation, secondaryAnimation) =>
-                      const RefactoredCalendarScreen(),
-              transitionsBuilder: (
-                context,
-                animation,
-                secondaryAnimation,
-                child,
-              ) {
-                // 페이드 효과로 전환 (투명하게 전환됨)
+              // RefactoredCalendarScreen으로 ttsService 인스턴스를 전달
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  RefactoredCalendarScreen(ttsService: widget.ttsService),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return FadeTransition(opacity: animation, child: child);
               },
-              transitionDuration: const Duration(
-                milliseconds: 300,
-              ), // 전환 시간 (0.3초)
+              transitionDuration: const Duration(milliseconds: 300),
             ),
           );
         } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('로그인이 취소되었거나 실패했습니다')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('로그인이 취소되었거나 실패했습니다'))
+          );
         }
       }
     } catch (e) {
@@ -56,10 +54,9 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _isLoading = false;
         });
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('로그인 오류: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('로그인 오류: $e'))
+        );
       }
     }
   }
@@ -78,13 +75,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Amatta 아이콘 이미지 (그림자 효과 제거)
                     Container(
-                      width: 240, // 고정 너비
-                      height: 240, // 고정 높이
+                      width: 240,
+                      height: 240,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12), // 모서리 둥글게
-                        // boxShadow 제거하여 그림자 효과 삭제
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
@@ -92,62 +87,54 @@ class _LoginScreenState extends State<LoginScreen> {
                           'assets/images/amatta_transparent.png',
                           width: 240,
                           height: 240,
-                          fit: BoxFit.cover, // 이미지가 컨테이너에 맞게 조정
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20), // 고정 간격
-                    // 고정 크기 텍스트
+                    const SizedBox(height: 20),
                     const Text(
-                      // 'A.M.A.T.T.A.\n– Your Memory Assistant',
                       'Your Memory Assistant',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 24, // 고정 크기
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 40), // 고정 간격
-                    // 고정 너비 버튼
+                    const SizedBox(height: 40),
                     SizedBox(
-                      width: 280, // 고정된 버튼 너비
-                      height: 50, // 고정된 버튼 높이
-                      child:
-                          _isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.grey),
-                                ),
-                                onPressed: _handleGoogleSignIn,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // 구글 로고 이미지 - 고정 크기
-                                    Container(
-                                      padding: const EdgeInsets.all(8.0),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(
-                                          4.0,
-                                        ),
-                                      ),
-                                      child: Image.asset(
-                                        'assets/images/google_login.png',
-                                        height: 24, // 고정 크기
-                                        width: 24, // 고정 크기
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10), // 고정 간격
-                                    // 고정 크기 텍스트
-                                    const Text(
-                                      'Google로 로그인',
-                                      style: TextStyle(fontSize: 16), // 고정 크기
-                                    ),
-                                  ],
-                                ),
+                      width: 280,
+                      height: 50,
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.grey),
                               ),
+                              onPressed: _handleGoogleSignIn,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8.0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(4.0),
+                                    ),
+                                    child: Image.asset(
+                                      'assets/images/google_login.png',
+                                      height: 24,
+                                      width: 24,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Google로 로그인',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ),
                     ),
                   ],
                 ),
