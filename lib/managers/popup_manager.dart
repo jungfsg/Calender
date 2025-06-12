@@ -4,6 +4,7 @@ import '../managers/event_manager.dart';
 import '../widgets/color_picker_dialog.dart';
 import '../enums/recurrence_type.dart';
 import 'package:flutter/material.dart';
+import '../utils/font_utils.dart';
 
 /// 팝업 관련 로직을 처리하는 매니저 클래스
 class PopupManager {
@@ -135,7 +136,10 @@ class PopupManager {
                                   children: [
                                     const Icon(Icons.color_lens),
                                     const SizedBox(width: 12),
-                                    const Text('색상 선택'),
+                                    Text(
+                                      '색상 선택',
+                                      style: getTextStyle(fontSize: 12),
+                                    ),
                                     const Spacer(),
                                     Container(
                                       width: 24,
@@ -221,9 +225,9 @@ class PopupManager {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
+                                          Text(
                                             '시작',
-                                            style: TextStyle(
+                                            style: getTextStyle(
                                               color: Colors.grey,
                                               fontSize: 12,
                                             ),
@@ -238,8 +242,9 @@ class PopupManager {
                                               const SizedBox(width: 8),
                                               Text(
                                                 '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                                style: const TextStyle(
+                                                style: getTextStyle(
                                                   fontSize: 16,
+                                                  color: Colors.black87,
                                                 ),
                                               ),
                                             ],
@@ -301,9 +306,9 @@ class PopupManager {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
+                                          Text(
                                             '종료',
-                                            style: TextStyle(
+                                            style: getTextStyle(
                                               color: Colors.grey,
                                               fontSize: 12,
                                             ),
@@ -318,8 +323,9 @@ class PopupManager {
                                               const SizedBox(width: 8),
                                               Text(
                                                 '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                                style: const TextStyle(
+                                                style: getTextStyle(
                                                   fontSize: 16,
+                                                  color: Colors.black87,
                                                 ),
                                               ),
                                             ],
@@ -337,13 +343,7 @@ class PopupManager {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                '반복 설정',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text('반복 설정', style: getTextStyle(fontSize: 16)),
                               const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8.0,
@@ -355,15 +355,10 @@ class PopupManager {
                                       return FilterChip(
                                         label: Text(
                                           recurrence.label,
-                                          style: TextStyle(
-                                            color:
-                                                isSelected
-                                                    ? Colors.white
-                                                    : Colors.black87,
-                                            fontWeight:
-                                                isSelected
-                                                    ? FontWeight.w600
-                                                    : FontWeight.normal,
+                                          style: getTextStyle(
+                                            fontSize:
+                                                12, // 매일, 매주 등 설정 버튼의 텍스트 크기
+                                            color: Colors.black87,
                                           ),
                                         ),
                                         selected: isSelected,
@@ -416,12 +411,9 @@ class PopupManager {
                                 const SizedBox(height: 12),
                                 Row(
                                   children: [
-                                    const Text(
+                                    Text(
                                       '반복 횟수:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: getTextStyle(fontSize: 14),
                                     ),
                                     const SizedBox(width: 12),
                                     Container(
@@ -457,9 +449,9 @@ class PopupManager {
                                             child: Text(
                                               '$recurrenceCount',
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(
+                                              style: getTextStyle(
                                                 fontSize: 14,
-                                                fontWeight: FontWeight.w500,
+                                                color: Colors.black87,
                                               ),
                                             ),
                                           ),
@@ -490,7 +482,7 @@ class PopupManager {
                                       _getRecurrenceDescription(
                                         selectedRecurrence,
                                       ),
-                                      style: TextStyle(
+                                      style: getTextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],
                                       ),
@@ -627,9 +619,12 @@ class PopupManager {
                                     vertical: 12,
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   '추가',
-                                  style: TextStyle(color: Colors.white),
+                                  style: getTextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                  ),
                                 ),
                               ),
                             ],
@@ -701,13 +696,7 @@ class PopupManager {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                '일정 수정',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              Text('일정 수정', style: getTextStyle(fontSize: 20)),
                               IconButton(
                                 icon: const Icon(Icons.close),
                                 onPressed: () => Navigator.pop(context),
@@ -760,7 +749,10 @@ class PopupManager {
                                   children: [
                                     const Icon(Icons.color_lens),
                                     const SizedBox(width: 12),
-                                    const Text('색상 선택'),
+                                    Text(
+                                      '색상 선택',
+                                      style: getTextStyle(fontSize: 12),
+                                    ),
                                     const Spacer(),
                                     Container(
                                       width: 24,
@@ -846,11 +838,11 @@ class PopupManager {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
+                                          Text(
                                             '시작',
-                                            style: TextStyle(
+                                            style: getTextStyle(
                                               color: Colors.grey,
-                                              fontSize: 12,
+                                              fontSize: 10,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
@@ -863,8 +855,9 @@ class PopupManager {
                                               const SizedBox(width: 8),
                                               Text(
                                                 '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                                style: const TextStyle(
+                                                style: getTextStyle(
                                                   fontSize: 16,
+                                                  color: Colors.black87,
                                                 ),
                                               ),
                                             ],
@@ -926,9 +919,9 @@ class PopupManager {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
+                                          Text(
                                             '종료',
-                                            style: TextStyle(
+                                            style: getTextStyle(
                                               color: Colors.grey,
                                               fontSize: 12,
                                             ),
@@ -943,8 +936,9 @@ class PopupManager {
                                               const SizedBox(width: 8),
                                               Text(
                                                 '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                                style: const TextStyle(
+                                                style: getTextStyle(
                                                   fontSize: 16,
+                                                  color: Colors.black87,
                                                 ),
                                               ),
                                             ],
@@ -962,13 +956,7 @@ class PopupManager {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                '반복 설정',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text('반복 설정', style: getTextStyle(fontSize: 16)),
                               const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8.0,
@@ -980,15 +968,9 @@ class PopupManager {
                                       return FilterChip(
                                         label: Text(
                                           recurrence.label,
-                                          style: TextStyle(
-                                            color:
-                                                isSelected
-                                                    ? Colors.white
-                                                    : Colors.black87,
-                                            fontWeight:
-                                                isSelected
-                                                    ? FontWeight.w600
-                                                    : FontWeight.normal,
+                                          style: getTextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black87,
                                           ),
                                         ),
                                         selected: isSelected,
@@ -1041,12 +1023,9 @@ class PopupManager {
                                 const SizedBox(height: 12),
                                 Row(
                                   children: [
-                                    const Text(
+                                    Text(
                                       '반복 횟수:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: getTextStyle(fontSize: 14),
                                     ),
                                     const SizedBox(width: 12),
                                     Container(
@@ -1082,9 +1061,9 @@ class PopupManager {
                                             child: Text(
                                               '$recurrenceCount',
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(
+                                              style: getTextStyle(
                                                 fontSize: 14,
-                                                fontWeight: FontWeight.w500,
+                                                color: Colors.black87,
                                               ),
                                             ),
                                           ),
@@ -1114,7 +1093,7 @@ class PopupManager {
                                       _getRecurrenceDescription(
                                         selectedRecurrence,
                                       ),
-                                      style: TextStyle(
+                                      style: getTextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],
                                       ),
@@ -1221,9 +1200,12 @@ class PopupManager {
                                     vertical: 12,
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   '수정',
-                                  style: TextStyle(color: Colors.white),
+                                  style: getTextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1275,11 +1257,10 @@ class PopupManager {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         '일정 삭제',
-                        style: TextStyle(
+                        style: getTextStyle(
                           fontSize: 20,
-                          fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
@@ -1312,9 +1293,8 @@ class PopupManager {
                             Expanded(
                               child: Text(
                                 event.title,
-                                style: const TextStyle(
+                                style: getTextStyle(
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w600,
                                   color: Colors.black87,
                                 ),
                               ),
@@ -1332,7 +1312,7 @@ class PopupManager {
                             const SizedBox(width: 4),
                             Text(
                               '${event.time}${event.endTime != null ? ' - ${event.endTime}' : ''}',
-                              style: const TextStyle(
+                              style: getTextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
                               ),
@@ -1350,7 +1330,7 @@ class PopupManager {
                             const SizedBox(width: 4),
                             Text(
                               '${event.date.year}년 ${event.date.month}월 ${event.date.day}일',
-                              style: const TextStyle(
+                              style: getTextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
                               ),
@@ -1361,14 +1341,14 @@ class PopupManager {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     '이 일정을 삭제하시겠습니까?',
-                    style: TextStyle(fontSize: 16, color: Colors.black87),
+                    style: getTextStyle(fontSize: 16, color: Colors.black87),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '삭제된 일정은 복구할 수 없습니다.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: getTextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 24),
                   Row(
