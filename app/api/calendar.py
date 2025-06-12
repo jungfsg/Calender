@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from app.services.llm_service import LLMService
-from app.services.vector_store import VectorStoreService
+# from app.services.vector_store import VectorStoreService
 from app.services.event_storage_service import EventStorageService
 from datetime import datetime
 
@@ -289,43 +289,43 @@ async def check_event_conflicts(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"충돌 검사 중 오류 발생: {str(e)}")
 
-@router.post("/process", response_model=CalendarResponse)
-async def process_calendar_input(
-    input_data: CalendarInput,
-    llm_service: LLMService = Depends(lambda: LLMService()),
-    vector_store: VectorStoreService = Depends(lambda: VectorStoreService())
-):
-    """
-    텍스트 입력을 처리하여 일정 정보를 추출합니다.
-    """
-    # 관련 컨텍스트 검색
-    context = None
-    if input_data.context_query:
-        search_results = await vector_store.search_context(input_data.context_query)
-        context = [result["text"] for result in search_results]
+# @router.post("/process", response_model=CalendarResponse)
+# async def process_calendar_input(
+#     input_data: CalendarInput,
+#     llm_service: LLMService = Depends(lambda: LLMService()),
+#     vector_store: VectorStoreService = Depends(lambda: VectorStoreService())
+# ):
+#     """
+#     텍스트 입력을 처리하여 일정 정보를 추출합니다.
+#     """
+#     # 관련 컨텍스트 검색
+#     context = None
+#     if input_data.context_query:
+#         search_results = await vector_store.search_context(input_data.context_query)
+#         context = [result["text"] for result in search_results]
 
-    # LLM을 사용하여 일정 정보 추출
-    calendar_data = await llm_service.process_calendar_input(
-        input_data.text,
-        context=context
-    )
+#     # LLM을 사용하여 일정 정보 추출
+#     calendar_data = await llm_service.process_calendar_input(
+#         input_data.text,
+#         context=context
+#     )
 
-    return CalendarResponse(
-        calendar_data=calendar_data,
-        relevant_context=[{"text": ctx} for ctx in (context or [])]
-    )
+#     return CalendarResponse(
+#         calendar_data=calendar_data,
+#         relevant_context=[{"text": ctx} for ctx in (context or [])]
+#     )
 
-@router.post("/context")
-async def add_context(
-    texts: List[str],
-    metadata: Optional[List[Dict[str, Any]]] = None,
-    vector_store: VectorStoreService = Depends(lambda: VectorStoreService())
-):
-    """
-    새로운 컨텍스트를 벡터 저장소에 추가합니다.
-    """
-    result = await vector_store.add_context(texts, metadata=metadata)
-    return result
+# @router.post("/context")
+# async def add_context(
+#     texts: List[str],
+#     metadata: Optional[List[Dict[str, Any]]] = None,
+#     vector_store: VectorStoreService = Depends(lambda: VectorStoreService())
+# ):
+#     """
+#     새로운 컨텍스트를 벡터 저장소에 추가합니다.
+#     """
+#     result = await vector_store.add_context(texts, metadata=metadata)
+#     return result
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_context(
@@ -371,18 +371,18 @@ async def chat_with_context(
         sources=[]  # 벡터 검색 결과가 없으므로 빈 리스트 반환
     )
 
-@router.post("/ocr_text")
-async def store_ocr_text(
-    input_data: OCRTextInput,
-    vector_store: VectorStoreService = Depends(lambda: VectorStoreService())
-):
-    """
-    OCR로 추출한 텍스트를 벡터 저장소에 저장합니다.
-    """
-    # 단일 텍스트를 리스트로 변환하여 VectorStoreService.add_context 메소드 호출
-    metadata = [input_data.metadata] if input_data.metadata else [{"source": "ocr", "timestamp": datetime.now().isoformat()}]
-    result = await vector_store.add_context([input_data.text], metadata=metadata)
-    return result
+# @router.post("/ocr_text")
+# async def store_ocr_text(
+#     input_data: OCRTextInput,
+#     vector_store: VectorStoreService = Depends(lambda: VectorStoreService())
+# ):
+#     """
+#     OCR로 추출한 텍스트를 벡터 저장소에 저장합니다.
+#     """
+#     # 단일 텍스트를 리스트로 변환하여 VectorStoreService.add_context 메소드 호출
+#     metadata = [input_data.metadata] if input_data.metadata else [{"source": "ocr", "timestamp": datetime.now().isoformat()}]
+#     result = await vector_store.add_context([input_data.text], metadata=metadata)
+#     return result
 
 def _translate_weather_condition(condition):
     """날씨 상태를 한글로 변환합니다."""

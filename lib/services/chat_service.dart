@@ -12,28 +12,10 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://a6c7-218-158-75-120.ngrok-free.app';
+  final String baseUrl = 'https://24fd-218-158-75-120.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
-  // 날씨 관련 키워드 목록
-  final List<String> _weatherKeywords = [
-    '날씨',
-    '기온',
-    '비',
-    '눈',
-    '맑음',
-    '흐림',
-    '예보',
-    '오늘 날씨',
-    '내일 날씨',
-    '이번 주 날씨',
-    '주간 날씨',
-    '기후',
-    '강수',
-    '습도',
-    '바람',
-    '온도',
-  ]; // LLM 서버에 메시지를 보내고 응답을 받는 메서드
+  // 날씨 관련 키워드 목록// LLM 서버에 메시지를 보내고 응답을 받는 메서드
   Future<types.TextMessage> sendMessage(
     String text,
     String userId, {
@@ -46,33 +28,10 @@ class ChatService {
     print('   eventManager 존재: ${eventManager != null}');
 
     try {
-      // 날씨 관련 질문인지 확인
       Map<String, dynamic> requestBody = {
         'message': text,
         'session_id': userId,
       };
-
-      // 날씨 관련 질문이면 날씨 데이터 추가
-      if (_isWeatherRelatedQuestion(text)) {
-        try {
-          final weatherData = await WeatherService.get5DayForecast();
-          requestBody['weather_context'] =
-              weatherData
-                  .map(
-                    (w) => {
-                      'date': w.date,
-                      'condition': w.condition,
-                      'temperature': w.temperature,
-                      'lat': w.lat,
-                      'lon': w.lon,
-                    },
-                  )
-                  .toList();
-        } catch (weatherError) {
-          print('날씨 데이터 가져오기 실패: $weatherError');
-          // 날씨 데이터 가져오기 실패해도 계속 진행
-        }
-      }
 
       // 일정 조회 관련 질문이면 캘린더 데이터 추가
       if (_isCalendarQueryQuestion(text)) {
@@ -1325,9 +1284,8 @@ class ChatService {
               // 제목으로 이벤트 찾기
               for (var event in existingEvents) {
                 if (title.isNotEmpty) {
-                  bool titleMatch = event.title
-                          .toLowerCase()
-                          .contains(title.toLowerCase()) ||
+                  bool titleMatch =
+                      event.title.toLowerCase().contains(title.toLowerCase()) ||
                       title.toLowerCase().contains(event.title.toLowerCase());
 
                   if (titleMatch) {
@@ -1428,11 +1386,6 @@ class ChatService {
       print('❌ 혼합 삭제 처리 중 오류: $e');
       return false;
     }
-  }
-
-  // 날씨 관련 질문인지 확인하는 메서드
-  bool _isWeatherRelatedQuestion(String text) {
-    return _weatherKeywords.any((keyword) => text.contains(keyword));
   }
 
   // 일정 조회 관련 키워드 목록

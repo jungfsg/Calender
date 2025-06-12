@@ -3,7 +3,7 @@ from openai import OpenAI
 from langgraph.graph import StateGraph, END
 from app.core.config import get_settings
 # from app.services.google_calendar_service import GoogleCalendarService
-from app.services.vector_store import VectorStoreService
+# from app.services.vector_store import VectorStoreService
 import json
 import re
 from datetime import datetime, timedelta
@@ -341,8 +341,8 @@ class CalendarState(TypedDict):
 class LLMService:
     def __init__(self):
         self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        # self.calendar_service = GoogleCalendarService()
-        self.vector_store = VectorStoreService()
+        # # self.calendar_service = GoogleCalendarService()
+        # self.vector_store = VectorStoreService()
         self.workflow = self._create_calendar_workflow()
         
     def _create_calendar_workflow(self):
