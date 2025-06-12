@@ -15,14 +15,47 @@ class VoiceCommandService {
   VoiceCommandService._();
 
   final ChatService _chatService = ChatService();
-  
+
   // 일정 관리 키워드들 - 이런 키워드가 포함되면 AI로 전달해야 함
   static const List<String> _calendarActionKeywords = [
-    '추가', '생성', '만들', '등록', '잡아', '스케줄', '예약', '설정',
-    '수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정',
-    '삭제', '지워', '취소', '없애', '빼', '제거', '다 삭제', '모두 삭제', '전체 삭제',
-    '검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인',
-    '복사', '복제', '같은 일정', '동일한'
+    '추가',
+    '생성',
+    '만들',
+    '등록',
+    '잡아',
+    '스케줄',
+    '예약',
+    '설정',
+    '수정',
+    '변경',
+    '바꿔',
+    '업데이트',
+    '이동',
+    '옮겨',
+    '고쳐',
+    '편집',
+    '조정',
+    '삭제',
+    '지워',
+    '취소',
+    '없애',
+    '빼',
+    '제거',
+    '다 삭제',
+    '모두 삭제',
+    '전체 삭제',
+    '검색',
+    '찾아',
+    '조회',
+    '확인',
+    '뭐 있',
+    '언제',
+    '일정 보',
+    '스케줄 확인',
+    '복사',
+    '복제',
+    '같은 일정',
+    '동일한',
   ];
 
   /// 음성 입력 다이얼로그 표시
@@ -37,18 +70,32 @@ class VoiceCommandService {
       isDismissible: true,
       enableDrag: true,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+      isScrollControlled: true, // 전체 화면 높이 사용 가능하게 설정
+      useSafeArea: true, // 안전 영역 사용
       builder: (BuildContext context) {
-        return VoiceInputWidget(
-          onVoiceCommand: (command) {
-            _processCommand(
-              command,
-              onCommandProcessed,
-              onCalendarUpdate,
-              eventManager,
-            );
-          },
-          onClose: () => Navigator.of(context).pop(),
+        return FractionallySizedBox(
+          heightFactor: 0.9, // 화면의 90% 높이로 조정
+          child: VoiceInputWidget(
+            onVoiceCommand: (_) {}, // 더 이상 사용하지 않음
+            onProcessCommand: (command, responseCallback) {
+              _processCommand(
+                command,
+                (response, originalCommand) {
+                  // 응답을 STT UI 내부에 전달
+                  responseCallback(response);
+
+                  // 기존 콜백도 호출 (로깅 등의 목적)
+                  onCommandProcessed(response, originalCommand);
+                },
+                onCalendarUpdate,
+                eventManager,
+              );
+            },
+            onClose: () {
+              // 음성 인식 중이라면 취소하고 닫기
+              Navigator.of(context).pop();
+            },
+          ),
         );
       },
     );
@@ -95,20 +142,26 @@ class VoiceCommandService {
               if (onCalendarUpdate != null) {
                 onCalendarUpdate();
               }
-              onCommandProcessed('✅ AI 응답 완료 (캘린더가 업데이트되었습니다)', command);
+              // 응답 메시지는 아래에서 AI 응답으로 처리됨
             });
           } else {
             // EventManager가 없는 경우
             if (onCalendarUpdate != null) {
               onCalendarUpdate();
             }
-            onCommandProcessed('✅ AI 응답 완료 (캘린더가 업데이트되었습니다)', command);
+            // 응답 메시지는 아래에서 AI 응답으로 처리됨
           }
         },
       );
 
       print('✅ VoiceCommandService: AI 응답 받음 - "${response.text}"');
-      onCommandProcessed('AI: ${response.text}', command);
+      // AI 응답 텍스트를 더 깔끔하게 표시
+      String formattedResponse = response.text.trim();
+      // AI: 접두어 제거 (이미 UI에서 아이콘으로 구분)
+      if (formattedResponse.startsWith('AI:')) {
+        formattedResponse = formattedResponse.substring(3).trim();
+      }
+      onCommandProcessed(formattedResponse, command);
     } catch (e) {
       print('AI 처리 오류: $e');
       // 오류 발생 시 기본 메시지로 처리
@@ -123,13 +176,13 @@ class VoiceCommandService {
   /// 간단한 명령어인지 확인
   bool _isSimpleCommand(String command) {
     command = command.toLowerCase();
-    
+
     // 일정 관리 키워드가 포함되어 있으면 AI로 전달
     if (_calendarActionKeywords.any((keyword) => command.contains(keyword))) {
       print('🤖 일정 관리 키워드 감지 - AI로 전달: $command');
       return false; // AI로 전달
     }
-    
+
     final simpleCommands = [
       '다음 달',
       '다음달',
@@ -146,7 +199,7 @@ class VoiceCommandService {
     ];
 
     // "오늘"이나 "투데이"는 일정 관리 키워드가 없을 때만 간단한 명령어로 처리
-    if ((command.contains('오늘') || command.contains('투데이')) && 
+    if ((command.contains('오늘') || command.contains('투데이')) &&
         !_calendarActionKeywords.any((keyword) => command.contains(keyword))) {
       return true; // 간단한 명령어 (단순 날짜 이동)
     }
@@ -160,7 +213,7 @@ class VoiceCommandService {
     command = command.toLowerCase();
 
     // "오늘"이나 "투데이"는 일정 관리 키워드가 없을 때만 처리
-    if ((command.contains('오늘') || command.contains('투데이')) && 
+    if ((command.contains('오늘') || command.contains('투데이')) &&
         !_calendarActionKeywords.any((keyword) => command.contains(keyword))) {
       return '오늘 날짜로 이동했습니다.';
     } else if (command.contains('다음 달') || command.contains('다음달')) {
@@ -203,7 +256,9 @@ class VoiceCommandService {
       _moveToPreviousMonth(controller, onStateUpdate);
     } else if (lowerCommand.contains('오늘') || lowerCommand.contains('투데이')) {
       // 일정 관리 키워드가 포함되어 있지 않은 경우에만 오늘로 이동
-      if (!_calendarActionKeywords.any((keyword) => lowerCommand.contains(keyword))) {
+      if (!_calendarActionKeywords.any(
+        (keyword) => lowerCommand.contains(keyword),
+      )) {
         _moveToToday(controller, popupManager, onStateUpdate);
       }
     } else if (_checkForDateMovement(lowerCommand, controller)) {

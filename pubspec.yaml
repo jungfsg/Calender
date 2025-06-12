@@ -65,6 +65,7 @@ dependencies:
   water_drop_nav_bar: ^2.2.2
   gal: ^2.3.1
   flutter_tts: ^4.2.3
+  pulsator: ^1.0.0+2
 dev_dependencies:
   flutter_test:
     sdk: flutter
