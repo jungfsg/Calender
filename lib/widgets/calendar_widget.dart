@@ -44,6 +44,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   int _selectedIndex = 0;
   final CalendarFormat _calendarFormat = CalendarFormat.month;
   final GoogleCalendarService _googleCalendarService = GoogleCalendarService();
+  bool _showMultiDayEventPopup = false; // 🆕 멀티데이 이벤트 팝업 상태 변수 추가
+  
   @override
   void initState() {
     super.initState();
@@ -172,6 +174,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents: widget.controller.getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         },
                         // 선택된 날짜 셀 빌더
@@ -191,6 +194,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents: widget.controller.getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         }, // 오늘 날짜 셀 빌더
                         todayBuilder: (context, day, focusedDay) {
@@ -225,6 +229,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents: widget.controller.getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         },
                         // 요일 헤더 빌더
@@ -281,6 +286,28 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                     onDeleteEvent: (event) async {
                       await widget.eventManager.removeEvent(event);
                       setState(() {});
+                    },
+                    // 🆕 멀티데이 이벤트 추가 콜백
+                    onAddMultiDayEvent: () {
+                      _showMultiDayEventDialog();
+                    },
+                  ),
+
+                // 🆕 멀티데이 이벤트 팝업 오버레이
+                if (_showMultiDayEventPopup)
+                  MultiDayEventPopup(
+                    initialDate: widget.controller.selectedDay, // 클릭한 날짜를 초기 날짜로 설정
+                    onSave: (event) async {
+                      // EventManager를 통해 멀티데이 이벤트 추가 (영구 저장 포함)
+                      await widget.eventManager.addEvent(event);
+                      setState(() {
+                        _showMultiDayEventPopup = false;
+                      });
+                    },
+                    onClose: () {
+                      setState(() {
+                        _showMultiDayEventPopup = false;
+                      });
                     },
                   ),
 

@@ -17,6 +17,7 @@ class SyncManager {
   Future<void> syncEventAddition(Event event) async {
     try {
       print('🔄 SyncManager: 이벤트 추가 동기화 시작...');
+      print('🔄 이벤트 정보: ${event.title}, 멀티데이: ${event.isMultiDay}');
 
       // 구글 캘린더가 연결되어 있는지 확인
       if (!await _googleCalendarService.silentReconnect()) {
@@ -27,6 +28,12 @@ class SyncManager {
       // 이미 구글 캘린더에 있는 이벤트인지 확인 (중복 방지)
       if (event.source == 'google' || event.source == 'holiday') {
         print('🔍 구글 소스 이벤트는 동기화 불필요');
+        return;
+      }
+
+      // 멀티데이 이벤트인 경우 특별 처리
+      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+        await _syncMultiDayEventToGoogle(event);
         return;
       }
 
@@ -177,34 +184,120 @@ class SyncManager {
     }
   }
 
+  /// 🆕 멀티데이 이벤트를 Google Calendar에 동기화
+  Future<void> _syncMultiDayEventToGoogle(Event event) async {
+    try {
+      print('📅 SyncManager: 멀티데이 이벤트 Google 동기화 시작...');
+      print('📅 기간: ${event.startDate} ~ ${event.endDate}');
+
+      // Google Calendar에 멀티데이 이벤트로 추가
+      final googleEventId = await _googleCalendarService.addEventToGoogleCalendar(event);
+      
+      if (googleEventId != null) {
+        print('✅ Google Calendar에 멀티데이 이벤트 동기화 성공: ${event.title}');
+        
+        // 모든 관련 날짜의 로컬 이벤트에 Google Event ID 저장
+        final startDate = event.startDate!;
+        final endDate = event.endDate!;
+        
+        for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+          final currentDate = startDate.add(Duration(days: i));
+          
+          try {
+            // 해당 날짜의 멀티데이 이벤트들 찾기
+            final existingEvents = await EventStorageService.getEvents(currentDate);
+            final multiDayEvents = existingEvents.where((e) => 
+              e.isMultiDay && 
+              e.title == event.title &&
+              e.startDate != null && e.endDate != null &&
+              e.startDate!.isAtSameMomentAs(startDate) &&
+              e.endDate!.isAtSameMomentAs(endDate)
+            ).toList();
+            
+            for (final multiDayEvent in multiDayEvents) {
+              // 기존 이벤트 삭제
+              await EventStorageService.removeEvent(currentDate, multiDayEvent);
+              
+              // Google Event ID가 추가된 이벤트 생성
+              final updatedEvent = multiDayEvent.copyWith(
+                googleEventId: googleEventId,
+              );
+              
+              // 업데이트된 이벤트 저장
+              await EventStorageService.addEvent(currentDate, updatedEvent);
+              
+              // 컨트롤러에도 업데이트
+              _controller.removeEvent(multiDayEvent);
+              _controller.addEvent(updatedEvent);
+            }
+            
+            print('🔗 ${currentDate.toString().substring(0, 10)} 날짜의 Google Event ID 저장 완료');
+          } catch (e) {
+            print('⚠️ ${currentDate.toString().substring(0, 10)} 날짜의 Google Event ID 저장 중 오류: $e');
+          }
+        }
+      } else {
+        print('❌ Google Calendar 멀티데이 이벤트 동기화 실패: ${event.title}');
+      }
+    } catch (e) {
+      print('❌ 멀티데이 이벤트 Google 동기화 오류: $e');
+    }
+  }
+
   /// 이벤트 삭제 시 동기화 (로컬 → 구글)
   Future<void> syncEventDeletion(Event event) async {
     try {
       print('🔄 SyncManager: 이벤트 삭제 동기화 시작...');
+      print('🔄 삭제 대상: ${event.title}, 멀티데이: ${event.isMultiDay}');
+
+      // 구글 캘린더 연결 확인
+      if (!await _googleCalendarService.silentReconnect()) {
+        print('⚠️ Google Calendar 연결되지 않음, 로컬에서만 삭제됨');
+        return;
+      }
+
+      // 멀티데이 이벤트인 경우 특별 처리
+      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+        await _syncMultiDayEventDeletionToGoogle(event);
+        return;
+      }
 
       if (event.source == 'google' || event.source == 'holiday') {
         // 구글/공휴일 소스 이벤트인 경우에만 구글에서도 삭제
-        if (await _googleCalendarService.silentReconnect()) {
-          final deleted = await _googleCalendarService
-              .deleteEventFromGoogleCalendar(event);
-          print('🗑️ 구글 소스 이벤트 삭제 ${deleted ? '성공' : '실패'}: ${event.title}');
-        }
+        final deleted = await _googleCalendarService
+            .deleteEventFromGoogleCalendar(event);
+        print('🗑️ 구글 소스 이벤트 삭제 ${deleted ? '성공' : '실패'}: ${event.title}');
       } else {
         // 로컬 이벤트도 구글 캘린더에서 삭제해야 함
-        if (await _googleCalendarService.silentReconnect()) {
-          final deleted = await _googleCalendarService
-              .deleteEventFromGoogleCalendar(event);
-          if (deleted) {
-            print('✅ 구글 캘린더에서 로컬 이벤트 삭제 성공: ${event.title}');
-          } else {
-            print('⚠️ 구글 캘린더에서 로컬 이벤트 찾지 못함: ${event.title}');
-          }
+        final deleted = await _googleCalendarService
+            .deleteEventFromGoogleCalendar(event);
+        if (deleted) {
+          print('✅ 구글 캘린더에서 로컬 이벤트 삭제 성공: ${event.title}');
         } else {
-          print('⚠️ Google Calendar 연결되지 않음, 구글 삭제 건너뜀');
+          print('⚠️ 구글 캘린더에서 로컬 이벤트 찾지 못함: ${event.title}');
         }
       }
     } catch (e) {
       print('❌ 이벤트 삭제 동기화 오류: $e');
+    }
+  }
+
+  /// 🆕 멀티데이 이벤트 삭제를 Google Calendar에 동기화
+  Future<void> _syncMultiDayEventDeletionToGoogle(Event event) async {
+    try {
+      print('🗑️ SyncManager: 멀티데이 이벤트 Google 삭제 동기화 시작...');
+      print('🗑️ 삭제 대상: ${event.title} (${event.startDate} ~ ${event.endDate})');
+
+      // Google Calendar에서 멀티데이 이벤트 삭제
+      final deleted = await _googleCalendarService.deleteEventFromGoogleCalendar(event);
+      
+      if (deleted) {
+        print('✅ Google Calendar에서 멀티데이 이벤트 삭제 성공: ${event.title}');
+      } else {
+        print('⚠️ Google Calendar에서 멀티데이 이벤트 찾지 못함: ${event.title}');
+      }
+    } catch (e) {
+      print('❌ 멀티데이 이벤트 Google 삭제 동기화 오류: $e');
     }
   }
 

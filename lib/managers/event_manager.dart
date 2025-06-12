@@ -116,6 +116,12 @@ class EventManager {
 
   Future<void> addEvent(Event event, {bool syncWithGoogle = true}) async {
     try {
+      // 멀티데이 이벤트인 경우 특별 처리
+      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+        await addMultiDayEvent(event, syncWithGoogle: syncWithGoogle);
+        return;
+      }
+
       // 1. 기존 이벤트와 중복 체크
       final existingEvents = await EventStorageService.getEvents(event.date);
       final isDuplicate = existingEvents.any(
@@ -178,6 +184,7 @@ class EventManager {
       }
 
       print('📅 멀티데이 이벤트 추가 시작: ${event.title} (${event.startDate} ~ ${event.endDate})');
+      print('📅 이벤트 상세: isMultiDay=${event.isMultiDay}, uniqueId=${event.uniqueId}');
 
       final startDate = event.startDate!;
       final endDate = event.endDate!;
@@ -186,9 +193,12 @@ class EventManager {
       for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
         final currentDate = startDate.add(Duration(days: i));
         
-        // 해당 날짜용 이벤트 생성
+        // 해당 날짜용 이벤트 생성 (멀티데이 속성 유지)
         final dailyEvent = event.copyWith(
           date: currentDate,
+          isMultiDay: true, // 🔥 멀티데이 속성 명시적으로 유지
+          startDate: event.startDate, // 🔥 시작 날짜 유지
+          endDate: event.endDate, // 🔥 종료 날짜 유지
           // 멀티데이 이벤트임을 식별할 수 있도록 uniqueId에 특별한 패턴 추가
           uniqueId: event.uniqueId.contains('_multiday_') 
               ? event.uniqueId 
@@ -312,7 +322,13 @@ class EventManager {
 
   Future<void> removeEvent(Event event, {bool syncWithGoogle = true}) async {
     try {
-      // 로컬 스토리지에서 삭제
+      // 멀티데이 이벤트인 경우 특별 처리
+      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+        await removeMultiDayEvent(event, syncWithGoogle: syncWithGoogle);
+        return;
+      }
+
+      // 일반 이벤트 삭제
       await EventStorageService.removeEvent(event.date, event);
       _controller.removeEvent(event);
       if (syncWithGoogle) {
@@ -333,9 +349,14 @@ class EventManager {
       }
 
       print('🗑️ 멀티데이 이벤트 제거 시작: ${event.title}');
+      print('🗑️ 제거 대상: ${event.startDate} ~ ${event.endDate}');
+      print('🗑️ uniqueId: ${event.uniqueId}');
 
       final startDate = event.startDate!;
       final endDate = event.endDate!;
+      
+      // 기본 uniqueId 패턴 추출 (멀티데이 패턴 제거)
+      final baseUniqueId = event.uniqueId.split('_multiday_')[0];
       
       // 각 날짜에서 멀티데이 이벤트 제거
       for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
@@ -344,22 +365,33 @@ class EventManager {
         // 해당 날짜의 모든 이벤트 가져오기
         final existingEvents = await EventStorageService.getEvents(currentDate);
         
-        // 같은 uniqueId 패턴을 가진 이벤트들 찾기
+        // 같은 멀티데이 이벤트 그룹에 속하는 이벤트들 찾기 (더 강력한 매칭)
         final eventsToRemove = existingEvents.where((e) => 
-          e.uniqueId.contains(event.uniqueId.split('_multiday_')[0]) && 
-          e.isMultiDay &&
-          e.title == event.title
+          // 1. uniqueId 패턴으로 매칭
+          (e.uniqueId.contains(baseUniqueId) && e.uniqueId.contains('_multiday_')) ||
+          // 2. 멀티데이 속성과 제목, 날짜 범위로 매칭
+          (e.isMultiDay && e.title == event.title && 
+           e.startDate != null && e.endDate != null &&
+           e.startDate!.isAtSameMomentAs(startDate) && 
+           e.endDate!.isAtSameMomentAs(endDate)) ||
+          // 3. 제목과 날짜 범위가 일치하는 모든 이벤트 (isMultiDay가 false로 저장된 경우 대비)
+          (e.title == event.title && 
+           e.startDate != null && e.endDate != null &&
+           e.startDate!.isAtSameMomentAs(startDate) && 
+           e.endDate!.isAtSameMomentAs(endDate))
         ).toList();
+        
+        print('🗑️ ${currentDate.toString().substring(0, 10)}에서 ${eventsToRemove.length}개 이벤트 제거 예정');
         
         // 스토리지에서 제거
         for (final eventToRemove in eventsToRemove) {
           await EventStorageService.removeEvent(currentDate, eventToRemove);
-          print('🗑️ 멀티데이 이벤트 날짜별 제거: ${currentDate.toString().substring(0, 10)}');
+          print('   - 제거됨: ${eventToRemove.uniqueId}');
         }
-        
-        // 컨트롤러에서도 제거
-        _controller.removeMultiDayEvent(event);
       }
+      
+      // 컨트롤러에서도 제거 (한 번만 호출)
+      _controller.removeMultiDayEvent(event);
 
       // Google 동기화 (필요한 경우)
       if (syncWithGoogle) {

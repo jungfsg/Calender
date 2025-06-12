@@ -149,6 +149,14 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
       uniqueId: widget.editingEvent?.uniqueId, // 수정 시 기존 ID 유지
     );
 
+    print('🎯 MultiDayEventPopup: 멀티데이 이벤트 생성됨');
+    print('   제목: ${event.title}');
+    print('   시작날짜: ${event.startDate}');
+    print('   종료날짜: ${event.endDate}');
+    print('   isMultiDay: ${event.isMultiDay}');
+    print('   uniqueId: ${event.uniqueId}');
+    print('   색상: ${event.color}');
+
     widget.onSave(event);
     widget.onClose();
   }

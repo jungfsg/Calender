@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
-import '../config.dart'; // API 키를 보관하는 설정 파일
+// import '../config.dart'; // API 키를 보관하는 설정 파일 - 임시 비활성화
 
 class TtsService {
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -42,6 +42,9 @@ class TtsService {
     print('🔊 TTS.speak() 호출됨 - 재생할 텍스트: "$cleanText"');
 
     try {
+      // 임시로 API 키를 하드코딩 (실제 사용 시에는 환경변수나 보안 저장소 사용 권장)
+      const String openAIKey = 'YOUR_OPENAI_API_KEY_HERE'; // 실제 키로 교체 필요
+      
       final response = await http.post(
         Uri.parse('https://api.openai.com/v1/audio/speech'),
         headers: {

@@ -137,11 +137,19 @@ class WeatherCalendarCell extends StatelessWidget {
 
   // 🆕 해당 날짜의 멀티데이 이벤트들을 찾는 메서드
   List<Event> _getMultiDayEventsForDate() {
-    if (allEvents == null) return [];
+    if (allEvents == null) {
+      return [];
+    }
     
-    return allEvents!.where((event) {
+    final multiDayEvents = allEvents!.where((event) {
       return event.isMultiDay && event.containsDate(day);
     }).toList();
+    
+    if (multiDayEvents.isNotEmpty) {
+      print('📅 ${day.toString().substring(0, 10)}에 멀티데이 이벤트 ${multiDayEvents.length}개 발견: ${multiDayEvents.map((e) => e.title).join(', ')}');
+    }
+    
+    return multiDayEvents;
   }
 
   // 🆕 멀티데이 이벤트가 이 날짜에서 어떤 상태인지 확인
