@@ -52,15 +52,15 @@ class EventPopup extends StatelessWidget {
       return colorIdColors![event.colorId]!;
     }
 
-    // 3. 고유 ID 기반 색상 매핑 (새로운 방식)
-    if (eventIdColors != null && eventIdColors!.containsKey(event.uniqueId)) {
-      return eventIdColors![event.uniqueId]!;
-    }
+    // // 3. 고유 ID 기반 색상 매핑 (새로운 방식)
+    // if (eventIdColors != null && eventIdColors!.containsKey(event.uniqueId)) {
+    //   return eventIdColors![event.uniqueId]!;
+    // }
 
-    // 4. 제목 기반 색상 매핑 (이전 방식, 호환성 유지)
-    if (eventColors.containsKey(event.title)) {
-      return eventColors[event.title]!;
-    }
+    // // 4. 제목 기반 색상 매핑 (이전 방식, 호환성 유지)
+    // if (eventColors.containsKey(event.title)) {
+    //   return eventColors[event.title]!;
+    // }
 
     // 5. 기본 색상
     return Colors.blue;
@@ -89,7 +89,7 @@ class EventPopup extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
-                  color: Colors.black,
+                  color: Color.fromARGB(255, 0, 0, 0),
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(8),
                     topRight: Radius.circular(8),
@@ -99,8 +99,9 @@ class EventPopup extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      DateFormat('yyyy년 MM월 dd일').format(selectedDay),
-                      style: getTextStyle(fontSize: 14, color: Colors.white),
+                      DateFormat('MM dd EEE').format(selectedDay),
+                      style: getTextStyle(fontSize: 16, color: const Color.fromARGB(255, 255, 255, 255)),
+                      
                     ),
                     GestureDetector(
                       onTap: onClose,
@@ -132,12 +133,11 @@ class EventPopup extends StatelessWidget {
                   itemCount: sortedEvents.length,
                   itemBuilder: (context, index) {
                     final event = sortedEvents[index]; // 이벤트 색상 가져오기
-                    Color eventColor = _getEventColor(event);
-
+                    Color eventColor = _getEventColor(event).withAlpha(200);
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: eventColor.withOpacity(0.1),
+                        color: eventColor,
                         border: Border.all(color: eventColor, width: 1),
                         borderRadius: BorderRadius.circular(5),
                       ),
@@ -146,7 +146,7 @@ class EventPopup extends StatelessWidget {
                           width: 90,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
-                            event.hasEndTime() 
+                            event.hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
                               ? '${event.time}-${event.endTime}'
                               : event.time,
                             style: getTextStyle(
