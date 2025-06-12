@@ -188,11 +188,13 @@ class EventPopup extends StatelessWidget {
                           width: 70,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
-                            event.isMultiDay // 🆕 멀티데이 이벤트 처리
+                            event
+                                    .isMultiDay // 🆕 멀티데이 이벤트 처리
                                 ? '며칠 일정'
-                                : event.hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
-                                    ? '${event.time}\n-${event.endTime}'
-                                    : event.time,
+                                : event
+                                    .hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
+                                ? '${event.time}\n-${event.endTime}'
+                                : event.time,
                             style: getTextStyle(
                               fontSize: 12,
                               color: Colors.black,
@@ -201,7 +203,7 @@ class EventPopup extends StatelessWidget {
                           ),
                         ),
                         title: Text(
-                          event.title,
+                          '$categoryName\n${event.title} ',
                           style: getTextStyle(
                             fontSize: 12,
                             color: Colors.black,
@@ -366,7 +368,7 @@ class EventPopup extends StatelessWidget {
                         ),
                       ),
                     ),
-                    
+
                     // 🆕 멀티데이 일정 추가 버튼
                     if (onAddMultiDayEvent != null)
                       Container(
