@@ -102,9 +102,7 @@ class _EmptyPageState extends State<EmptyPage> {
 
       // --- TTS 관련 추가 ---
       // 봇의 응답이 텍스트 메시지일 경우에만 음성으로 재생
-      if (botResponse is types.TextMessage) {
-        TtsService.instance.speak(botResponse.text);
-      }
+      TtsService.instance.speak(botResponse.text);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -203,9 +201,7 @@ class _EmptyPageState extends State<EmptyPage> {
               _isLoading = false;
             });
             // --- TTS 관련 추가 ---
-            if (botResponse is types.TextMessage) {
-              TtsService.instance.speak(botResponse.text);
-            }
+            TtsService.instance.speak(botResponse.text);
           } else {
             // 텍스트가 인식되지 않은 경우 이미지만 전송
             await _handleImageUpload(imageFile);
@@ -260,9 +256,7 @@ class _EmptyPageState extends State<EmptyPage> {
         _isLoading = false;
       });
       // --- TTS 관련 추가 ---
-      if (botResponse is types.TextMessage) {
-        TtsService.instance.speak(botResponse.text);
-      }
+      TtsService.instance.speak(botResponse.text);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -340,12 +334,18 @@ class _EmptyPageState extends State<EmptyPage> {
     if (index == 0) {
       // 캘린더로 돌아가기 - 결과와 함께 pop
       Navigator.of(context).pop({'refreshNavigation': true});
+    } else if (index == 1) {
+      // 마이크 버튼 - 캘린더로 돌아가기 (캘린더 화면에서 음성 인식 UI 표시)
+      Navigator.of(
+        context,
+      ).pop({'refreshNavigation': true, 'showVoiceInput': true});
     } else {
       setState(() {
         _selectedIndex = index;
       });
     }
   }
+  // 음성 명령 관련 함수는 캘린더 화면으로 이동하므로 이 화면에서는 제거
 
   // 이미지 소스 선택 다이얼로그
   Future<void> _showImageSourceDialog() async {

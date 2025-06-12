@@ -46,7 +46,7 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
   late AnimationController _colorChangeController;
 
   // 텍스트 인식 후 전송 버튼을 표시하기까지의 지연 시간 (초)
-  final int _delayBeforeSendButton = 5;
+  final int _delayBeforeSendButton = 3; // 3초 후 전송 버튼 표시
   // 전송 버튼 표시 여부
   bool _showSendButton = false;
   // 타이머
@@ -283,20 +283,19 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
                 padding: const EdgeInsets.only(top: 0, left: 40, right: 40),
                 child: _buildTextDisplay(),
               ),
-              // 빈 공간 추가
-              const Spacer(),
-              // 파형 애니메이션 영역 (버튼 바로 위에 배치)
-              if (_speechService.isListening || _isMuted)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: _buildVoiceAnimation(),
-                ),
+              // 빈 공간 추가              const Spacer(),              // 파형 애니메이션 영역 (버튼 바로 위에 배치)
+              Padding(
+                padding: const EdgeInsets.only(
+                  bottom: 35,
+                ), // 간격 넓힘 (20에서 50으로 변경)
+                child: _buildVoiceAnimation(),
+              ),
               // 하단 버튼들
               Padding(
                 padding: const EdgeInsets.only(
                   left: 24,
                   right: 24,
-                  bottom: 50,
+                  bottom: 35,
                   top: 0,
                 ),
                 child: _buildActionButtons(),
@@ -312,10 +311,10 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
   Widget _buildTextDisplay() {
     return Container(
       width: double.infinity,
-      height: 400, // 고정 높이로 설정하여 안정성 확보
+      height: 450, // 고정 높이로 설정하여 안정성 확보
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.1), // 배경 살짝 어둡게
+        color: Colors.transparent, // 배경 살짝 어둡게
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withOpacity(0.8)),
       ),
@@ -562,11 +561,11 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
             tooltip: '취소',
           ),
         ), // 중앙에 상태 표시 또는 다시 시작 버튼 표시
-        _isAutoPaused
-            ? _buildRestartButton() // 자동 일시정지 상태일 때 다시하기 버튼 표시
+        _isAutoPaused || _recognizedText.isNotEmpty
+            ? _buildRestartButton() // 자동 일시정지 상태이거나 음성이 인식되었을 때 다시 시작 버튼 표시
             : AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
-              opacity: _isMuted || _recognizedText.isNotEmpty ? 1.0 : 0.6,
+              opacity: _isMuted ? 1.0 : 0.6,
               child: Container(
                 width: 150, // 고정된 너비 추가
                 padding: const EdgeInsets.symmetric(
@@ -574,16 +573,10 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      _isMuted
-                          ? Colors.grey[900]?.withOpacity(0.7)
-                          : Colors.grey[900]?.withOpacity(0.7),
+                  color: Colors.grey[900]?.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color:
-                        _isMuted
-                            ? Colors.white.withOpacity(0.1)
-                            : Colors.white.withOpacity(0.1),
+                    color: Colors.white.withOpacity(0.1),
                     width: 0.5,
                   ),
                 ),
@@ -600,11 +593,7 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
                     if (_isMuted) const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        _isMuted
-                            ? '음소거'
-                            : (_recognizedText.isNotEmpty
-                                ? '계속 말씀하세요...'
-                                : '음성 인식 중...'),
+                        _isMuted ? '음소거' : '음성 인식 중...',
                         style: getCustomTextStyle(
                           fontSize: 13,
                           color: _isMuted ? Colors.white : Colors.white70,

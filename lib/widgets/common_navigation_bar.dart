@@ -7,10 +7,10 @@ class CommonNavigationBar extends StatelessWidget {
   final Function(int) onItemTapped;
 
   const CommonNavigationBar({
-    Key? key,
+    super.key,
     required this.selectedIndex,
     required this.onItemTapped,
-  }) : super(key: key);
+  });
 
   // 인덱스별 색상 정의 (다양한 옵션들)
   Color _getBackgroundColor(int index) {

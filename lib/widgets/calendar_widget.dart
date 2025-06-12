@@ -553,12 +553,19 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       .eventManager, // EventManager 전달하여 Google Calendar 동기화 활성화
             ),
       ),
-    );
-    // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
+    ); // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
     if (result != null && result['refreshNavigation'] == true) {
       setState(() {
         _selectedIndex = 0; // 캘린더 탭으로 리셋
       });
+
+      // 음성 인식 UI 표시가 요청된 경우
+      if (result['showVoiceInput'] == true) {
+        // 약간의 딜레이 후 음성 인식 UI 표시 (화면 전환 완료 후)
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _showVoiceInput();
+        });
+      }
     }
   }
 
