@@ -292,7 +292,7 @@ class _EmptyPageState extends State<EmptyPage> {
                   controller: _chatInputController,
                   decoration: InputDecoration(
                     hintText: '메시지를 입력하세요',
-                    hintStyle: getCustomTextStyle(
+                    hintStyle: getTextStyle(
                       fontSize: 14,
                       color: const Color.fromARGB(255, 0, 0, 0),
                       text: '메시지를 입력하세요',
@@ -427,7 +427,7 @@ class _EmptyPageState extends State<EmptyPage> {
           automaticallyImplyLeading: false,
           title: Text(
             'AI 채팅',
-            style: getCustomTextStyle(
+            style: getTextStyle(
               fontSize: 16,
               color: const Color.fromARGB(255, 255, 255, 255),
               text: 'AI 채팅',
@@ -454,32 +454,32 @@ class _EmptyPageState extends State<EmptyPage> {
                   inputBackgroundColor: Colors.black12,
                   backgroundColor: Colors.white,
                   inputTextColor: Colors.black,
-                  sentMessageBodyTextStyle: getCustomTextStyle(
+                  sentMessageBodyTextStyle: getTextStyle(
                     fontSize: 16,
                     color: Colors.white,
                     text: '보낸 메시지',
                   ),
-                  receivedMessageBodyTextStyle: getCustomTextStyle(
+                  receivedMessageBodyTextStyle: getTextStyle(
                     fontSize: 16,
                     color: Colors.black,
                     text: '받은 메시지',
                   ),
-                  inputTextStyle: getCustomTextStyle(
+                  inputTextStyle: getTextStyle(
                     fontSize: 14,
                     color: Colors.black,
                     text: '메시지 입력',
                   ),
-                  emptyChatPlaceholderTextStyle: getCustomTextStyle(
+                  emptyChatPlaceholderTextStyle: getTextStyle(
                     fontSize: 14,
                     color: Colors.grey,
                     text: '메시지가 없습니다',
                   ),
-                  userNameTextStyle: getCustomTextStyle(
+                  userNameTextStyle: getTextStyle(
                     fontSize: 12,
                     color: Colors.grey[700],
                     text: '사용자 이름',
                   ),
-                  dateDividerTextStyle: getCustomTextStyle(
+                  dateDividerTextStyle: getTextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
                     text: '날짜 구분선',

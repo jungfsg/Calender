@@ -73,13 +73,13 @@ class EventPopup extends StatelessWidget {
       ..sort((a, b) => a.compareTo(b));
 
     return Container(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withAlpha(127),
       child: Center(
         child: Container(
           width: MediaQuery.of(context).size.width * 0.8,
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color.fromARGB(255, 255, 255, 255),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.black, width: 2),
           ),

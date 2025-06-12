@@ -127,7 +127,7 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
     print("📢 TTS 스위치 변경: $isEnabled"); // 디버깅 로그
     // TtsService 싱글톤 인스턴스에 변경된 상태를 직접 전달합니다.
     TtsService.instance.setTtsEnabled(isEnabled);
-    
+
     // UI 상태 업데이트
     setState(() {
       _isTtsEnabled = isEnabled;
@@ -189,4 +189,3 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
     // ... 기존 생명주기 코드는 동일 ...
   }
 }
-

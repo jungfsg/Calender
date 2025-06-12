@@ -227,7 +227,7 @@ class WeatherCalendarCell extends StatelessWidget {
                                 ),
                                 child: Text(
                                   event.title,
-                                  style: getCustomTextStyle(
+                                  style: getTextStyle(
                                     fontSize: 10,
                                     color: const Color.fromARGB(255, 0, 0, 0),
                                   ),
@@ -260,7 +260,7 @@ class WeatherCalendarCell extends StatelessWidget {
                               ),
                               child: Text(
                                 '+${sortedEvents.length - 3}',
-                                style: getCustomTextStyle(
+                                style: getTextStyle(
                                   fontSize: 10,
                                   color: const Color.fromARGB(135, 0, 0, 0),
                                 ),

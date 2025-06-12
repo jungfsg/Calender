@@ -10,17 +10,17 @@ TextStyle getTextStyle({required double fontSize, Color? color, String? text}) {
   );
 }
 
-// 이전 함수와 호환성을 위한 함수
-TextStyle getCustomTextStyle({
-  required double fontSize,
-  Color? color,
-  String? text,
-  FontWeight? fontWeight,
-}) {
-  return TextStyle(
-    fontFamily: 'KoreanFont', // 한글과 영어를 모두 지원하는 폰트로 통일
-    fontSize: fontSize * 1.3, // 일괄적으로 폰트 크기를 지정한대로 증가
-    color: color ?? Colors.black,
-    fontWeight: fontWeight,
-  );
-}
+// // 이전 함수와 호환성을 위한 함수
+// TextStyle getCustomTextStyle({
+//   required double fontSize,
+//   Color? color,
+//   String? text,
+//   FontWeight? fontWeight,
+// }) {
+//   return TextStyle(
+//     fontFamily: 'KoreanFont', // 한글과 영어를 모두 지원하는 폰트로 통일
+//     fontSize: fontSize * 1.3, // 일괄적으로 폰트 크기를 지정한대로 증가
+//     color: color ?? Colors.black,
+//     fontWeight: fontWeight,
+//   );
+// }

@@ -28,6 +28,34 @@ class EventStorageService {
     }
   }
 
+  // 날짜 범위의 모든 이벤트를 한번에 가져오기
+  static Future<List<Event>> getEventsForDateRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<Event> allEvents = [];
+
+    for (
+      DateTime date = startDate;
+      date.isBefore(endDate.add(Duration(days: 1)));
+      date = date.add(Duration(days: 1))
+    ) {
+      final dateKey = _getEventKey(date);
+      final eventStrings = prefs.getStringList(dateKey) ?? [];
+
+      try {
+        final events =
+            eventStrings.map((str) => Event.fromJson(jsonDecode(str))).toList();
+        allEvents.addAll(events);
+      } catch (e) {
+        print('날짜 $dateKey 이벤트 로드 실패: $e');
+      }
+    }
+
+    return allEvents;
+  }
+
   // 중복 이벤트 체크 헬퍼 메서드
   static bool _isEventDuplicate(Event existing, Event newEvent) {
     // 제목 정규화 (공백, 대소문자 무시)

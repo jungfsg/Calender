@@ -594,11 +594,9 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
                     Flexible(
                       child: Text(
                         _isMuted ? '음소거' : '음성 인식 중...',
-                        style: getCustomTextStyle(
+                        style: getTextStyle(
                           fontSize: 13,
                           color: _isMuted ? Colors.white : Colors.white70,
-                          fontWeight:
-                              _isMuted ? FontWeight.w500 : FontWeight.normal,
                         ),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
@@ -681,11 +679,7 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
             const SizedBox(width: 8),
             Text(
               '다시 시작',
-              style: getCustomTextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
+              style: getTextStyle(fontSize: 14, color: Colors.white),
             ),
           ],
         ),

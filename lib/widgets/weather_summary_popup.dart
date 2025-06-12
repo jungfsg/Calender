@@ -47,15 +47,11 @@ class WeatherSummaryPopup extends StatelessWidget {
                       children: [
                         Text(
                           '5일간 날씨 예보',
-                          style: getCustomTextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            text: '5일간 날씨 예보',
-                          ),
+                          style: getTextStyle(fontSize: 16, text: '5일간 날씨 예보'),
                         ),
                         Text(
                           '(정오 12:00 기준)',
-                          style: getCustomTextStyle(
+                          style: getTextStyle(
                             fontSize: 11,
                             color: Colors.grey[600]!,
                             text: '(정오 12:00 기준)',
@@ -95,7 +91,7 @@ class WeatherSummaryPopup extends StatelessWidget {
                   ),
                   child: Text(
                     '네이버 날씨에서 자세히 보기',
-                    style: getCustomTextStyle(
+                    style: getTextStyle(
                       fontSize: 12,
                       color: Colors.white,
                       text: '네이버 날씨에서 자세히 보기',
@@ -155,12 +151,7 @@ class WeatherSummaryPopup extends StatelessWidget {
             width: 80,
             child: Text(
               dateText,
-              style: getCustomTextStyle(
-                fontSize: 12,
-                fontWeight:
-                    isToday || isTomorrow ? FontWeight.bold : FontWeight.normal,
-                text: dateText,
-              ),
+              style: getTextStyle(fontSize: 12, text: dateText),
             ),
           ),
           // 날씨 아이콘
@@ -179,16 +170,15 @@ class WeatherSummaryPopup extends StatelessWidget {
               children: [
                 Text(
                   _getWeatherText(weather.condition),
-                  style: getCustomTextStyle(
+                  style: getTextStyle(
                     fontSize: 12,
                     text: _getWeatherText(weather.condition),
                   ),
                 ),
                 Text(
                   '${weather.temperature.toStringAsFixed(1)}°C',
-                  style: getCustomTextStyle(
+                  style: getTextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
                     text: '${weather.temperature.toStringAsFixed(1)}°C',
                   ),
                 ),

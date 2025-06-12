@@ -93,7 +93,7 @@ class EventManager {
     }
   }
 
-  /// 월 변경 시 호출되는 메서드 - 전체 월의 이벤트를 한번에 로드 (중복 방지)
+  /// 월 변경 시 호출되는 메서드 - 전체 월의 이벤트를 한번에 로드 (진짜 한번에)
   Future<void> loadEventsForMonth(DateTime month) async {
     try {
       print('📅 월별 이벤트 로딩 시작: ${month.year}년 ${month.month}월');
@@ -101,16 +101,72 @@ class EventManager {
       final firstDay = DateTime(month.year, month.month, 1);
       final lastDay = DateTime(month.year, month.month + 1, 0);
 
-      // 🔥 핵심: 해당 월의 모든 이벤트를 한번에 로드하되, 중복 방지
+      // 🔥 핵심: 전체 월의 모든 이벤트를 한 번의 쿼리로 가져오기
+      final allMonthEvents = await EventStorageService.getEventsForDateRange(
+        firstDay,
+        lastDay,
+      );
+
+      // 날짜별로 그룹핑
+      Map<DateTime, List<Event>> eventsByDate = {};
+
+      for (var event in allMonthEvents) {
+        final normalizedDate = DateTime(
+          event.date.year,
+          event.date.month,
+          event.date.day,
+        );
+        eventsByDate[normalizedDate] ??= [];
+        eventsByDate[normalizedDate]!.add(event);
+      }
+
+      // 각 날짜별로 캐시에 저장 및 색상 처리
       for (
         DateTime day = firstDay;
         day.isBefore(lastDay.add(Duration(days: 1)));
         day = day.add(Duration(days: 1))
       ) {
-        await loadEventsForDay(day);
+        final normalizedDay = DateTime(day.year, day.month, day.day);
+        final dayEvents = eventsByDate[normalizedDay] ?? [];
+
+        // 기존 이벤트 완전 교체
+        _controller.clearEventsForDay(normalizedDay);
+
+        // 새 이벤트들 추가 및 색상 처리
+        for (var event in dayEvents) {
+          _controller.addEvent(event);
+
+          // 색상이 없는 이벤트에 색상 할당
+          if (_controller.getEventIdColor(event.uniqueId) == null) {
+            Color eventColor;
+            if (event.source == 'holiday') {
+              eventColor = Colors.deepOrange;
+            } else if (event.source == 'google') {
+              if (event.colorId != null &&
+                  _controller.getColorIdColor(event.colorId!) != null) {
+                eventColor = _controller.getColorIdColor(event.colorId!)!;
+              } else {
+                eventColor = Colors.lightBlue;
+              }
+            } else {
+              eventColor =
+                  _standardColors[_random.nextInt(_standardColors.length)];
+            }
+
+            _controller.setEventIdColor(event.uniqueId, eventColor);
+
+            if (_controller.getEventColor(event.title) == null) {
+              _controller.setEventColor(event.title, eventColor);
+            }
+          }
+        }
+
+        _controller.setDateLoading(normalizedDay, false);
       }
 
-      print('✅ 월별 이벤트 로딩 완료: ${month.year}년 ${month.month}월');
+      print(
+        '✅ 월별 이벤트 로딩 완료: ${month.year}년 ${month.month}월 - 총 ${allMonthEvents.length}개 이벤트',
+      );
     } catch (e) {
       print('❌ 월별 이벤트 로딩 실패: $e');
     }
@@ -207,9 +263,15 @@ class EventManager {
   }
 
   /// 이벤트 수정
-  Future<void> updateEvent(Event originalEvent, Event updatedEvent, {bool syncWithGoogle = true}) async {
+  Future<void> updateEvent(
+    Event originalEvent,
+    Event updatedEvent, {
+    bool syncWithGoogle = true,
+  }) async {
     try {
-      print('🔄 EventManager: 이벤트 수정 시작 - ${originalEvent.title} -> ${updatedEvent.title}');
+      print(
+        '🔄 EventManager: 이벤트 수정 시작 - ${originalEvent.title} -> ${updatedEvent.title}',
+      );
 
       // 1. 원본 이벤트 삭제
       await EventStorageService.removeEvent(originalEvent.date, originalEvent);
@@ -701,9 +763,8 @@ class EventManager {
 
         // 중복이 아니면 Google Calendar에 업로드
         try {
-          final googleEventId = await _googleCalendarService.addEventToGoogleCalendar(
-            localEvent,
-          );
+          final googleEventId = await _googleCalendarService
+              .addEventToGoogleCalendar(localEvent);
           if (googleEventId != null) {
             print(
               '✅ 업로드 성공: ${localEvent.title} (${localEvent.date.toString().substring(0, 10)} ${localEvent.time})',
@@ -712,12 +773,19 @@ class EventManager {
 
             // 로컬 이벤트에 Google Event ID 저장
             try {
-              final updatedEvent = localEvent.copyWith(googleEventId: googleEventId);
-              await EventStorageService.removeEvent(localEvent.date, localEvent);
+              final updatedEvent = localEvent.copyWith(
+                googleEventId: googleEventId,
+              );
+              await EventStorageService.removeEvent(
+                localEvent.date,
+                localEvent,
+              );
               await EventStorageService.addEvent(localEvent.date, updatedEvent);
               _controller.removeEvent(localEvent);
               _controller.addEvent(updatedEvent);
-              print('🔗 Google Event ID 저장: ${localEvent.title} -> $googleEventId');
+              print(
+                '🔗 Google Event ID 저장: ${localEvent.title} -> $googleEventId',
+              );
             } catch (e) {
               print('⚠️ Google Event ID 저장 실패: $e');
             }
