@@ -100,8 +100,10 @@ class EventPopup extends StatelessWidget {
                   children: [
                     Text(
                       DateFormat('MM dd EEE').format(selectedDay),
-                      style: getTextStyle(fontSize: 16, color: const Color.fromARGB(255, 255, 255, 255)),
-                      
+                      style: getTextStyle(
+                        fontSize: 16,
+                        color: const Color.fromARGB(255, 255, 255, 255),
+                      ),
                     ),
                     GestureDetector(
                       onTap: onClose,
@@ -146,9 +148,10 @@ class EventPopup extends StatelessWidget {
                           width: 90,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
-                            event.hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
-                              ? '${event.time}-${event.endTime}'
-                              : event.time,
+                            event
+                                    .hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
+                                ? '${event.time}\n-${event.endTime}'
+                                : event.time,
                             style: getTextStyle(
                               fontSize: 12,
                               color: Colors.black,
@@ -165,16 +168,26 @@ class EventPopup extends StatelessWidget {
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             // 수정 버튼
                             if (onEditEvent != null)
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 20),
-                                onPressed: () => onEditEvent!(event),
-                              ), // 삭제 버튼
-                            IconButton(
-                              icon: const Icon(Icons.delete, size: 20),
-                              onPressed: () async {
+                              GestureDetector(
+                                onTap: () => onEditEvent!(event),
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  margin: const EdgeInsets.only(right: 4),
+                                  child: const Icon(
+                                    Icons.edit,
+                                    size: 20,
+                                    color: Color.fromARGB(180, 0, 0, 0),
+                                  ),
+                                ),
+                              ),
+                            // 삭제 버튼
+                            GestureDetector(
+                              onTap: () async {
                                 // 새로운 세련된 삭제 확인 다이얼로그
                                 bool? shouldDelete;
                                 if (popupManager != null) {
@@ -230,6 +243,16 @@ class EventPopup extends StatelessWidget {
                                   onDeleteEvent(event);
                                 }
                               },
+
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                child: const Icon(
+                                  Icons.delete,
+                                  size: 20,
+                                  color: Color.fromARGB(180, 0, 0, 0),
+                                ),
+                              ),
                             ),
                           ],
                         ),
