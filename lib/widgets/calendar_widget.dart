@@ -1,3 +1,4 @@
+// lib/widgets/calendar_widget.dart (최종 수정본 - TTS 의존성 전달)
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../controllers/calendar_controller.dart';
@@ -12,19 +13,18 @@ import '../widgets/common_navigation_bar.dart';
 import '../utils/font_utils.dart';
 import '../services/google_calendar_service.dart';
 import '../services/weather_service.dart';
-import '../services/stt_command_service.dart'; // 음성 명령 서비스 임포트
-import '../screens/chat_screen.dart'; // EmptyPage 추가
+import '../services/stt_command_service.dart';
+import '../screens/chat_screen.dart';
+import '../services/tts_service.dart'; // --- ★★★ 추가: TtsService 임포트 ★★★ ---
 
-/// 캘린더 위젯 - 순수 UI 컴포넌트
 class CalendarWidget extends StatefulWidget {
   final CalendarController controller;
   final EventManager eventManager;
   final PopupManager popupManager;
   final VoidCallback? onLogout;
-
-  // --- TTS 관련 추가 ---
-  final bool isTtsEnabled;
-  final ValueChanged<bool> onTtsToggle;
+  
+  // --- ★★★ 추가: TtsService 인스턴스를 전달받기 위한 변수 ★★★ ---
+  final TtsService ttsService;
 
   const CalendarWidget({
     super.key,
@@ -32,10 +32,7 @@ class CalendarWidget extends StatefulWidget {
     required this.eventManager,
     required this.popupManager,
     this.onLogout,
-
-    // --- TTS 관련 추가 ---
-    required this.isTtsEnabled,
-    required this.onTtsToggle,
+    required this.ttsService, // --- ★★★ 수정: 생성자에서 ttsService 필수로 받도록 변경 ★★★ ---
   });
 
   @override
@@ -46,6 +43,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   int _selectedIndex = 0;
   final CalendarFormat _calendarFormat = CalendarFormat.month;
   final GoogleCalendarService _googleCalendarService = GoogleCalendarService();
+
   @override
   void initState() {
     super.initState();
@@ -53,17 +51,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (기존 코드와 동일)
-    final DateTime firstDay = DateTime(
-      widget.controller.focusedDay.year,
-      widget.controller.focusedDay.month,
-      1,
-    );
-    final DateTime lastDay = DateTime(
-      widget.controller.focusedDay.year,
-      widget.controller.focusedDay.month + 1,
-      0,
-    );
+    final DateTime firstDay = DateTime(widget.controller.focusedDay.year, widget.controller.focusedDay.month, 1);
+    final DateTime lastDay = DateTime(widget.controller.focusedDay.year, widget.controller.focusedDay.month + 1, 0);
     final int firstWeekday = (firstDay.weekday % 7);
     final int lastDate = lastDay.day;
     final int totalWeeks = ((firstWeekday + lastDate) / 7).ceil();
@@ -97,36 +86,21 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         },
         onLogoutTap: widget.onLogout ?? () {},
         isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
-
-        // --- TTS 관련 속성 전달 ---
-        isTtsEnabled: widget.isTtsEnabled,
-        onTtsToggle: widget.onTtsToggle,
+        // --- ★★★ 삭제: isTtsEnabled, onTtsToggle 전달 코드 제거 ★★★ ---
       ),
       body: SafeArea(
-        // ... (이하 모든 코드는 기존과 동일)
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final availableHeight = constraints.maxHeight;
             const monthHeaderHeight = 65.0;
-            const dayOfWeekHeaderHeight = 33.0; // 요일 표시 영역의 높이
-            final weekHeight =
-                (availableHeight -
-                    monthHeaderHeight -
-                    dayOfWeekHeaderHeight -
-                    16.0) /
-                totalWeeks;
+            const dayOfWeekHeaderHeight = 33.0;
+            final weekHeight = (availableHeight - monthHeaderHeight - dayOfWeekHeaderHeight - 16.0) / totalWeeks;
 
             return Stack(
               children: [
-                // 캘린더 부분
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    3.0,
-                    0.0,
-                    3.0,
-                    0,
-                  ), // 달력 영역 패딩
+                  padding: const EdgeInsets.fromLTRB(3.0, 0.0, 3.0, 0),
                   child: Container(
                     color: Colors.white,
                     child: TableCalendar(
@@ -136,219 +110,64 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       calendarFormat: _calendarFormat,
                       daysOfWeekHeight: dayOfWeekHeaderHeight,
                       rowHeight: weekHeight,
-                      selectedDayPredicate: (day) {
-                        return isSameDay(widget.controller.selectedDay, day);
-                      },
-                      onDaySelected: (selectedDay, focusedDay) {
+                      selectedDayPredicate: (day) => isSameDay(widget.controller.selectedDay, day),
+                      onDaySelected: (selectedDay, focusedDay) async {
                         widget.controller.setSelectedDay(selectedDay);
                         widget.controller.setFocusedDay(focusedDay);
+                        if (widget.controller.shouldLoadEventsForDay(selectedDay)) {
+                          try {
+                            await widget.eventManager.loadEventsForDay(selectedDay);
+                          } catch (e) {
+                            print('❌ 날짜 선택 시 이벤트 로드 실패: $e');
+                          }
+                        }
                         widget.popupManager.showEventDialog();
                         setState(() {});
                       },
                       onPageChanged: (focusedDay) async {
-                        print(
-                          '📅 월 변경됨: ${focusedDay.year}년 ${focusedDay.month}월',
-                        );
                         widget.controller.setFocusedDay(focusedDay);
                         widget.controller.hideAllPopups();
-
-                        // 🔥 월 변경 시 해당 월의 이벤트만 로드 (중복 없이)
                         try {
-                          await widget.eventManager.loadEventsForMonth(
-                            focusedDay,
-                          );
+                          await widget.eventManager.loadEventsForMonth(focusedDay);
                         } catch (e) {
                           print('❌ 월 변경 시 이벤트 로드 실패: $e');
                         }
-
                         setState(() {});
                       },
-                      eventLoader:
-                          (day) =>
-                              widget.controller
-                                  .getEventsForDay(day)
-                                  .map((e) => e.title)
-                                  .toList(),
+                      eventLoader: (day) => widget.controller.getEventsForDay(day).map((e) => e.title).toList(),
                       startingDayOfWeek: StartingDayOfWeek.sunday,
-                      headerStyle: HeaderStyle(
-                        titleTextStyle: getTextStyle(
-                          fontSize: 12,
-                          color: Colors.black,
-                          text: '달력 제목',
-                        ),
-                        formatButtonVisible: false,
-                        leftChevronVisible: false,
-                        rightChevronVisible: false,
-                        headerMargin: const EdgeInsets.only(bottom: 8),
-                        headerPadding: const EdgeInsets.symmetric(vertical: 10),
-                        titleCentered: true,
-                      ),
-                      daysOfWeekStyle: DaysOfWeekStyle(
-                        weekdayStyle: getTextStyle(
-                          fontSize: 8,
-                          color: Colors.black,
-                          text: 'Mon',
-                        ),
-                        weekendStyle: getTextStyle(
-                          fontSize: 8,
-                          color: const Color.fromARGB(255, 54, 184, 244),
-                          text: 'Sat',
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEEEEEE),
-                          border: Border.all(color: Colors.black, width: 1),
-                        ),
-                      ),
-                      calendarStyle: CalendarStyle(
-                        defaultTextStyle: getTextStyle(
-                          fontSize: 8,
-                          color: Colors.black,
-                          text: '1',
-                        ),
-                        weekendTextStyle: getTextStyle(
-                          fontSize: 8,
-                          color: Colors.red,
-                          text: '1',
-                        ),
-                        selectedTextStyle: getTextStyle(
-                          fontSize: 8,
-                          color: Colors.white,
-                          text: '1',
-                        ),
-                        todayTextStyle: getTextStyle(
-                          fontSize: 8,
-                          color: Colors.black,
-                          text: '1',
-                        ),
-                        outsideTextStyle: getTextStyle(
-                          fontSize: 8,
-                          color: const Color(0xFF888888),
-                          text: '1',
-                        ),
-                        selectedDecoration: BoxDecoration(
-                          color: Colors.blue[800],
-                        ),
-                        todayDecoration: BoxDecoration(
-                          color: Colors.amber[300],
-                        ),
-                        defaultDecoration: const BoxDecoration(),
-                        weekendDecoration: const BoxDecoration(
-                          color: Color(0xFFEEEEEE),
-                        ),
-                        outsideDecoration: const BoxDecoration(
-                          color: Color(0xFFDDDDDD),
-                        ),
-                        tableBorder: TableBorder.all(
-                          color: const Color.fromARGB(24, 0, 0, 0),
-                          width: 1,
-                        ),
-                        markersMaxCount: 6,
-                        markersAlignment: Alignment.bottomCenter,
-                        markerMargin: const EdgeInsets.only(top: 2),
-                        markerDecoration: const BoxDecoration(
-                          color: Colors.transparent,
-                        ),
-                        markerSize: 0,
-                      ),
+                      headerStyle: HeaderStyle(titleTextStyle: getTextStyle(fontSize: 12, color: Colors.black, text: '달력 제목'), formatButtonVisible: false, leftChevronVisible: false, rightChevronVisible: false, headerMargin: const EdgeInsets.only(bottom: 8), headerPadding: const EdgeInsets.symmetric(vertical: 10), titleCentered: true),
+                      daysOfWeekStyle: DaysOfWeekStyle(weekdayStyle: getTextStyle(fontSize: 8, color: Colors.black, text: 'Mon'), weekendStyle: getTextStyle(fontSize: 8, color: const Color.fromARGB(255, 54, 184, 244), text: 'Sat'), decoration: BoxDecoration(color: const Color(0xFFEEEEEE), border: Border.all(color: Colors.black, width: 1))),
+                      calendarStyle: CalendarStyle(defaultTextStyle: getTextStyle(fontSize: 8, color: Colors.black, text: '1'), weekendTextStyle: getTextStyle(fontSize: 8, color: Colors.red, text: '1'), selectedTextStyle: getTextStyle(fontSize: 8, color: Colors.white, text: '1'), todayTextStyle: getTextStyle(fontSize: 8, color: Colors.black, text: '1'), outsideTextStyle: getTextStyle(fontSize: 8, color: const Color(0xFF888888), text: '1'), selectedDecoration: BoxDecoration(color: Colors.blue[800]), todayDecoration: BoxDecoration(color: Colors.amber[300]), defaultDecoration: const BoxDecoration(), weekendDecoration: const BoxDecoration(color: Color(0xFFEEEEEE)), outsideDecoration: const BoxDecoration(color: Color(0xFFDDDDDD)), tableBorder: TableBorder.all(color: const Color.fromARGB(24, 0, 0, 0), width: 1), markersMaxCount: 6, markersAlignment: Alignment.bottomCenter, markerMargin: const EdgeInsets.only(top: 2), markerDecoration: const BoxDecoration(color: Colors.transparent), markerSize: 0),
                       calendarBuilders: CalendarBuilders(
-                        // 기본 셀 빌더
-                        defaultBuilder: (context, day, focusedDay) {
-                          return WeatherCalendarCell(
-                            day: day,
-                            isSelected: false,
-                            isToday: false,
-                            onTap: () async {
-                              widget.controller.setSelectedDay(day);
-                              widget.controller.setFocusedDay(focusedDay);
-
-                              // 🔥 날짜 선택 시에도 중복 로드 방지
-                              if (widget.controller.shouldLoadEventsForDay(
-                                day,
-                              )) {
-                                try {
-                                  await widget.eventManager.loadEventsForDay(
-                                    day,
-                                  );
-                                } catch (e) {
-                                  print('❌ 날짜 선택 시 이벤트 로드 실패: $e');
-                                }
-                              }
-                              widget.popupManager.showEventDialog();
-                              setState(() {});
-                            },
-                            events: widget.controller.getEventsForDay(day),
-                            eventColors: widget.controller.eventColors,
-                            eventIdColors: widget.controller.eventIdColors,
-                            colorIdColors: widget.controller.colorIdColors,
-                            weatherInfo: widget.controller.getWeatherForDay(
-                              day,
-                            ),
-                          );
-                        },
-                        // 선택된 날짜 셀 빌더
-                        selectedBuilder: (context, day, focusedDay) {
-                          return WeatherCalendarCell(
-                            day: day,
-                            isSelected: true,
-                            isToday: false,
-                            onTap: () {
-                              widget.popupManager.showEventDialog();
-                              setState(() {});
-                            },
-                            events: widget.controller.getEventsForDay(day),
-                            eventColors: widget.controller.eventColors,
-                            eventIdColors: widget.controller.eventIdColors,
-                            colorIdColors: widget.controller.colorIdColors,
-                            weatherInfo: widget.controller.getWeatherForDay(
-                              day,
-                            ),
-                          );
-                        }, // 오늘 날짜 셀 빌더
-                        todayBuilder: (context, day, focusedDay) {
-                          return WeatherCalendarCell(
-                            day: day,
-                            isSelected: false,
-                            isToday: true,
-                            onTap: () async {
-                              widget.controller.setSelectedDay(day);
-                              widget.controller.setFocusedDay(focusedDay);
-
-                              // 🔥 날짜 선택 시에도 중복 로드 방지
-                              if (widget.controller.shouldLoadEventsForDay(
-                                day,
-                              )) {
-                                try {
-                                  await widget.eventManager.loadEventsForDay(
-                                    day,
-                                  );
-                                } catch (e) {
-                                  print('❌ 오늘 날짜 선택 시 이벤트 로드 실패: $e');
-                                }
-                              }
-
-                              widget.popupManager.showEventDialog();
-                              setState(() {});
-                            },
-                            events: widget.controller.getEventsForDay(day),
-                            eventColors: widget.controller.eventColors,
-                            eventIdColors: widget.controller.eventIdColors,
-                            colorIdColors: widget.controller.colorIdColors,
-                            weatherInfo: widget.controller.getWeatherForDay(
-                              day,
-                            ),
-                          );
-                        },
-                        // 요일 헤더 빌더
+                        defaultBuilder: (context, day, focusedDay) => WeatherCalendarCell(day: day, isSelected: false, isToday: false, onTap: () async {
+                          widget.controller.setSelectedDay(day);
+                          widget.controller.setFocusedDay(focusedDay);
+                          if (widget.controller.shouldLoadEventsForDay(day)) {
+                            try {
+                              await widget.eventManager.loadEventsForDay(day);
+                            } catch (e) { print('❌ 날짜 선택 시 이벤트 로드 실패: $e'); }
+                          }
+                          widget.popupManager.showEventDialog();
+                          setState(() {});
+                        }, events: widget.controller.getEventsForDay(day), eventColors: widget.controller.eventColors, eventIdColors: widget.controller.eventIdColors, colorIdColors: widget.controller.colorIdColors, weatherInfo: widget.controller.getWeatherForDay(day)),
+                        selectedBuilder: (context, day, focusedDay) => WeatherCalendarCell(day: day, isSelected: true, isToday: false, onTap: () {
+                          widget.popupManager.showEventDialog();
+                          setState(() {});
+                        }, events: widget.controller.getEventsForDay(day), eventColors: widget.controller.eventColors, eventIdColors: widget.controller.eventIdColors, colorIdColors: widget.controller.colorIdColors, weatherInfo: widget.controller.getWeatherForDay(day)),
+                        todayBuilder: (context, day, focusedDay) => WeatherCalendarCell(day: day, isSelected: false, isToday: true, onTap: () async {
+                          widget.controller.setSelectedDay(day);
+                          widget.controller.setFocusedDay(focusedDay);
+                          if (widget.controller.shouldLoadEventsForDay(day)) {
+                            try {
+                              await widget.eventManager.loadEventsForDay(day);
+                            } catch (e) { print('❌ 오늘 날짜 선택 시 이벤트 로드 실패: $e'); }
+                          }
+                          widget.popupManager.showEventDialog();
+                          setState(() {});
+                        }, events: widget.controller.getEventsForDay(day), eventColors: widget.controller.eventColors, eventIdColors: widget.controller.eventIdColors, colorIdColors: widget.controller.colorIdColors, weatherInfo: widget.controller.getWeatherForDay(day)),
                         dowBuilder: (context, day) {
-                          final weekdayNames = [
-                            '월',
-                            '화',
-                            '수',
-                            '목',
-                            '금',
-                            '토',
-                            '일',
-                          ];
+                          final weekdayNames = ['월', '화', '수', '목', '금', '토', '일'];
                           final weekdayIndex = day.weekday - 1;
                           Color textColor;
                           if (day.weekday == DateTime.saturday) {
@@ -358,151 +177,43 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                           } else {
                             textColor = Colors.black;
                           }
-                          return Container(
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEEEEEE),
-                            ),
-                            alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Text(
-                              weekdayNames[weekdayIndex],
-                              style: getTextStyle(
-                                fontSize: 12,
-                                color: textColor,
-                                text: weekdayNames[weekdayIndex],
-                              ),
-                            ),
-                          );
+                          return Container(decoration: const BoxDecoration(color: Color(0xFFEEEEEE)), alignment: Alignment.center, padding: const EdgeInsets.symmetric(vertical: 8.0), child: Text(weekdayNames[weekdayIndex], style: getTextStyle(fontSize: 12, color: textColor, text: weekdayNames[weekdayIndex])));
                         },
-                        // 헤더 타이틀 빌더
                         headerTitleBuilder: (context, month) {
-                          final monthNames = [
-                            '1월',
-                            '2월',
-                            '3월',
-                            '4월',
-                            '5월',
-                            '6월',
-                            '7월',
-                            '8월',
-                            '9월',
-                            '10월',
-                            '11월',
-                            '12월',
-                          ];
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // 햄버거 메뉴 아이콘 추가
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.menu,
-                                  color: Colors.black,
-                                ),
-                                onPressed: () {
-                                  Scaffold.of(context).openDrawer();
-                                },
-                              ), // 연/월 표시
-                              Expanded(
-                                child: Center(
-                                  child: Text(
-                                    '${month.year}년 ${monthNames[month.month - 1]}',
-                                    style: getTextStyle(
-                                      fontSize: 16,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // 여백을 위한 투명한 아이콘
-                              const IconButton(
-                                icon: Icon(
-                                  Icons.calendar_today,
-                                  color: Colors.transparent,
-                                ),
-                                onPressed: null,
-                              ),
-                            ],
-                          );
+                          final monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+                          return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [IconButton(icon: const Icon(Icons.menu, color: Colors.black), onPressed: () => Scaffold.of(context).openDrawer()), Expanded(child: Center(child: Text('${month.year}년 ${monthNames[month.month - 1]}', style: getTextStyle(fontSize: 16, color: Colors.black)))), const IconButton(icon: Icon(Icons.calendar_today, color: Colors.transparent), onPressed: null)]);
                         },
                       ),
                     ),
                   ),
-                ), // 이벤트 팝업 오버레이
+                ),
                 if (widget.controller.showEventPopup)
-                  EventPopup(
-                    selectedDay: widget.controller.selectedDay,
-                    events: widget.controller.getEventsForDay(
-                      widget.controller.selectedDay,
-                    ),
-                    eventColors: widget.controller.eventColors,
-                    eventIdColors: widget.controller.eventIdColors,
-                    colorIdColors: widget.controller.colorIdColors,
-                    getEventDisplayColor:
-                        (event) =>
-                            widget.controller.getEventDisplayColor(event),
-                    popupManager: widget.popupManager, // PopupManager 전달
-                    onClose: () {
-                      widget.popupManager.hideEventDialog();
-                      setState(() {});
-                    },
-                    onAddEvent: () {
-                      widget.popupManager.showAddEventDialog(context).then((_) {
-                        setState(() {});
-                      });
-                    },
-                    onEditEvent: (event) {
-                      widget.popupManager
-                          .showEditEventDialog(context, event)
-                          .then((_) {
-                            setState(() {});
-                          });
-                    },
-                    onDeleteEvent: (event) async {
-                      await widget.eventManager.removeEvent(event);
-                      setState(() {});
-                    },
-                  ),
-
-                // 날씨 예보 팝업 오버레이
+                  EventPopup(selectedDay: widget.controller.selectedDay, events: widget.controller.getEventsForDay(widget.controller.selectedDay), eventColors: widget.controller.eventColors, eventIdColors: widget.controller.eventIdColors, colorIdColors: widget.controller.colorIdColors, getEventDisplayColor: (event) => widget.controller.getEventDisplayColor(event), popupManager: widget.popupManager, onClose: () {
+                    widget.popupManager.hideEventDialog();
+                    setState(() {});
+                  }, onAddEvent: () {
+                    widget.popupManager.showAddEventDialog(context).then((_) => setState(() {}));
+                  }, onEditEvent: (event) {
+                    widget.popupManager.showEditEventDialog(context, event).then((_) => setState(() {}));
+                  }, onDeleteEvent: (event) async {
+                    await widget.eventManager.removeEvent(event);
+                    setState(() {});
+                  }),
                 if (widget.controller.showWeatherPopup)
                   FutureBuilder<List<WeatherInfo>>(
                     future: WeatherService.get5DayForecast(),
                     builder: (context, snapshot) {
-                      // 로딩 중일 때 로딩 인디케이터 표시
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: SizedBox(
-                            width: 200,
-                            height: 200,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 16),
-                                Text(
-                                  '날씨 정보를 불러오는 중...',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
+                        return const Center(child: SizedBox(width: 200, height: 200, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('날씨 정보를 불러오는 중...', style: TextStyle(fontSize: 16))])));
                       }
-
-                      // 데이터가 로드되었으면 팝업 표시 (5일치만 제한)
                       List<WeatherInfo> weatherList = snapshot.data ?? [];
                       if (weatherList.length > 5) {
                         weatherList = weatherList.take(5).toList();
                       }
-
-                      return WeatherSummaryPopup(
-                        weatherList: weatherList,
-                        onClose: () {
-                          widget.popupManager.hideWeatherForecastDialog();
-                          setState(() {});
-                        },
-                      );
+                      return WeatherSummaryPopup(weatherList: weatherList, onClose: () {
+                        widget.popupManager.hideWeatherForecastDialog();
+                        setState(() {});
+                      });
                     },
                   ),
               ],
@@ -510,8 +221,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
           },
         ),
       ),
-
-      // 네비게이션 바
       bottomNavigationBar: CommonNavigationBar(
         selectedIndex: _selectedIndex,
         onItemTapped: _onItemTapped,
@@ -519,49 +228,40 @@ class _CalendarWidgetState extends State<CalendarWidget> {
     );
   }
 
-  /// 네비게이션 바 아이템 탭 처리
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
 
     switch (index) {
-      case 0: // 캘린더 - 현재 화면이므로 아무 작업 없음
+      case 0:
         break;
-      case 1: // 마이크 버튼 - STT 실행
+      case 1:
         _showVoiceInput();
         break;
-      case 2: // 채팅 화면 - EmptyPage로 이동
-        _navigateToEmptyPage();
+      case 2:
+        _navigateToChatScreen();
         break;
     }
   }
 
-  /// EmptyPage로 이동
-  void _navigateToEmptyPage() async {
+  void _navigateToChatScreen() async {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (context) => EmptyPage(
-              onCalendarUpdate: () {
-                // 채팅에서 캘린더가 업데이트되면 화면 갱신
-                widget.eventManager.refreshCurrentMonthEvents();
-                setState(() {});
-              },
-              eventManager:
-                  widget
-                      .eventManager, // EventManager 전달하여 Google Calendar 동기화 활성화
-            ),
+        builder: (context) => ChatScreen(
+          onCalendarUpdate: () {
+            widget.eventManager.refreshCurrentMonthEvents();
+            setState(() {});
+          },
+          eventManager: widget.eventManager,
+        ),
       ),
-    ); // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
+    );
     if (result != null && result['refreshNavigation'] == true) {
       setState(() {
-        _selectedIndex = 0; // 캘린더 탭으로 리셋
+        _selectedIndex = 0;
       });
-
-      // 음성 인식 UI 표시가 요청된 경우
       if (result['showVoiceInput'] == true) {
-        // 약간의 딜레이 후 음성 인식 UI 표시 (화면 전환 완료 후)
         Future.delayed(const Duration(milliseconds: 100), () {
           _showVoiceInput();
         });
@@ -569,65 +269,37 @@ class _CalendarWidgetState extends State<CalendarWidget> {
     }
   }
 
-  /// 스낵바 표시
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// 음성 입력 다이얼로그 표시
   void _showVoiceInput() {
     VoiceCommandService.instance.showVoiceInput(
       context: context,
-      eventManager: widget.eventManager, // EventManager 전달
+      eventManager: widget.eventManager,
+      // --- ★★★ 추가: ttsService 인스턴스 전달 ★★★ ---
+      ttsService: widget.ttsService,
       onCommandProcessed: _handleVoiceCommandResponse,
       onCalendarUpdate: () async {
         print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음');
-
-        // 현재 선택된 날짜의 이벤트 강제 새로고침
-        await widget.eventManager.loadEventsForDay(
-          widget.controller.selectedDay,
-          forceRefresh: true,
-        );
-
-        // 월 전체 이벤트도 새로고침 (백그라운드로 처리)
+        await widget.eventManager.loadEventsForDay(widget.controller.selectedDay, forceRefresh: true);
         widget.eventManager.refreshCurrentMonthEvents().then((_) {
           print('🔄 월 전체 이벤트 새로고침 완료');
         });
-
-        // UI 새로고침
         setState(() {});
       },
     );
   }
 
-  /// 음성 명령 처리 결과에 따른 액션
   void _handleVoiceCommandResponse(String response, String command) {
     print('🎤 CalendarWidget: STT 명령 처리 - 명령: "$command", 응답: "$response"');
-
-    // 스낵바로 응답 표시
     _showSnackBar(response);
-
-    // 캘린더 관련 명령어 처리
-    VoiceCommandService.instance.processCalendarCommand(
-      command,
-      widget.controller,
-      widget.popupManager,
-      widget.eventManager,
-      () => setState(() {}),
-    );
-
-    // 모든 음성 명령 후 항상 화면 갱신 및 이벤트 새로고침 - 일정 추가 누락 문제 해결
+    VoiceCommandService.instance.processCalendarCommand(command, widget.controller, widget.popupManager, widget.eventManager, () => setState(() {}));
     print('🔄 음성 명령 후 이벤트 강제 새로고침');
     widget.eventManager.refreshCurrentMonthEvents().then((_) {
-      // 현재 선택된 날짜의 이벤트도 강제 갱신
-      widget.eventManager
-          .loadEventsForDay(widget.controller.selectedDay, forceRefresh: true)
-          .then((_) {
-            // UI 갱신
-            setState(() {});
-          });
+      widget.eventManager.loadEventsForDay(widget.controller.selectedDay, forceRefresh: true).then((_) {
+        setState(() {});
+      });
     });
   }
 }

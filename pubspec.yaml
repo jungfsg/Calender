@@ -66,6 +66,7 @@ dependencies:
   gal: ^2.3.1
   flutter_tts: ^4.2.3
   pulsator: ^1.0.0+2
+  audioplayers: ^6.4.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
