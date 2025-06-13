@@ -13,7 +13,7 @@ import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
 
 // --- ★★★ 삭제: TTS 서비스 임포트 제거 ★★★ ---
-// import '../services/tts_service.dart'; 
+// import '../services/tts_service.dart';
 
 // --- ★★★ 수정: 클래스 이름을 파일명과 일치시켜 명확성 향상 ★★★ ---
 class ChatScreen extends StatefulWidget {
@@ -39,7 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
   );
   bool _isLoading = false;
   int _selectedIndex = 2;
-  
+
   final TextEditingController _chatInputController = TextEditingController();
 
   @override
@@ -49,6 +49,51 @@ class _ChatScreenState extends State<ChatScreen> {
     _addSystemMessage(initialMessage);
     // --- ★★★ 삭제: 초기 메시지 TTS 호출 제거 ★★★ ---
     // TtsService.instance.speak(initialMessage);
+  }
+
+  // OCR 텍스트를 일정 추가 요청으로 가공하는 함수
+  String _enhanceOcrTextForSchedule(String ocrText) {
+    // OCR 텍스트가 비어있으면 그대로 반환
+    if (ocrText.trim().isEmpty) return ocrText;
+
+    // 이미 일정 추가 요청 형태면 그대로 반환
+    if (ocrText.contains('일정') ||
+        ocrText.contains('추가') ||
+        ocrText.contains('등록')) {
+      return ocrText;
+    }
+
+    // 날짜/시간 키워드가 있으면 일정으로 판단
+    final scheduleKeywords = [
+      '일',
+      '월',
+      '년',
+      '시',
+      '분',
+      '오전',
+      '오후',
+      '날짜',
+      '시간',
+      '회의',
+      '모임',
+      '파티',
+      '약속',
+      '미팅',
+      '세미나',
+      '워크샵',
+      '이벤트',
+    ];
+
+    final hasScheduleInfo = scheduleKeywords.any(
+      (keyword) => ocrText.contains(keyword),
+    );
+
+    if (hasScheduleInfo) {
+      return "다음 내용으로 일정을 추가해줘:\n\n$ocrText";
+    }
+
+    // 일정 정보가 없어 보이면 그냥 질문으로 처리
+    return ocrText;
   }
 
   void _addSystemMessage(String text) {
@@ -162,7 +207,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
         try {
           final inputImage = InputImage.fromFilePath(imageFile.path);
-          final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
+          final RecognizedText recognizedText = await _textRecognizer
+              .processImage(inputImage);
           if (recognizedText.text.isNotEmpty) {
             final textMessage = types.TextMessage(
               author: _user,
@@ -172,10 +218,15 @@ class _ChatScreenState extends State<ChatScreen> {
             );
             setState(() {
               _messages.insert(0, textMessage);
-            });
+            }); // OCR 텍스트를 일정 추가 요청으로 가공
+            final enhancedText = _enhanceOcrTextForSchedule(
+              recognizedText.text,
+            );
+            print('🔤 OCR 원본 텍스트: ${recognizedText.text}');
+            print('🎯 가공된 텍스트: $enhancedText');
 
             final botResponse = await _chatService.sendMessage(
-              recognizedText.text,
+              enhancedText,
               _user.id,
               onCalendarUpdate: () {
                 print('🎉 캘린더 업데이트 콜백이 호출되었습니다! (OCR)');
@@ -192,7 +243,10 @@ class _ChatScreenState extends State<ChatScreen> {
             // --- ★★★ 삭제: OCR 결과 TTS 호출 제거 ★★★ ---
             // TtsService.instance.speak(botResponse.text);
           } else {
-            await _handleImageUpload(imageFile);
+            setState(() {
+              _isLoading = false;
+            });
+            _addSystemMessage('이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.');
           }
         } catch (e) {
           setState(() {
@@ -207,9 +261,9 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       print('카메라 촬영 중 오류 발생: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('카메라 촬영 중 오류가 발생했습니다: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('카메라 촬영 중 오류가 발생했습니다: $e')));
       }
     }
   }
@@ -235,25 +289,56 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      if (!mounted) return;
-      final botResponse = await _chatService.sendImage(imageFile, _user.id);
+      // 갤러리 이미지도 OCR 처리
+      final inputImage = InputImage.fromFilePath(imageFile.path);
+      final RecognizedText recognizedText = await _textRecognizer.processImage(
+        inputImage,
+      );
 
-      if (!mounted) return;
-      setState(() {
-        _messages.insert(0, botResponse);
-        _isLoading = false;
-      });
-      // --- ★★★ 삭제: 이미지 업로드 결과 TTS 호출 제거 ★★★ ---
-      // TtsService.instance.speak(botResponse.text);
+      if (recognizedText.text.isNotEmpty) {
+        final textMessage = types.TextMessage(
+          author: _user,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          id: _uuid.v4(),
+          text: recognizedText.text,
+        );
+        setState(() {
+          _messages.insert(0, textMessage);
+        });
+
+        // OCR 텍스트를 일정 추가 요청으로 가공
+        final enhancedText = _enhanceOcrTextForSchedule(recognizedText.text);
+        print('🔤 갤러리 OCR 원본 텍스트: ${recognizedText.text}');
+        print('🎯 갤러리 가공된 텍스트: $enhancedText');
+
+        final botResponse = await _chatService.sendMessage(
+          enhancedText,
+          _user.id,
+          onCalendarUpdate: () {
+            print('🎉 캘린더 업데이트 콜백이 호출되었습니다! (갤러리 OCR)');
+            _showCalendarUpdateNotification();
+            widget.onCalendarUpdate?.call();
+          },
+          eventManager: widget.eventManager,
+        );
+
+        setState(() {
+          _messages.insert(0, botResponse);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        _addSystemMessage('이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.');
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
-      final errorMessage = '죄송합니다. 이미지 전송 중 오류가 발생했습니다: $e';
+      final errorMessage = '이미지 처리 중 오류가 발생했습니다: $e';
       _addSystemMessage(errorMessage);
-      // --- ★★★ 삭제: 에러 메시지 TTS 호출 제거 ★★★ ---
-      // TtsService.instance.speak(errorMessage);
     }
   }
 
@@ -315,7 +400,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (index == 0) {
       Navigator.of(context).pop({'refreshNavigation': true});
     } else if (index == 1) {
-      Navigator.of(context).pop({'refreshNavigation': true, 'showVoiceInput': true});
+      Navigator.of(
+        context,
+      ).pop({'refreshNavigation': true, 'showVoiceInput': true});
     } else {
       setState(() {
         _selectedIndex = index;
@@ -424,12 +511,36 @@ class _ChatScreenState extends State<ChatScreen> {
                   inputBackgroundColor: Colors.black12,
                   backgroundColor: Colors.white,
                   inputTextColor: Colors.black,
-                  sentMessageBodyTextStyle: getTextStyle(fontSize: 16, color: Colors.white, text: '보낸 메시지'),
-                  receivedMessageBodyTextStyle: getTextStyle(fontSize: 16, color: Colors.black, text: '받은 메시지'),
-                  inputTextStyle: getTextStyle(fontSize: 14, color: Colors.black, text: '메시지 입력'),
-                  emptyChatPlaceholderTextStyle: getTextStyle(fontSize: 14, color: Colors.grey, text: '메시지가 없습니다'),
-                  userNameTextStyle: getTextStyle(fontSize: 12, color: Colors.grey[700], text: '사용자 이름'),
-                  dateDividerTextStyle: getTextStyle(fontSize: 12, color: Colors.grey[600], text: '날짜 구분선'),
+                  sentMessageBodyTextStyle: getTextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    text: '보낸 메시지',
+                  ),
+                  receivedMessageBodyTextStyle: getTextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                    text: '받은 메시지',
+                  ),
+                  inputTextStyle: getTextStyle(
+                    fontSize: 14,
+                    color: Colors.black,
+                    text: '메시지 입력',
+                  ),
+                  emptyChatPlaceholderTextStyle: getTextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    text: '메시지가 없습니다',
+                  ),
+                  userNameTextStyle: getTextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                    text: '사용자 이름',
+                  ),
+                  dateDividerTextStyle: getTextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    text: '날짜 구분선',
+                  ),
                 ),
                 l10n: const ChatL10nKo(),
               ),
