@@ -38,19 +38,14 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
   // 음소거 상태 추적
   bool _isMuted = false;
   // 자동 일시정지 상태 추적 (무음 시간 제한에 의한 일시정지)
-  bool _isAutoPaused = false;
-  // 파형 애니메이션을 위한 컨트롤러들
+  bool _isAutoPaused = false; // 파형 애니메이션을 위한 컨트롤러들
   late AnimationController _rotationController;
   late AnimationController _pulseController;
   late AnimationController _particleController;
   late AnimationController _colorChangeController;
 
-  // 텍스트 인식 후 전송 버튼을 표시하기까지의 지연 시간 (초)
-  final int _delayBeforeSendButton = 3; // 3초 후 전송 버튼 표시
   // 전송 버튼 표시 여부
   bool _showSendButton = false;
-  // 타이머
-  Timer? _sendButtonTimer;
 
   // 명령 처리 결과를 저장할 변수 추가
   String _commandResponse = '';
@@ -91,23 +86,8 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
               if (mounted) {
                 setState(() {
                   _recognizedText = text;
-
-                  // 타이머 취소 후 새로 시작
-                  _sendButtonTimer?.cancel();
-                  _showSendButton =
-                      false; // 타이머 설정 - 마지막 텍스트 인식 후 지연 시간 이후에 전송 버튼 표시
-                  if (text.isNotEmpty) {
-                    _sendButtonTimer = Timer(
-                      Duration(seconds: _delayBeforeSendButton),
-                      () {
-                        if (mounted) {
-                          setState(() {
-                            _showSendButton = true;
-                          });
-                        }
-                      },
-                    );
-                  }
+                  // 텍스트가 있을 때만 전송 버튼 표시 (지연 없이 바로 표시)
+                  _showSendButton = text.isNotEmpty;
                 });
               }
             },
@@ -125,9 +105,6 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
     _pulseController.dispose();
     _particleController.dispose();
     _colorChangeController.dispose(); // 색상 변경 컨트롤러 dispose
-
-    // 타이머 취소
-    _sendButtonTimer?.cancel();
 
     // 모든 콜백을 null로 설정하여 dispose 후 호출 방지
     _speechService.onTextChanged = null;
@@ -242,22 +219,8 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
             if (mounted) {
               setState(() {
                 _recognizedText = text;
-
-                // 타이머 취소 후 새로 시작
-                _sendButtonTimer?.cancel();
-                _showSendButton = false;
-                if (text.isNotEmpty) {
-                  _sendButtonTimer = Timer(
-                    Duration(seconds: _delayBeforeSendButton),
-                    () {
-                      if (mounted) {
-                        setState(() {
-                          _showSendButton = true;
-                        });
-                      }
-                    },
-                  );
-                }
+                // 텍스트가 있을 때만 전송 버튼 표시 (지연 없이 바로 표시)
+                _showSendButton = text.isNotEmpty;
               });
             }
           },
