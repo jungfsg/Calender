@@ -202,11 +202,24 @@ class EventPopup extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        title: Text(
-                          '$categoryName\n${event.title} ',
-                          style: getTextStyle(
-                            fontSize: 12,
-                            color: Colors.black,
+                        title: RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '$categoryName\n',
+                                style: getTextStyle(
+                                  fontSize: 12,
+                                  color: const Color.fromARGB(149, 0, 0, 0),
+                                ),
+                              ),
+                              TextSpan(
+                                text: event.title,
+                                style: getTextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         trailing: Row(

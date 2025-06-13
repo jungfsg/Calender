@@ -338,7 +338,7 @@ class PopupManager {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          // 반복 옵션 섹션
+                          // 반복 옵션 섹션: 새 일정 추가
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -954,7 +954,7 @@ class PopupManager {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          // 반복 옵션 섹션
+                          // 반복 옵션 섹션: 일정 수정
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -971,7 +971,7 @@ class PopupManager {
                                         label: Text(
                                           recurrence.label,
                                           style: getTextStyle(
-                                            fontSize: 14,
+                                            fontSize: 12,
                                             color: Colors.black87,
                                           ),
                                         ),
@@ -1209,7 +1209,7 @@ class PopupManager {
                                   '수정',
                                   style: getTextStyle(
                                     color: Colors.white,
-                                    fontSize: 10,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),

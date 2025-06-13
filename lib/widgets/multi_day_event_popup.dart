@@ -48,7 +48,9 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
     } else {
       // 새로 생성 모드
       _startDate = widget.initialDate ?? DateTime.now();
-      _endDate = (widget.initialDate ?? DateTime.now()).add(const Duration(days: 1));
+      _endDate = (widget.initialDate ?? DateTime.now()).add(
+        const Duration(days: 1),
+      );
     }
   }
 
@@ -94,15 +96,16 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
   Future<void> _selectColor() async {
     await showDialog(
       context: context,
-      builder: (context) => ColorPickerDialog(
-        initialColorId: _selectedColorId,
-        onColorSelected: (colorId) {
-          setState(() {
-            _selectedColorId = colorId;
-            _selectedColor = _getColorByColorId(colorId);
-          });
-        },
-      ),
+      builder:
+          (context) => ColorPickerDialog(
+            initialColorId: _selectedColorId,
+            onColorSelected: (colorId) {
+              setState(() {
+                _selectedColorId = colorId;
+                _selectedColor = _getColorByColorId(colorId);
+              });
+            },
+          ),
     );
   }
 
@@ -126,16 +129,16 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
 
   void _saveEvent() {
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('제목을 입력해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('제목을 입력해주세요.')));
       return;
     }
 
     if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('시작 날짜와 종료 날짜를 선택해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('시작 날짜와 종료 날짜를 선택해주세요.')));
       return;
     }
 
@@ -191,10 +194,7 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                   children: [
                     Text(
                       widget.editingEvent != null ? '며칠 일정 수정' : '며칠 일정 추가',
-                      style: getTextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                      ),
+                      style: getTextStyle(fontSize: 18, color: Colors.white),
                     ),
                     GestureDetector(
                       onTap: widget.onClose,
@@ -219,7 +219,7 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                   ],
                 ),
               ),
-              
+
               // 내용
               Expanded(
                 child: Padding(
@@ -241,10 +241,54 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                         ),
                         style: getTextStyle(fontSize: 14, color: Colors.black),
                       ),
-                      
-                      const SizedBox(height: 20),
-                      
+
+                      Spacer(),
+
+                      // 색상 선택
+                      Material(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _selectColor,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12.0,
+                              horizontal: 16.0,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.color_lens),
+                                const SizedBox(width: 12),
+                                Text(
+                                  '색상 선택',
+                                  style: getTextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: _selectedColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.grey,
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward_ios, size: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       // 날짜 선택
+                      Spacer(),
                       Row(
                         children: [
                           Expanded(
@@ -253,7 +297,10 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                               children: [
                                 Text(
                                   '시작 날짜',
-                                  style: getTextStyle(fontSize: 16, color: Colors.black),
+                                  style: getTextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 GestureDetector(
@@ -267,25 +314,33 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                     ),
                                     child: Text(
                                       _startDate != null
-                                          ? DateFormat('yyyy-MM-dd').format(_startDate!)
+                                          ? DateFormat(
+                                            'yyyy-MM-dd',
+                                          ).format(_startDate!)
                                           : '날짜 선택',
-                                      style: getTextStyle(fontSize: 14, color: Colors.black),
+                                      style: getTextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          
+
                           const SizedBox(width: 16),
-                          
+
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   '종료 날짜',
-                                  style: getTextStyle(fontSize: 16, color: Colors.black),
+                                  style: getTextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 GestureDetector(
@@ -299,9 +354,14 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                     ),
                                     child: Text(
                                       _endDate != null
-                                          ? DateFormat('yyyy-MM-dd').format(_endDate!)
+                                          ? DateFormat(
+                                            'yyyy-MM-dd',
+                                          ).format(_endDate!)
                                           : '날짜 선택',
-                                      style: getTextStyle(fontSize: 14, color: Colors.black),
+                                      style: getTextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -310,65 +370,69 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                           ),
                         ],
                       ),
-                      
-                      const SizedBox(height: 20),
-                      
-                      // 색상 선택
-                      Row(
-                        children: [
-                          Text(
-                            '색상',
-                            style: getTextStyle(fontSize: 16, color: Colors.black),
-                          ),
-                          const SizedBox(width: 12),
-                          GestureDetector(
-                            onTap: _selectColor,
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: _selectedColor,
-                                border: Border.all(color: Colors.black, width: 1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 40),
-                      
+
+                      //
+                      Spacer(),
+                      Spacer(),
+
                       // 버튼들
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton(
                               onPressed: widget.onClose,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  255,
+                                  255,
+                                  255,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                minimumSize: const Size(0, 0),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                               child: Text(
                                 '취소',
-                                style: getTextStyle(fontSize: 16, color: Colors.white),
+                                style: getTextStyle(
+                                  fontSize: 12,
+                                  color: const Color.fromARGB(255, 0, 0, 0),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton(
+                            const SizedBox(width: 8),
+                            ElevatedButton(
                               onPressed: _saveEvent,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                backgroundColor: _getColorByColorId(
+                                  _selectedColorId,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                minimumSize: const Size(0, 0),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                               child: Text(
                                 '저장',
-                                style: getTextStyle(fontSize: 16, color: Colors.white),
+                                style: getTextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -380,4 +444,4 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
       ),
     );
   }
-} 
+}
