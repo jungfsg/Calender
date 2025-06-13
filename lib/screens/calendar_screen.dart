@@ -9,6 +9,7 @@ import '../managers/popup_manager.dart';
 import '../widgets/calendar_widget.dart';
 import '../services/auth_service.dart';
 import '../services/weather_service.dart';
+import '../utils/font_utils.dart';
 import 'login_screen.dart';
 
 class RefactoredCalendarScreen extends StatefulWidget {
@@ -111,7 +112,9 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
       if (mounted) {
         // 로그아웃 후 LoginScreen으로 이동 시 TtsService 인스턴스 전달
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => LoginScreen(ttsService: widget.ttsService)),
+          MaterialPageRoute(
+            builder: (context) => LoginScreen(ttsService: widget.ttsService),
+          ),
         );
       }
     } catch (e) {
@@ -144,17 +147,17 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
           mainCalendarWidget,
           Container(
             color: Colors.black38,
-            child: const Center(
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(
+                  const CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     '앱을 준비하는 중...',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    style: getTextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ],
               ),

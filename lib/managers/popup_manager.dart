@@ -1,3 +1,5 @@
+import 'package:http/http.dart';
+
 import '../models/event.dart';
 import '../controllers/calendar_controller.dart';
 import '../managers/event_manager.dart';
@@ -74,12 +76,9 @@ class PopupManager {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 '새 일정 추가',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: getTextStyle(fontSize: 20),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.close),
@@ -507,7 +506,10 @@ class PopupManager {
                                     vertical: 12,
                                   ),
                                 ),
-                                child: const Text('취소'),
+                                child: Text(
+                                  '취소',
+                                  style: getTextStyle(fontSize: 12),
+                                ),
                               ),
                               const SizedBox(width: 16),
                               ElevatedButton(
@@ -623,7 +625,7 @@ class PopupManager {
                                   '추가',
                                   style: getTextStyle(
                                     color: Colors.white,
-                                    fontSize: 15,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
@@ -1118,7 +1120,10 @@ class PopupManager {
                                     vertical: 12,
                                   ),
                                 ),
-                                child: const Text('취소'),
+                                child: Text(
+                                  '취소',
+                                  style: getTextStyle(fontSize: 12),
+                                ),
                               ),
                               const SizedBox(width: 16),
                               ElevatedButton(
@@ -1365,7 +1370,7 @@ class PopupManager {
                             vertical: 12,
                           ),
                         ),
-                        child: const Text('취소'),
+                        child: Text('취소', style: getTextStyle(fontSize: 12)),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
@@ -1386,7 +1391,7 @@ class PopupManager {
                           children: [
                             const Icon(Icons.delete, size: 16),
                             const SizedBox(width: 4),
-                            const Text('삭제'),
+                            Text('삭제', style: getTextStyle(fontSize: 12)),
                           ],
                         ),
                       ),

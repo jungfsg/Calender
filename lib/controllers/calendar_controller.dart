@@ -302,7 +302,7 @@ class CalendarController {
     // 멀티데이 이벤트를 각 날짜에 추가
     final startDate = event.startDate!;
     final endDate = event.endDate!;
-    
+
     for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
       final currentDate = startDate.add(Duration(days: i));
       final dailyEvent = event.copyWith(date: currentDate);
@@ -321,7 +321,7 @@ class CalendarController {
     // 멀티데이 이벤트를 모든 관련 날짜에서 제거
     final startDate = event.startDate!;
     final endDate = event.endDate!;
-    
+
     for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
       final currentDate = startDate.add(Duration(days: i));
       final key = _getKey(currentDate);
