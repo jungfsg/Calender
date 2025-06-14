@@ -12,7 +12,7 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://24fd-218-158-75-120.ngrok-free.app';
+  final String baseUrl = 'https://a06f-115-91-150-54.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 날씨 관련 키워드 목록// LLM 서버에 메시지를 보내고 응답을 받는 메서드
