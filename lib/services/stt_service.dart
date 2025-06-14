@@ -13,7 +13,7 @@ class SpeechService {
   String _recognizedText = '';
 
   // 설정 가능한 옵션들
-  Duration _muteTimeout = const Duration(seconds: 7);
+  Duration _muteTimeout = const Duration(seconds: 5); // 무음 시간 제한
   bool _clearTextOnStart = true;
   bool _enableHapticFeedback = false;
 

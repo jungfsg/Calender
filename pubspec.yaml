@@ -65,6 +65,8 @@ dependencies:
   water_drop_nav_bar: ^2.2.2
   gal: ^2.3.1
   flutter_tts: ^4.2.3
+  pulsator: ^1.0.0+2
+  audioplayers: ^6.4.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -92,7 +94,7 @@ flutter:
   fonts:
     - family: KoreanFont
       fonts:
-        - asset: assets/fonts/NEXONLv1GothicRegular.ttf # 여기서 폰트 설정
+        - asset: assets/fonts/DungGeunMo.ttf # 여기서 폰트 설정
 
 
   # To add assets to your application, add an assets section, like this:

@@ -1,3 +1,4 @@
+// lib/widgets/calendar_widget.dart (최종 수정본 - TTS 의존성 전달)
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../controllers/calendar_controller.dart';
@@ -9,22 +10,22 @@ import '../widgets/event_popup.dart';
 import '../widgets/weather_summary_popup.dart';
 import '../widgets/side_menu.dart';
 import '../widgets/common_navigation_bar.dart';
+import '../widgets/multi_day_event_popup.dart'; // 🆕 멀티데이 이벤트 팝업 추가
 import '../utils/font_utils.dart';
 import '../services/google_calendar_service.dart';
 import '../services/weather_service.dart';
-import '../services/stt_command_service.dart'; // 음성 명령 서비스 임포트
-import '../screens/chat_screen.dart'; // EmptyPage 추가
+import '../services/stt_command_service.dart';
+import '../screens/chat_screen.dart';
+import '../services/tts_service.dart'; // --- ★★★ 추가: TtsService 임포트 ★★★ ---
 
-/// 캘린더 위젯 - 순수 UI 컴포넌트
 class CalendarWidget extends StatefulWidget {
   final CalendarController controller;
   final EventManager eventManager;
   final PopupManager popupManager;
   final VoidCallback? onLogout;
 
-  // --- TTS 관련 추가 ---
-  final bool isTtsEnabled;
-  final ValueChanged<bool> onTtsToggle;
+  // --- ★★★ 추가: TtsService 인스턴스를 전달받기 위한 변수 ★★★ ---
+  final TtsService ttsService;
 
   const CalendarWidget({
     super.key,
@@ -32,10 +33,7 @@ class CalendarWidget extends StatefulWidget {
     required this.eventManager,
     required this.popupManager,
     this.onLogout,
-
-    // --- TTS 관련 추가 ---
-    required this.isTtsEnabled,
-    required this.onTtsToggle,
+    required this.ttsService, // --- ★★★ 수정: 생성자에서 ttsService 필수로 받도록 변경 ★★★ ---
   });
 
   @override
@@ -46,6 +44,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   int _selectedIndex = 0;
   final CalendarFormat _calendarFormat = CalendarFormat.month;
   final GoogleCalendarService _googleCalendarService = GoogleCalendarService();
+  bool _showMultiDayEventPopup = false; // 🆕 멀티데이 이벤트 팝업 상태 변수 추가
+
   @override
   void initState() {
     super.initState();
@@ -53,7 +53,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (기존 코드와 동일)
     final DateTime firstDay = DateTime(
       widget.controller.focusedDay.year,
       widget.controller.focusedDay.month,
@@ -97,19 +96,15 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         },
         onLogoutTap: widget.onLogout ?? () {},
         isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
-
-        // --- TTS 관련 속성 전달 ---
-        isTtsEnabled: widget.isTtsEnabled,
-        onTtsToggle: widget.onTtsToggle,
+        // --- ★★★ 삭제: isTtsEnabled, onTtsToggle 전달 코드 제거 ★★★ ---
       ),
       body: SafeArea(
-        // ... (이하 모든 코드는 기존과 동일)
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final availableHeight = constraints.maxHeight;
             const monthHeaderHeight = 65.0;
-            const dayOfWeekHeaderHeight = 33.0; // 요일 표시 영역의 높이
+            const dayOfWeekHeaderHeight = 33.0;
             final weekHeight =
                 (availableHeight -
                     monthHeaderHeight -
@@ -119,14 +114,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
 
             return Stack(
               children: [
-                // 캘린더 부분
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    3.0,
-                    0.0,
-                    3.0,
-                    0,
-                  ), // 달력 영역 패딩
+                  padding: const EdgeInsets.fromLTRB(3.0, 0.0, 3.0, 0),
                   child: Container(
                     color: Colors.white,
                     child: TableCalendar(
@@ -136,23 +125,29 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       calendarFormat: _calendarFormat,
                       daysOfWeekHeight: dayOfWeekHeaderHeight,
                       rowHeight: weekHeight,
-                      selectedDayPredicate: (day) {
-                        return isSameDay(widget.controller.selectedDay, day);
-                      },
-                      onDaySelected: (selectedDay, focusedDay) {
+                      selectedDayPredicate:
+                          (day) =>
+                              isSameDay(widget.controller.selectedDay, day),
+                      onDaySelected: (selectedDay, focusedDay) async {
                         widget.controller.setSelectedDay(selectedDay);
                         widget.controller.setFocusedDay(focusedDay);
+                        if (widget.controller.shouldLoadEventsForDay(
+                          selectedDay,
+                        )) {
+                          try {
+                            await widget.eventManager.loadEventsForDay(
+                              selectedDay,
+                            );
+                          } catch (e) {
+                            print('❌ 날짜 선택 시 이벤트 로드 실패: $e');
+                          }
+                        }
                         widget.popupManager.showEventDialog();
                         setState(() {});
                       },
                       onPageChanged: (focusedDay) async {
-                        print(
-                          '📅 월 변경됨: ${focusedDay.year}년 ${focusedDay.month}월',
-                        );
                         widget.controller.setFocusedDay(focusedDay);
                         widget.controller.hideAllPopups();
-
-                        // 🔥 월 변경 시 해당 월의 이벤트만 로드 (중복 없이)
                         try {
                           await widget.eventManager.loadEventsForMonth(
                             focusedDay,
@@ -160,7 +155,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         } catch (e) {
                           print('❌ 월 변경 시 이벤트 로드 실패: $e');
                         }
-
                         setState(() {});
                       },
                       eventLoader:
@@ -283,6 +277,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents:
+                                widget.controller
+                                    .getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         },
                         // 선택된 날짜 셀 빌더
@@ -302,6 +299,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents:
+                                widget.controller
+                                    .getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         }, // 오늘 날짜 셀 빌더
                         todayBuilder: (context, day, focusedDay) {
@@ -336,6 +336,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             weatherInfo: widget.controller.getWeatherForDay(
                               day,
                             ),
+                            allEvents:
+                                widget.controller
+                                    .getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         },
                         // 요일 헤더 빌더
@@ -374,7 +377,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             ),
                           );
                         },
-                        // 헤더 타이틀 빌더
                         headerTitleBuilder: (context, month) {
                           final monthNames = [
                             '1월',
@@ -393,28 +395,25 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                           return Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // 햄버거 메뉴 아이콘 추가
                               IconButton(
                                 icon: const Icon(
                                   Icons.menu,
                                   color: Colors.black,
                                 ),
-                                onPressed: () {
-                                  Scaffold.of(context).openDrawer();
-                                },
-                              ), // 연/월 표시
+                                onPressed:
+                                    () => Scaffold.of(context).openDrawer(),
+                              ),
                               Expanded(
                                 child: Center(
                                   child: Text(
-                                    '${month.year}년 ${monthNames[month.month - 1]}',
+                                    '${month.year} ${monthNames[month.month - 1]}',
                                     style: getTextStyle(
-                                      fontSize: 16,
+                                      fontSize: 18,
                                       color: Colors.black,
                                     ),
                                   ),
                                 ),
                               ),
-                              // 여백을 위한 투명한 아이콘
                               const IconButton(
                                 icon: Icon(
                                   Icons.calendar_today,
@@ -428,7 +427,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       ),
                     ),
                   ),
-                ), // 이벤트 팝업 오버레이
+                ),
                 if (widget.controller.showEventPopup)
                   EventPopup(
                     selectedDay: widget.controller.selectedDay,
@@ -462,6 +461,29 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       await widget.eventManager.removeEvent(event);
                       setState(() {});
                     },
+                    // 🆕 멀티데이 이벤트 추가 콜백
+                    onAddMultiDayEvent: () {
+                      _showMultiDayEventDialog();
+                    },
+                  ),
+
+                // 🆕 멀티데이 이벤트 팝업 오버레이
+                if (_showMultiDayEventPopup)
+                  MultiDayEventPopup(
+                    initialDate:
+                        widget.controller.selectedDay, // 클릭한 날짜를 초기 날짜로 설정
+                    onSave: (event) async {
+                      // EventManager를 통해 멀티데이 이벤트 추가 (영구 저장 포함)
+                      await widget.eventManager.addEvent(event);
+                      setState(() {
+                        _showMultiDayEventPopup = false;
+                      });
+                    },
+                    onClose: () {
+                      setState(() {
+                        _showMultiDayEventPopup = false;
+                      });
+                    },
                   ),
 
                 // 날씨 예보 팝업 오버레이
@@ -469,9 +491,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                   FutureBuilder<List<WeatherInfo>>(
                     future: WeatherService.get5DayForecast(),
                     builder: (context, snapshot) {
-                      // 로딩 중일 때 로딩 인디케이터 표시
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
+                        return Center(
                           child: SizedBox(
                             width: 200,
                             height: 200,
@@ -482,20 +503,17 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                 SizedBox(height: 16),
                                 Text(
                                   '날씨 정보를 불러오는 중...',
-                                  style: TextStyle(fontSize: 16),
+                                  style: getTextStyle(fontSize: 16),
                                 ),
                               ],
                             ),
                           ),
                         );
                       }
-
-                      // 데이터가 로드되었으면 팝업 표시 (5일치만 제한)
                       List<WeatherInfo> weatherList = snapshot.data ?? [];
                       if (weatherList.length > 5) {
                         weatherList = weatherList.take(5).toList();
                       }
-
                       return WeatherSummaryPopup(
                         weatherList: weatherList,
                         onClose: () {
@@ -510,8 +528,6 @@ class _CalendarWidgetState extends State<CalendarWidget> {
           },
         ),
       ),
-
-      // 네비게이션 바
       bottomNavigationBar: CommonNavigationBar(
         selectedIndex: _selectedIndex,
         onItemTapped: _onItemTapped,
@@ -519,90 +535,90 @@ class _CalendarWidgetState extends State<CalendarWidget> {
     );
   }
 
-  /// 네비게이션 바 아이템 탭 처리
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
 
     switch (index) {
-      case 0: // 캘린더 - 현재 화면이므로 아무 작업 없음
+      case 0:
         break;
-      case 1: // 마이크 버튼 - STT 실행
+      case 1:
         _showVoiceInput();
         break;
-      case 2: // 채팅 화면 - EmptyPage로 이동
-        _navigateToEmptyPage();
+      case 2:
+        _navigateToChatScreen();
         break;
     }
   }
 
-  /// EmptyPage로 이동
-  void _navigateToEmptyPage() async {
+  void _navigateToChatScreen() async {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder:
-            (context) => EmptyPage(
+            (context) => ChatScreen(
               onCalendarUpdate: () {
-                // 채팅에서 캘린더가 업데이트되면 화면 갱신
                 widget.eventManager.refreshCurrentMonthEvents();
                 setState(() {});
               },
-              eventManager:
-                  widget
-                      .eventManager, // EventManager 전달하여 Google Calendar 동기화 활성화
+              eventManager: widget.eventManager,
             ),
       ),
-    );
-    // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
+    ); // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
     if (result != null && result['refreshNavigation'] == true) {
       setState(() {
-        _selectedIndex = 0; // 캘린더 탭으로 리셋
+        _selectedIndex = 0;
       });
+
+      // 음성 인식 UI 표시가 요청된 경우
+      if (result['showVoiceInput'] == true) {
+        // 약간의 딜레이 후 음성 인식 UI 표시 (화면 전환 완료 후)
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _showVoiceInput();
+        });
+      }
     }
   }
 
-  /// 스낵바 표시
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// 음성 입력 다이얼로그 표시
+  /// 🆕 멀티데이 이벤트 생성 다이얼로그 표시
+  void _showMultiDayEventDialog() {
+    widget.controller.hideEventDialog(); // 기존 팝업 닫기
+    setState(() {
+      // 멀티데이 이벤트 팝업 표시 상태 추가 (showMultiDayEventPopup)
+      _showMultiDayEventPopup = true;
+    });
+  }
+
   void _showVoiceInput() {
     VoiceCommandService.instance.showVoiceInput(
       context: context,
-      eventManager: widget.eventManager, // EventManager 전달
+      eventManager: widget.eventManager,
+      // --- ★★★ 추가: ttsService 인스턴스 전달 ★★★ ---
+      ttsService: widget.ttsService,
       onCommandProcessed: _handleVoiceCommandResponse,
       onCalendarUpdate: () async {
         print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음');
-
-        // 현재 선택된 날짜의 이벤트 강제 새로고침
         await widget.eventManager.loadEventsForDay(
           widget.controller.selectedDay,
           forceRefresh: true,
         );
-
-        // 월 전체 이벤트도 새로고침 (백그라운드로 처리)
         widget.eventManager.refreshCurrentMonthEvents().then((_) {
           print('🔄 월 전체 이벤트 새로고침 완료');
         });
-
-        // UI 새로고침
         setState(() {});
       },
     );
   }
 
-  /// 음성 명령 처리 결과에 따른 액션
   void _handleVoiceCommandResponse(String response, String command) {
     print('🎤 CalendarWidget: STT 명령 처리 - 명령: "$command", 응답: "$response"');
-
-    // 스낵바로 응답 표시
     _showSnackBar(response);
-
-    // 캘린더 관련 명령어 처리
     VoiceCommandService.instance.processCalendarCommand(
       command,
       widget.controller,
@@ -610,15 +626,11 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       widget.eventManager,
       () => setState(() {}),
     );
-
-    // 모든 음성 명령 후 항상 화면 갱신 및 이벤트 새로고침 - 일정 추가 누락 문제 해결
     print('🔄 음성 명령 후 이벤트 강제 새로고침');
     widget.eventManager.refreshCurrentMonthEvents().then((_) {
-      // 현재 선택된 날짜의 이벤트도 강제 갱신
       widget.eventManager
           .loadEventsForDay(widget.controller.selectedDay, forceRefresh: true)
           .then((_) {
-            // UI 갱신
             setState(() {});
           });
     });

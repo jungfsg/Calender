@@ -1,19 +1,23 @@
+// lib/screens/calendar_screen.dart (최종 수정본)
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:permission_handler/permission_handler.dart';
-
-import '../controllers/calendar_controller.dart';
 import '../managers/event_manager.dart';
+import '../services/tts_service.dart';
+import '../controllers/calendar_controller.dart';
 import '../managers/popup_manager.dart';
 import '../widgets/calendar_widget.dart';
 import '../services/auth_service.dart';
 import '../services/weather_service.dart';
+import '../utils/font_utils.dart';
 import 'login_screen.dart';
-import '../services/tts_service.dart'; // TTS 서비스 임포트
 
-/// 리팩토링된 캘린더 스크린 - Provider 없이 구성
 class RefactoredCalendarScreen extends StatefulWidget {
-  const RefactoredCalendarScreen({super.key});
+  // 상위 위젯으로부터 TtsService를 전달받기 위한 변수
+  final TtsService ttsService;
+
+  // 생성자에서 TtsService를 필수로 받도록 변경
+  const RefactoredCalendarScreen({super.key, required this.ttsService});
 
   @override
   State<RefactoredCalendarScreen> createState() =>
@@ -22,19 +26,11 @@ class RefactoredCalendarScreen extends StatefulWidget {
 
 class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  // 핵심 컴포넌트들
   late CalendarController _controller;
   late EventManager _eventManager;
   late PopupManager _popupManager;
-
-  // 서비스
   final AuthService _authService = AuthService();
-
-  // 초기화 상태
   bool _isInitialized = false;
-
-  // --- TTS 상태 변수 추가 ---
-  bool _isTtsEnabled = false; // TTS 기본값은 '비활성화'
 
   @override
   void initState() {
@@ -54,7 +50,8 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
 
   void _initializeComponents() {
     _controller = CalendarController();
-    _eventManager = EventManager(_controller);
+    // EventManager 생성 시 TtsService 인스턴스 전달
+    _eventManager = EventManager(_controller, ttsService: widget.ttsService);
     _popupManager = PopupManager(_controller, _eventManager);
   }
 
@@ -113,27 +110,16 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
     try {
       await _authService.logout();
       if (mounted) {
+        // 로그아웃 후 LoginScreen으로 이동 시 TtsService 인스턴스 전달
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          MaterialPageRoute(
+            builder: (context) => LoginScreen(ttsService: widget.ttsService),
+          ),
         );
       }
     } catch (e) {
       _showSnackBar('로그아웃 중 오류가 발생했습니다: $e');
     }
-  }
-
-  /// 사이드 메뉴에서 TTS 스위치를 토글할 때 호출될 함수
-  void _handleTtsToggle(bool isEnabled) {
-    print("📢 TTS 스위치 변경: $isEnabled"); // 디버깅 로그
-    // TtsService 싱글톤 인스턴스에 변경된 상태를 직접 전달합니다.
-    TtsService.instance.setTtsEnabled(isEnabled);
-    
-    // UI 상태 업데이트
-    setState(() {
-      _isTtsEnabled = isEnabled;
-    });
-
-    _showSnackBar('AI 음성(TTS)이 ${isEnabled ? '활성화되었습니다' : '비활성화되었습니다'}.');
   }
 
   void _showSnackBar(String message) {
@@ -146,13 +132,13 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
 
   @override
   Widget build(BuildContext context) {
+    // CalendarWidget으로 ttsService 전달
     Widget mainCalendarWidget = CalendarWidget(
       controller: _controller,
       eventManager: _eventManager,
       popupManager: _popupManager,
       onLogout: _handleLogout,
-      isTtsEnabled: _isTtsEnabled,
-      onTtsToggle: _handleTtsToggle,
+      ttsService: widget.ttsService,
     );
 
     if (!_isInitialized) {
@@ -161,17 +147,17 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
           mainCalendarWidget,
           Container(
             color: Colors.black38,
-            child: const Center(
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(
+                  const CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     '앱을 준비하는 중...',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    style: getTextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ],
               ),
@@ -189,4 +175,3 @@ class _RefactoredCalendarScreenState extends State<RefactoredCalendarScreen>
     // ... 기존 생명주기 코드는 동일 ...
   }
 }
-

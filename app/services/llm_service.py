@@ -3,7 +3,7 @@ from openai import OpenAI
 from langgraph.graph import StateGraph, END
 from app.core.config import get_settings
 # from app.services.google_calendar_service import GoogleCalendarService
-from app.services.vector_store import VectorStoreService
+# from app.services.vector_store import VectorStoreService
 import json
 import re
 from datetime import datetime, timedelta
@@ -51,10 +51,18 @@ def get_relative_date_rules(current_date: datetime) -> dict:
         "다음주 금요일": (next_sunday + timedelta(days=5)).strftime('%Y-%m-%d'),
         "다음주 토요일": (next_sunday + timedelta(days=6)).strftime('%Y-%m-%d'),
         
+        # 이번 주 각 요일 (일요일 기준)
+        "이번주": (current_date - timedelta(days=current_weekday_sunday_base)).strftime('%Y-%m-%d'),
+        "이번주 일요일": (current_date - timedelta(days=current_weekday_sunday_base)).strftime('%Y-%m-%d'),
+        "이번주 월요일": (current_date - timedelta(days=current_weekday_sunday_base - 1)).strftime('%Y-%m-%d'),
+        "이번주 화요일": (current_date - timedelta(days=current_weekday_sunday_base - 2)).strftime('%Y-%m-%d'),
+        "이번주 수요일": (current_date - timedelta(days=current_weekday_sunday_base - 3)).strftime('%Y-%m-%d'),
+        "이번주 목요일": (current_date - timedelta(days=current_weekday_sunday_base - 4)).strftime('%Y-%m-%d'),
+        "이번주 금요일": (current_date - timedelta(days=current_weekday_sunday_base - 5)).strftime('%Y-%m-%d'),
+        "이번주 토요일": (current_date - timedelta(days=current_weekday_sunday_base - 6)).strftime('%Y-%m-%d'),
+        
         # 이번 주 표현
         "이번 주말": (current_date + timedelta(days=days_to_this_weekend)).strftime('%Y-%m-%d'),
-        "이번주 토요일": (current_date + timedelta(days=days_to_this_weekend)).strftime('%Y-%m-%d'),
-        "이번주 일요일": (current_date + timedelta(days=days_to_this_weekend + 1)).strftime('%Y-%m-%d'),
         
         # 월 단위 표현
         "다음달": (current_date.replace(day=1) + timedelta(days=32)).replace(day=1).strftime('%Y-%m-%d'),
@@ -118,30 +126,113 @@ def keyword_based_classification(user_input: str) -> dict:
         "reason": "일정 관련 키워드 없음"
     }
 
-def extract_title_from_input(user_input: str) -> str:
-    """사용자 입력에서 제목 추출"""
-    # 커스터마이징 포인트: 패턴 추가/수정 가능
-    # 예: 특정 업무 용어나 패턴 추가
-    patterns = [
-        r'(.+?)\s*일정',
-        r'(.+?)\s*미팅',
-        r'(.+?)\s*회의',
-        r'(.+?)\s*만남',
-        r'(.+?)\s*약속',
-        r'(.+?)\s*수업',  # 교육/학습 관련
-        r'(.+?)\s*세미나'  # 비즈니스 관련
+def extract_search_keyword_from_input(user_input: str) -> str:
+    """사용자 입력에서 일정 검색을 위한 핵심 키워드 추출"""
+    import re
+    
+    # 수정/삭제 관련 키워드들을 제거하는 패턴
+    remove_patterns = [
+        r'\s*(일정|스케줄)\s*(수정|변경|바꿔|고쳐|편집|조정|삭제|지워|제거|없애|해줘|해주세요).*',
+        r'\s*(수정|변경|바꿔|고쳐|편집|조정|삭제|지워|제거|없애|해줘|해주세요).*',
+        r'.*을\s*',  # "맥주를", "회의를" 등
+        r'.*를\s*',
+        r'^\s*(오늘|내일|모레|이번주|다음주|내주|이번달|다음달)\s*',
+        r'\s*(시|시에|시간|분)\s*(에|으로|로|부터|까지)?\s*',
     ]
     
-    for pattern in patterns:
-        match = re.search(pattern, user_input)
+    # 시간 패턴을 먼저 제거
+    time_patterns = [
+        r'\d{1,2}시\d{0,2}분?',
+        r'오전\s*\d{1,2}시\d{0,2}분?',
+        r'오후\s*\d{1,2}시\d{0,2}분?',
+        r'저녁\s*\d{1,2}시\d{0,2}분?',
+        r'아침\s*\d{1,2}시\d{0,2}분?',
+        r'\d{1,2}:\d{2}',
+        r'\d{1,2}시부터\s*\d{1,2}시까지',
+        r'오후\s*\d{1,2}시부터\s*\d{1,2}시까지',
+        r'오전\s*\d{1,2}시부터\s*\d{1,2}시까지',
+    ]
+    
+    cleaned_input = user_input
+    
+    # 시간 패턴 제거
+    for pattern in time_patterns:
+        cleaned_input = re.sub(pattern, '', cleaned_input)
+    
+    # 불필요한 키워드 제거
+    for pattern in remove_patterns:
+        cleaned_input = re.sub(pattern, '', cleaned_input)
+    
+    # 특정 패턴으로 키워드 추출
+    keyword_patterns = [
+        r'(.+?)\s*(일정|미팅|회의|만남|약속|수업|세미나)',  # "맥주 일정" -> "맥주"
+        r'(.+)',  # 나머지 모든 텍스트
+    ]
+    
+    for pattern in keyword_patterns:
+        match = re.search(pattern, cleaned_input.strip())
+        if match:
+            keyword = match.group(1).strip()
+            # 추가적인 정리
+            keyword = re.sub(r'\s+', ' ', keyword)  # 연속된 공백 제거
+            keyword = keyword.strip()
+            
+            if len(keyword) > 0:  # 빈 문자열이 아니면
+                return keyword
+    
+    return user_input.strip()  # 원본 입력 반환
+
+def extract_title_from_input(user_input: str) -> str:
+    """사용자 입력에서 제목 추출"""
+    import re
+    
+    # 불필요한 키워드들을 제거하는 패턴
+    remove_patterns = [
+        r'\s*(일정|스케줄)\s*(추가|만들|생성|등록|잡아|해줘|해주세요).*',
+        r'\s*(추가|만들|생성|등록|잡아|해줘|해주세요).*',
+        r'.*에\s*',  # "내일에", "오늘에" 등
+        r'^\s*(오늘|내일|모레|이번주|다음주|내주|이번달|다음달)\s*',
+        r'\s*(시|시에|시간|분)\s*(에|으로|로)?\s*(추가|만들|생성|등록|잡아|해줘|해주세요).*',
+    ]
+    
+    # 시간 패턴을 먼저 제거
+    time_patterns = [
+        r'\d{1,2}시\d{0,2}분?',
+        r'오전\s*\d{1,2}시\d{0,2}분?',
+        r'오후\s*\d{1,2}시\d{0,2}분?',
+        r'저녁\s*\d{1,2}시\d{0,2}분?',
+        r'아침\s*\d{1,2}시\d{0,2}분?',
+        r'\d{1,2}:\d{2}',
+    ]
+    
+    cleaned_input = user_input
+    
+    # 시간 패턴 제거
+    for pattern in time_patterns:
+        cleaned_input = re.sub(pattern, '', cleaned_input)
+    
+    # 불필요한 키워드 제거
+    for pattern in remove_patterns:
+        cleaned_input = re.sub(pattern, '', cleaned_input)
+    
+    # 특정 패턴으로 제목 추출
+    title_patterns = [
+        r'(.+?)\s*(일정|미팅|회의|만남|약속|수업|세미나)',  # "맥주 일정" -> "맥주"
+        r'(.+)',  # 나머지 모든 텍스트
+    ]
+    
+    for pattern in title_patterns:
+        match = re.search(pattern, cleaned_input.strip())
         if match:
             title = match.group(1).strip()
-            if len(title) > 2:  # 너무 짧은 제목 제외
-                return title + ' 일정'
+            # 추가적인 정리
+            title = re.sub(r'\s+', ' ', title)  # 연속된 공백 제거
+            title = title.strip()
+            
+            if len(title) > 0:  # 빈 문자열이 아니면
+                return title
     
-    # 패턴이 없으면 전체 입력에서 동사 제거
-    cleaned = re.sub(r'(추가|만들|생성|등록|잡아|스케줄)', '', user_input).strip()
-    return cleaned[:20] if cleaned else '새 일정'
+    return '새 일정'
 
 def validate_and_correct_info(info: dict, current_date: datetime) -> dict:
     """추출된 정보 검증 및 보정"""
@@ -250,8 +341,8 @@ class CalendarState(TypedDict):
 class LLMService:
     def __init__(self):
         self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        # self.calendar_service = GoogleCalendarService()
-        self.vector_store = VectorStoreService()
+        # # self.calendar_service = GoogleCalendarService()
+        # self.vector_store = VectorStoreService()
         self.workflow = self._create_calendar_workflow()
         
     def _create_calendar_workflow(self):
@@ -277,10 +368,16 @@ class LLMService:
 다음 중 하나로 분류해주세요:
 1. calendar_add - 새로운 일정 추가 (키워드: 추가, 만들기, 생성, 등록, 잡아줘, 스케줄)
 2. calendar_update - 기존 일정 수정 (키워드: 수정, 변경, 바꿔, 업데이트, 이동)
-3. calendar_delete - 일정 삭제 (키워드: 삭제, 지워, 취소, 없애)
+3. calendar_delete - 일정 삭제 (키워드: 삭제, 지워, 취소, 없애, 제거, 모든 삭제, 모두 삭제, 전체 삭제, 다 삭제, 모든 일정 삭제, 전체 일정 삭제)
 4. calendar_search - 일정 조회/검색 (키워드: 검색, 찾아, 조회, 확인, 뭐 있어, 언제)
 5. calendar_copy - 일정 복사 (키워드: 복사, 복제, 같은 일정)
 6. general_chat - 일반 대화 (일정과 무관한 대화)
+
+**중요**: 전체 삭제 관련 표현들은 모두 calendar_delete로 분류해야 합니다:
+- "오늘 일정 전체 삭제해줘" → calendar_delete
+- "내일 모든 일정 지워줘" → calendar_delete  
+- "18일 일정 다 삭제해줘" → calendar_delete
+- "이번주 일정 모두 삭제해줘" → calendar_delete
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{"intent": "분류결과", "confidence": 0.95, "reason": "분류 이유"}}
@@ -342,6 +439,10 @@ Confidence 기준:
                 if state['intent'] == 'calendar_update':
                     return self._extract_update_information(state, current_date, rule_text)
                 
+                # 기간/범위 기반 일정인지 판단
+                if "부터" in state['current_input'] and "까지" in state['current_input']:
+                    return self._extract_range_events(state, current_date, rule_text)
+                
                 # 먼저 여러 일정인지 단일 일정인지 판단
                 detection_prompt = f"""
 사용자 입력에서 일정의 개수를 분석해주세요:
@@ -349,23 +450,40 @@ Confidence 기준:
 
 다음 중 하나로 응답해주세요:
 - "SINGLE": 하나의 일정만 있음
-- "MULTIPLE": 여러 개의 일정이 있음
+- "MULTIPLE": 여러 개의 일정이 있음 (개별 일정 나열)
+- "RANGE": 기간/범위 기반 일정 (여러 날짜에 같은 일정)
 
-여러 일정 판단 기준:
-- "그리고", "또", "그 다음에", "추가로" 등의 연결어가 있고 각각 다른 시간/날짜를 언급
-- 예: "내일 저녁 7시에 카페 일정 추가하고 다음주 월요일 오전 11시에 점심 일정 추가해줘"
-- 예: "오늘 오후 2시에 회의 잡고 내일 오전 10시에 병원 예약해줘"
+판단 기준:
+1. MULTIPLE (개별 일정 나열):
+   - "그리고", "또", "그 다음에", "추가로" 등의 연결어로 서로 다른 일정들을 언급
+   - 예: "내일 저녁 7시에 카페 일정 추가하고 다음주 월요일 오전 11시에 점심 일정 추가해줘"
+   - 예: "오늘 오후 2시에 회의 잡고 내일 오전 10시에 병원 예약해줘"
+
+2. RANGE (기간/범위 기반):
+   - "~부터 ~까지", "~에서 ~까지" 등의 기간 표현
+   - 요일 범위: "월요일부터 금요일까지", "다음주 월,화,수요일에"
+   - 날짜 범위: "6월 15일부터 20일까지", "내일부터 다음주까지"
+   - 예: "6월 15일부터 20일까지 휴가"
+   - 예: "월요일부터 금요일까지 오전 9시에 운동"
+   - 예: "다음주 월,화,수요일에 교육"
+
+3. SINGLE:
+   - 위 조건에 해당하지 않는 단일 일정
 """
-                
                 detection_response = self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": detection_prompt}],
                     temperature=0.1
                 )
                 
-                is_multiple = "MULTIPLE" in detection_response.choices[0].message.content.strip()
+                detection_result = detection_response.choices[0].message.content.strip()
+                is_multiple = "MULTIPLE" in detection_result
+                is_range = "RANGE" in detection_result
                 
-                if is_multiple:
+                if is_range:
+                    # 기간/범위 기반 일정 처리
+                    return self._extract_range_events(state, current_date, rule_text)
+                elif is_multiple:
                     # 다중 일정 처리
                     prompt = f"""
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
@@ -411,7 +529,11 @@ Confidence 기준:
 
 추출 가이드라인:
 1. 각 일정을 별도의 객체로 분리하여 추출
-2. 제목이 명시되지 않으면 사용자 입력에서 핵심 내용을 추출
+2. 제목 추출 시 불필요한 키워드 제거:
+   - "추가", "만들어", "생성", "등록", "잡아", "해줘", "해주세요" 등의 동작 키워드 제거
+   - "일정 추가" -> "일정" (X), 핵심 내용만 추출
+   - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
+   - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
 3. 시간이 없으면 null로 설정
 4. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
    - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
@@ -466,7 +588,11 @@ Confidence 기준:
 }}
 
 추출 가이드라인:
-1. 제목이 명시되지 않으면 사용자 입력에서 핵심 내용을 추출
+1. 제목 추출 시 불필요한 키워드 제거:
+   - "추가", "만들어", "생성", "등록", "잡아", "해줘", "해주세요" 등의 동작 키워드 제거
+   - "일정 추가" -> "일정" (X), 핵심 내용만 추출
+   - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
+   - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
 2. 시간이 없으면 null로 설정
 3. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
    - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
@@ -731,33 +857,88 @@ Confidence 기준:
                     if calendar_result.get('success'):
                         if action_type == 'calendar_add':
                             is_multiple = calendar_result.get('is_multiple', False)
-                            
                             if is_multiple:
                                 # 다중 일정 응답 생성
                                 events_count = calendar_result.get('events_count', 0)
                                 created_events = calendar_result.get('created_events', [])
+                                is_range = extracted_info.get('is_range', False)
+                                range_type = extracted_info.get('range_type', '')
                                 
-                                state['current_output'] = f"네! 총 {events_count}개의 일정을 성공적으로 추가했습니다! 📅✨\n\n"
-                                
-                                for i, event_result in enumerate(created_events):
-                                    event_data = event_result.get('event_data', {})
-                                    title = event_data.get('title', '새 일정')
-                                    start_date = event_data.get('start_date', '')
-                                    start_time = event_data.get('start_time', '')
-                                    location = event_data.get('location', '')
+                                if is_range:
+                                    # 기간 기반 일정 응답
+                                    original_range_data = extracted_info.get('original_range_data', {})
+                                    title = original_range_data.get('title', '일정')
+                                    range_descriptions = {
+                                        'date_range': '날짜 범위',
+                                        'cross_week_range': '주간 범위',
+                                        'single_week_range': '단일 주',
+                                        'weekday_list': '지정 요일'
+                                    }
                                     
-                                    state['current_output'] += f"📋 **일정 {i+1}: {title}**\n"
-                                    if start_date and start_time:
-                                        state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n"
-                                    elif start_date:
-                                        state['current_output'] += f"📅 날짜: {start_date}\n"
+                                    range_desc = range_descriptions.get(range_type, '기간')
                                     
+                                    state['current_output'] = f"✅ {range_desc} 일정을 성공적으로 생성했습니다! 📅✨\n\n"
+                                    state['current_output'] += f"📋 **'{title}' 일정**\n"
+                                    state['current_output'] += f"📊 총 {events_count}개의 날짜에 등록되었습니다\n"
+                                    
+                                    # 시간 정보 표시
+                                    start_time = original_range_data.get('start_time')
+                                    end_time = original_range_data.get('end_time')
+                                    if start_time:
+                                        if end_time:
+                                            state['current_output'] += f"⏰ 시간: {start_time} - {end_time}\n"
+                                        else:
+                                            state['current_output'] += f"⏰ 시간: {start_time}\n"
+                                    
+                                    # 위치 정보 표시
+                                    location = original_range_data.get('location')
                                     if location:
                                         state['current_output'] += f"📍 장소: {location}\n"
                                     
-                                    state['current_output'] += "\n"
-                                
-                                state['current_output'] += "모든 일정이 캘린더에 잘 저장되었어요! 😊"
+                                    # 일부 날짜 미리보기 (최대 5개)
+                                    if events_count > 0:
+                                        state['current_output'] += f"\n📅 **일정 미리보기:**\n"
+                                        preview_count = min(5, len(created_events))
+                                        for i in range(preview_count):
+                                            event_data = created_events[i].get('event_data', {})
+                                            event_date = event_data.get('start_date', '')
+                                            if event_date:
+                                                # 날짜를 더 읽기 쉬운 형식으로 변환
+                                                try:
+                                                    date_obj = datetime.strptime(event_date, '%Y-%m-%d')
+                                                    formatted_date = date_obj.strftime('%m월 %d일 (%a)')
+                                                    state['current_output'] += f"   • {formatted_date}\n"
+                                                except:
+                                                    state['current_output'] += f"   • {event_date}\n"
+                                        
+                                        if events_count > 5:
+                                            state['current_output'] += f"   ... 외 {events_count - 5}개 더\n"
+                                    
+                                    state['current_output'] += f"\n모든 일정이 캘린더에 잘 저장되었어요! 😊"
+                                    
+                                else:
+                                    # 개별 다중 일정 응답 (기존 로직)
+                                    state['current_output'] = f"네! 총 {events_count}개의 일정을 성공적으로 추가했습니다! 📅✨\n\n"
+                                    
+                                    for i, event_result in enumerate(created_events):
+                                        event_data = event_result.get('event_data', {})
+                                        title = event_data.get('title', '새 일정')
+                                        start_date = event_data.get('start_date', '')
+                                        start_time = event_data.get('start_time', '')
+                                        location = event_data.get('location', '')
+                                        
+                                        state['current_output'] += f"📋 **일정 {i+1}: {title}**\n"
+                                        if start_date and start_time:
+                                            state['current_output'] += f"📅 날짜: {start_date}\n⏰ 시간: {start_time}\n"
+                                        elif start_date:
+                                            state['current_output'] += f"📅 날짜: {start_date}\n"
+                                        
+                                        if location:
+                                            state['current_output'] += f"📍 장소: {location}\n"
+                                        
+                                        state['current_output'] += "\n"
+                                    
+                                    state['current_output'] += "모든 일정이 캘린더에 잘 저장되었어요! 😊"
                             else:
                                 # 단일 일정 응답 생성 (기존 로직)
                                 title = extracted_info.get('title', '새 일정')
@@ -945,25 +1126,163 @@ Confidence 기준:
         try:
             user_input = state['current_input']
             
-            # 전체 삭제 패턴 확인
-            bulk_delete_patterns = [
-                r'(.*?)\s*(모든|모두|전체|다)\s*(일정|스케줄).*?(삭제|지워|제거|없애)',
-                r'(.*?)\s*(일정|스케줄)\s*(모든|모두|전체|다).*?(삭제|지워|제거|없애)',
-                r'(.*?)\s*(다\s*삭제|모두\s*삭제|전체\s*삭제|모두\s*지워|다\s*지워)',
+            # 먼저 키워드 기반으로 전체 삭제 여부를 확인
+            bulk_keywords = ['모든', '모두', '전체', '다 삭제', '다삭제', '다 지워', '다지워', '모두 삭제', '모두삭제', '전체 삭제', '전체삭제']
+            mixed_keywords = ['그리고', '또', '그 다음에', '추가로', '또한', '그리고는', '와', '과', '하고']
+            
+            has_bulk_keyword = any(keyword in user_input for keyword in bulk_keywords)
+            has_mixed_keyword = any(keyword in user_input for keyword in mixed_keywords)
+            has_delete_keyword = any(keyword in user_input for keyword in ['삭제', '지워', '제거', '없애'])
+            
+            print(f"키워드 감지: 전체삭제={has_bulk_keyword}, 혼합={has_mixed_keyword}, 삭제={has_delete_keyword}")
+            print(f"사용자 입력: '{user_input}'")
+            
+            # 혼합 삭제 패턴 강화 - "일정과"나 "의 전체" 패턴 감지
+            enhanced_mixed_patterns = [
+                r'.*일정[과와].*전체.*일정',  # "헬스 일정과 ... 전체 일정"
+                r'.*[과와].*[의의].*전체',    # "일정과 ... 의 전체"
+                r'.*삭제.*[과와하고].*전체',  # "삭제하고 ... 전체"
+                r'.*전체.*[과와하고].*삭제',  # "전체 ... 와 삭제"
+                r'.*일정[과와].*금요일.*전체', # "일정과 금요일 전체"
+                r'.*[과와].*요일.*전체',       # "과 ... 요일 전체"
+                r'.*요일.*전체.*일정',        # "요일 ... 전체 일정"
             ]
             
-            is_bulk_delete = False
-            target_date = None
-            
-            for pattern in bulk_delete_patterns:
-                match = re.search(pattern, user_input, re.IGNORECASE)
-                if match:
-                    is_bulk_delete = True
-                    date_part = match.group(1).strip()
-                    print(f"전체 삭제 감지: '{date_part}'")
+            enhanced_mixed_detected = False
+            matched_pattern = ""
+            for pattern in enhanced_mixed_patterns:
+                if re.search(pattern, user_input, re.IGNORECASE):
+                    enhanced_mixed_detected = True
+                    matched_pattern = pattern
+                    print(f"강화된 혼합 패턴 감지: '{pattern}' in '{user_input}'")
                     break
             
-            if is_bulk_delete:
+            print(f"Enhanced mixed detection: {enhanced_mixed_detected}, Pattern: {matched_pattern}")
+            
+            is_mixed_delete = (has_bulk_keyword and has_mixed_keyword and has_delete_keyword) or enhanced_mixed_detected
+            is_bulk_only = has_bulk_keyword and not has_mixed_keyword and has_delete_keyword and not enhanced_mixed_detected
+            
+            print(f"Final decision details:")
+            print(f"  - has_bulk_keyword: {has_bulk_keyword}")
+            print(f"  - has_mixed_keyword: {has_mixed_keyword}")
+            print(f"  - has_delete_keyword: {has_delete_keyword}")
+            print(f"  - enhanced_mixed_detected: {enhanced_mixed_detected}")
+            print(f"  - is_mixed_delete: {is_mixed_delete}")
+            print(f"  - is_bulk_only: {is_bulk_only}")
+            
+            # 더 간단한 패턴으로 전체 삭제 감지 강화
+            simple_bulk_patterns = [
+                '전체 삭제', '모두 삭제', '다 삭제', '모든 삭제', '전부 삭제',
+                '전체 지워', '모두 지워', '다 지워', '모든 지워', '전부 지워',
+                '전체삭제', '모두삭제', '다삭제', '모든삭제', '전부삭제',
+                '일정 전체', '일정 모두', '일정 다', '일정 모든',
+                '스케줄 전체', '스케줄 모두', '스케줄 다', '스케줄 모든'
+            ]
+            
+            if not is_bulk_only and not is_mixed_delete:
+                for pattern in simple_bulk_patterns:
+                    if pattern in user_input:
+                        if any(mixed_word in user_input for mixed_word in mixed_keywords):
+                            is_mixed_delete = True
+                            print(f"간단 패턴으로 혼합 삭제 감지: '{pattern}'")
+                        else:
+                            is_bulk_only = True
+                            print(f"간단 패턴으로 전체 삭제 감지: '{pattern}'")
+                        break
+            
+            # 정규표현식으로 추가 확인 (더 유연한 패턴)
+            if not is_mixed_delete and not is_bulk_only:
+                # 혼합 삭제 패턴 확인 (개별 삭제 + 전체 삭제)
+                mixed_patterns = [
+                    r'.*(삭제|지워|제거).*(그리고|또|그 다음에|추가로).*(모든|모두|전체|다)\s*(일정|스케줄)?.*(삭제|지워|제거)',
+                    r'.*(모든|모두|전체|다)\s*(일정|스케줄)?.*(삭제|지워|제거).*(그리고|또|그 다음에|추가로).*(삭제|지워|제거)',
+                ]
+                
+                # 전체 삭제만 있는 패턴 확인 (더 유연하게)
+                bulk_only_patterns = [
+                    r'(모든|모두|전체|다)\s*(일정|스케줄)?\s*(삭제|지워|제거|없애)',
+                    r'(일정|스케줄)?\s*(모든|모두|전체|다)\s*(삭제|지워|제거|없애)',
+                    r'(다\s*삭제|모두\s*삭제|전체\s*삭제|모두\s*지워|다\s*지워)',
+                ]
+                
+                # 혼합 삭제 패턴 확인
+                for pattern in mixed_patterns:
+                    if re.search(pattern, user_input, re.IGNORECASE):
+                        is_mixed_delete = True
+                        print(f"정규식으로 혼합 삭제 감지: '{user_input}'")
+                        break
+                
+                # 전체 삭제만 있는 패턴 확인 (혼합이 아닌 경우에만)
+                if not is_mixed_delete:
+                    for pattern in bulk_only_patterns:
+                        if re.search(pattern, user_input, re.IGNORECASE):
+                            is_bulk_only = True
+                            print(f"정규식으로 전체 삭제만 감지: '{user_input}'")
+                            break
+            
+            print(f"최종 판단: 혼합삭제={is_mixed_delete}, 전체삭제={is_bulk_only}")
+            
+            if is_mixed_delete:
+                # 혼합 삭제 처리 (개별 삭제 + 전체 삭제)
+                prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 개별 일정 삭제와 전체 일정 삭제를 함께 요청했습니다:
+"{user_input}"
+
+**중요**: 이 입력에는 2개의 서로 다른 삭제 작업이 포함되어 있습니다.
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+**단계별 분석 과정:**
+1. 먼저 연결어("와", "과", "하고", "그리고" 등)로 문장을 분리하세요
+2. 각 부분에서 날짜와 일정명을 따로 추출하세요
+3. "전체", "모든", "모두", "다" 키워드가 있는 부분은 bulk 타입
+4. 구체적인 일정명이 있는 부분은 individual 타입
+
+**구체적 분석 예시:**
+"내일 헬스 일정과 금요일의 전체 일정을 삭제해줘"
+→ 분리: ["내일 헬스 일정", "금요일의 전체 일정"]
+→ 1번째: "내일 헬스" = individual, 날짜="내일", 제목="헬스"
+→ 2번째: "금요일의 전체" = bulk, 날짜="금요일"
+
+"16일 회의 삭제하고 18일 일정 전체 삭제해줘"
+→ 분리: ["16일 회의", "18일 일정 전체"]
+→ 1번째: "16일 회의" = individual, 날짜="16일", 제목="회의"
+→ 2번째: "18일 일정 전체" = bulk, 날짜="18일"
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "delete_type": "mixed",
+    "actions": [
+        {{
+            "type": "individual",
+            "title": "첫 번째 일정의 제목만 (헬스, 회의 등)",
+            "date": "첫 번째 날짜를 YYYY-MM-DD 형식으로",
+            "time": null,
+            "description": "첫 번째 일정 설명"
+        }},
+        {{
+            "type": "bulk", 
+            "target_date": "두 번째 날짜를 YYYY-MM-DD 형식으로",
+            "date_description": "두 번째 날짜 설명 (금요일, 18일 등)"
+        }}
+    ]
+}}
+
+**날짜 변환 주의사항:**
+- "내일" → {(current_date + timedelta(days=1)).strftime('%Y-%m-%d')}
+- "이번주 금요일" → 상대적 표현 규칙 참조하여 정확한 날짜
+- "16일", "18일" → 현재 월 기준으로 2024-01-16, 2024-01-18
+- 반드시 각 액션마다 서로 다른 날짜를 설정하세요
+
+**제목 추출 주의사항:**
+- "헬스 일정과" → title: "헬스" (일정, 과 제거)
+- "회의 삭제하고" → title: "회의" (삭제하고 제거)
+- 순수한 일정명만 추출하세요"""
+            elif is_bulk_only:
                 # 전체 삭제 처리
                 prompt = f"""
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
@@ -983,9 +1302,16 @@ Confidence 기준:
 }}
 
 추출 가이드라인:
-1. 삭제할 날짜를 정확히 파악
-2. 상대적 표현을 절대 날짜로 변환
-3. 날짜가 명시되지 않으면 "오늘"로 간주
+1. 삭제할 날짜를 정확히 파악하세요
+2. 상대적 표현을 절대 날짜로 변환하세요
+3. 날짜가 명시되지 않으면 "오늘"로 간주하세요
+4. 전체 삭제 예시:
+   - "오늘 일정 전체 삭제해줘" → target_date: "{current_date.strftime('%Y-%m-%d')}"
+   - "내일 모든 일정 지워줘" → target_date: "{(current_date + timedelta(days=1)).strftime('%Y-%m-%d')}"
+   - "18일 일정 다 삭제해줘" → target_date: "2024-01-18" (적절한 월/년 추가)
+   - "이번주 금요일 일정 모두 삭제" → 해당 금요일 날짜로 변환
+
+반드시 target_date 필드를 정확한 YYYY-MM-DD 형식으로 제공해야 합니다.
 """
             else:
                 # 개별 삭제 또는 다중 개별 삭제 처리
@@ -998,9 +1324,14 @@ Confidence 기준:
 - "MULTIPLE": 여러 개의 일정을 삭제
 
 다중 삭제 판단 기준:
-- "그리고", "또", "그 다음에", "추가로" 등의 연결어로 여러 일정을 언급
+- "그리고", "또", "그 다음에", "추가로", "와", "과", "하고" 등의 연결어로 여러 일정을 언급
 - 예: "내일 회의 삭제하고 다음주 월요일 점심약속도 삭제해줘"
 - 예: "팀 미팅 지우고 개인 약속도 취소해줘"
+- 예: "헬스 일정과 요가 일정 삭제해줘" (두 개의 개별 일정)
+
+주의: 다음과 같은 경우는 MULTIPLE이 아닌 SINGLE로 판단하세요:
+- "내일 헬스 일정과 금요일의 전체 일정을 삭제해줘" (이미 혼합삭제로 처리됨)
+- 개별 일정과 전체 삭제가 섞인 경우 (혼합삭제 패턴)
 """
                 
                 detection_response = self.client.chat.completions.create(
@@ -1039,8 +1370,10 @@ Confidence 기준:
 추출 가이드라인:
 1. 각 삭제 대상을 별도의 객체로 분리
 2. 연결어를 기준으로 일정을 분리
-3. 날짜와 시간을 정확히 추출
-4. 제목이 명확하지 않으면 설명에서 추출
+3. 삭제할 일정의 핵심 키워드를 추출 (불필요한 키워드 제거)
+   - 사용자 입력: "맥주 일정과 회의 삭제해줘" → ["맥주", "회의"]
+   - 불필요한 키워드 제거: "일정", "삭제", "지워", "제거", "해줘" 등
+4. 날짜와 시간을 정확히 추출
 """
                 else:
                     # 단일 개별 삭제
@@ -1064,7 +1397,10 @@ Confidence 기준:
 }}
 
 추출 가이드라인:
-1. 삭제할 일정의 제목, 날짜, 시간을 정확히 추출
+1. 삭제할 일정의 핵심 키워드를 추출 (제목에서 불필요한 키워드 제거)
+   - 사용자 입력: "맥주 일정 삭제해줘" → title: "맥주"
+   - 사용자 입력: "회의 지워줘" → title: "회의"
+   - 불필요한 키워드 제거: "일정", "삭제", "지워", "제거", "해줘" 등
 2. 상대적 날짜 표현을 절대 날짜로 변환
 3. 시간이 명시되지 않으면 null로 설정
 """
@@ -1090,10 +1426,47 @@ Confidence 기준:
             # 안전한 JSON 파싱
             extracted_info = safe_json_parse(response_text, default_delete_info)
             
+            # 혼합 삭제의 경우 추출된 정보 상세 로깅
+            if extracted_info.get('delete_type') == 'mixed':
+                print("=== 혼합 삭제 정보 추출 결과 ===")
+                actions = extracted_info.get('actions', [])
+                print(f"총 액션 수: {len(actions)}")
+                
+                for i, action in enumerate(actions):
+                    print(f"액션 {i+1}:")
+                    print(f"  - type: {action.get('type')}")
+                    if action.get('type') == 'individual':
+                        print(f"  - title: {action.get('title')}")
+                        print(f"  - date: {action.get('date')}")
+                        print(f"  - time: {action.get('time')}")
+                    elif action.get('type') == 'bulk':
+                        print(f"  - target_date: {action.get('target_date')}")
+                        print(f"  - date_description: {action.get('date_description')}")
+                
+                # 날짜 유효성 검사
+                for i, action in enumerate(actions):
+                    if action.get('type') == 'individual' and action.get('date'):
+                        try:
+                            parsed_date = datetime.strptime(action['date'], '%Y-%m-%d')
+                            print(f"액션 {i+1} 개별 삭제 날짜 파싱 성공: {parsed_date}")
+                        except ValueError as e:
+                            print(f"액션 {i+1} 개별 삭제 날짜 파싱 실패: {e}")
+                    
+                    if action.get('type') == 'bulk' and action.get('target_date'):
+                        try:
+                            parsed_date = datetime.strptime(action['target_date'], '%Y-%m-%d')
+                            print(f"액션 {i+1} 전체 삭제 날짜 파싱 성공: {parsed_date}")
+                        except ValueError as e:
+                            print(f"액션 {i+1} 전체 삭제 날짜 파싱 실패: {e}")
+                
+                print("=== 혼합 삭제 정보 추출 완료 ===")
+            
             state['extracted_info'] = extracted_info
             return state
             
         except Exception as e:
+           
+
             print(f"삭제 정보 추출 중 오류: {str(e)}")
             default_delete_info = {
                 "delete_type": "single",
@@ -1168,12 +1541,23 @@ Confidence 기준:
     ]
 }}
 
+중요한 시간 처리 규칙:
+1. 사용자가 시간 범위를 명시한 경우 (예: "오후 2시~4시", "14:00-16:00"): start_time과 end_time 모두 설정
+2. 사용자가 시작 시간만 명시한 경우 (예: "오후 4시로 바꿔줘", "16:00으로 변경"): start_time만 설정하고 end_time은 null
+3. end_time이 null인 경우 프론트엔드에서 자동으로 1시간 후로 설정됨
+4. 절대 24시간 이상의 일정을 만들지 말 것
+
 추출 가이드라인:
 1. 각 수정 요청을 별도의 객체로 분리
 2. 연결어를 기준으로 수정 요청을 분리
-3. target에는 수정할 일정의 식별 정보
+3. target에는 수정할 일정의 식별 정보 (키워드로 검색할 수 있도록 핵심 키워드만 추출)
+   - 사용자 입력: "맥주 일정을 오후 4시로 수정해줘" → target.title: "맥주"
+   - 사용자 입력: "회의 시간을 3시로 바꿔줘" → target.title: "회의"
+   - 사용자 입력: "친구와의 저녁 약속을 6시로 변경" → target.title: "친구"
+   - 불필요한 키워드 제거: "일정", "수정", "변경", "바꿔", "해줘", "시간을", "으로" 등
 4. changes에는 변경할 내용만 포함 (변경되지 않는 항목은 제외)
 5. 상대적 날짜 표현을 절대 날짜로 변환
+6. 시간 범위가 명확하지 않으면 end_time을 null로 설정하여 기본 1시간 일정으로 처리
 """
             else:
                 # 단일 수정 처리
@@ -1206,11 +1590,22 @@ Confidence 기준:
     }}
 }}
 
+중요한 시간 처리 규칙:
+1. 사용자가 시간 범위를 명시한 경우 (예: "오후 2시~4시", "14:00-16:00"): start_time과 end_time 모두 설정
+2. 사용자가 시작 시간만 명시한 경우 (예: "오후 4시로 바꿔줘", "16:00으로 변경"): start_time만 설정하고 end_time은 null
+3. end_time이 null인 경우 프론트엔드에서 자동으로 1시간 후로 설정됨
+4. 절대 24시간 이상의 일정을 만들지 말 것
+5. 상대적 날짜 표현을 절대 날짜로 변환
+6. 시간이 명시되지 않으면 null로 설정
+
 추출 가이드라인:
-1. target에는 수정할 일정의 식별 정보
+1. target에는 수정할 일정의 식별 정보 (키워드로 검색할 수 있도록 핵심 키워드만 추출)
+   - 사용자 입력: "맥주 일정을 오후 4시로 수정해줘" → target.title: "맥주"
+   - 사용자 입력: "회의 시간을 3시로 바꿔줘" → target.title: "회의"  
+   - 사용자 입력: "친구와의 저녁 약속을 6시로 변경" → target.title: "친구"
+   - 불필요한 키워드 제거: "일정", "수정", "변경", "바꿔", "해줘", "시간을", "으로" 등
 2. changes에는 변경할 내용만 포함 (변경되지 않는 항목은 제외)
-3. 상대적 날짜 표현을 절대 날짜로 변환
-4. 시간이 명시되지 않으면 null로 설정
+3. 시간 범위가 명확하지 않으면 end_time을 null로 설정하여 기본 1시간 일정으로 처리
 """
             
             response = self.client.chat.completions.create(
@@ -1259,6 +1654,315 @@ Confidence 기준:
             state['extracted_info'] = default_update_info
             return state
     
+    def _extract_range_events(self, state: CalendarState, current_date: datetime, rule_text: str) -> CalendarState:
+        """기간/범위 기반 일정 정보 추출 및 개별 일정로 변환"""
+        try:
+            user_input = state['current_input']
+            
+            # 기간/범위 정보 추출
+            prompt = f"""
+현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
+현재 시간: {current_date.strftime('%H:%M')}
+
+사용자가 기간/범위 기반 일정을 요청했습니다:
+"{user_input}"
+
+상대적 표현 해석 규칙:
+{rule_text}
+
+반드시 다음 JSON 형식으로만 응답해주세요:
+{{
+    "title": "일정 제목",    "start_time": "HH:MM (선택사항)",
+    "end_time": "HH:MM (선택사항)", 
+    "description": "상세 설명",
+    "location": "장소",
+    "range_type": "date_range|cross_week_range|single_week_range|weekday_list",
+    "range_info": {{
+        "start_date": "시작날짜 YYYY-MM-DD (date_range용)",
+        "end_date": "종료날짜 YYYY-MM-DD (date_range용)",
+        "start_weekday": "시작요일 (weekday_range, cross_week_range, single_week_range용: 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토)",
+        "end_weekday": "종료요일 (weekday_range, cross_week_range, single_week_range용: 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토)",
+        "start_week": "시작주 (cross_week_range용: 'this_week', 'next_week')",
+        "end_week": "종료주 (cross_week_range용: 'this_week', 'next_week')", 
+        "target_week": "대상주 (single_week_range용: 'this_week', 'next_week')",
+        "weekdays": [1, 2, 3] "요일 리스트 (weekday_list용: 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토)",
+        "base_date": "기준날짜 YYYY-MM-DD (요일 계산 기준)",
+        "repeat_count": 10 "반복 횟수 (선택사항)"
+    }}
+}}
+
+range_type 판단 기준:
+1. "date_range": "6월 15일부터 20일까지", "내일부터 다음주까지"
+2. "cross_week_range": "이번주 화요일부터 다음주 목요일까지", "이번주 금요일부터 다음주 월요일까지"
+3. "single_week_range": "다음주 월요일부터 금요일까지", "이번주 화요일부터 목요일까지" (한 주만)
+4. "weekday_list": "월,화,수요일에", "다음주 월,수,금요일에"
+
+추출 가이드라인:
+1. 제목에서 불필요한 키워드 제거 ("추가", "만들어", "잡아", "해줘" 등)
+2. 날짜 범위는 정확한 YYYY-MM-DD 형식으로 변환
+3. 요일은 숫자로 변환 (일요일=0, 월요일=1, ..., 토요일=6)
+4. 기준날짜는 요일 계산의 기준이 되는 날짜 (예: "다음주"의 경우 다음주 일요일)
+5. 시간이 명시되지 않으면 null로 설정
+
+예시:
+- "6월 15일부터 20일까지 휴가" → range_type: "date_range", start_date: "2025-06-15", end_date: "2025-06-20"
+- "이번주 화요일부터 다음주 목요일까지 프로젝트" → range_type: "cross_week_range", start_weekday: 2, end_weekday: 4, start_week: "this_week", end_week: "next_week"
+- "다음주 월요일부터 금요일까지 교육" → range_type: "single_week_range", start_weekday: 1, end_weekday: 5, target_week: "next_week"
+- "다음주 월,화,수요일에 미팅" → range_type: "weekday_list", weekdays: [1, 2, 3], base_date: "다음주 일요일 날짜"
+"""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            print(f"기간 정보 추출 응답: {response_text}")
+            
+            # 기본값 설정
+            default_range_info = {
+                "title": extract_title_from_input(user_input),
+                "start_time": None,
+                "end_time": None,
+                "description": "",
+                "location": "",
+                "range_type": "date_range",
+                "range_info": {
+                    "start_date": current_date.strftime('%Y-%m-%d'),
+                    "end_date": (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
+                }
+            }
+            
+            # 안전한 JSON 파싱
+            range_data = safe_json_parse(response_text, default_range_info)
+            
+            # 기간 정보를 개별 일정들로 변환
+            events = self._convert_range_to_events(range_data, current_date)
+            
+            # 각 이벤트 검증 및 보정
+            validated_events = []
+            for event in events:
+                validated_event = validate_and_correct_info(event, current_date)
+                validated_events.append(validated_event)
+            
+            extracted_info = {
+                "events": validated_events, 
+                "is_multiple": True,
+                "is_range": True,
+                "range_type": range_data.get("range_type"),
+                "original_range_data": range_data
+            }
+            
+            state['extracted_info'] = extracted_info
+            return state
+            
+        except Exception as e:
+            print(f"기간 정보 추출 중 오류: {str(e)}")
+            default_info = get_default_event_info()
+            default_info["title"] = extract_title_from_input(user_input)
+            state['extracted_info'] = {"events": [default_info], "is_multiple": False, "is_range": False}
+            return state
+    
+    def _convert_range_to_events(self, range_data: Dict[str, Any], current_date: datetime) -> List[Dict[str, Any]]:
+        """기간 정보를 개별 일정 리스트로 변환"""
+        try:
+            events = []
+            range_type = range_data.get("range_type", "date_range")
+            range_info = range_data.get("range_info", {})
+            
+            # 공통 이벤트 데이터
+            base_event = {
+                "title": range_data.get("title", "새 일정"),
+                "start_time": range_data.get("start_time"),
+                "end_time": range_data.get("end_time"),
+                "description": range_data.get("description", ""),
+                "location": range_data.get("location", ""),
+                "all_day": False,
+                "timezone": "Asia/Seoul",
+                "priority": "normal",
+                "category": "other"
+            }
+            
+            if range_type == "date_range":
+                # 날짜 범위: "6월 15일부터 20일까지"
+                start_date_str = range_info.get("start_date")
+                end_date_str = range_info.get("end_date")
+                
+                if start_date_str and end_date_str:
+                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+                    
+                    current = start_date
+                    while current <= end_date:
+                        event = base_event.copy()                        
+                        event["start_date"] = current.strftime('%Y-%m-%d')
+                        event["end_date"] = current.strftime('%Y-%m-%d')
+                        events.append(event)
+                        current += timedelta(days=1)
+            
+            elif range_type == "weekday_range":
+                # 요일 범위: "월요일부터 금요일까지" (이번주와 다음주)
+                start_weekday = range_info.get("start_weekday", 1)  # 월요일
+                end_weekday = range_info.get("end_weekday", 5)      # 금요일
+                base_date_str = range_info.get("base_date")
+                repeat_count = range_info.get("repeat_count", 2)    # 기본 2주 (이번주와 다음주)
+                
+                # 기준 날짜 설정 (다음주 일요일 등)
+                if base_date_str:
+                    try:
+                        base_date = datetime.strptime(base_date_str, '%Y-%m-%d')
+                    except:
+                        base_date = current_date + timedelta(days=7)  # 다음주로 기본 설정
+                else:
+                    base_date = current_date + timedelta(days=7)
+                
+                # 해당 주의 일요일 찾기
+                days_to_sunday = (6 - base_date.weekday()) % 7
+                week_start = base_date - timedelta(days=days_to_sunday)
+                
+                for week in range(repeat_count):
+                    current_week_start = week_start + timedelta(weeks=week)
+                    
+                    # 해당 주의 지정된 요일들에 일정 추가
+                    if start_weekday <= end_weekday:
+                        # 정상적인 범위 (월-금)
+                        for weekday in range(start_weekday, end_weekday + 1):
+                            event_date = current_week_start + timedelta(days=weekday)
+                            if event_date.date() >= current_date.date():  # 과거 날짜 제외
+                                event = base_event.copy()
+                                event["start_date"] = event_date.strftime('%Y-%m-%d')
+                                event["end_date"] = event_date.strftime('%Y-%m-%d')
+                                events.append(event)
+                    else:
+                        # 주말을 포함하는 범위 (금-월)
+                        for weekday in list(range(start_weekday, 7)) + list(range(0, end_weekday + 1)):
+                            event_date = current_week_start + timedelta(days=weekday)
+                            if event_date.date() >= current_date.date():
+                                event = base_event.copy()
+                                event["start_date"] = event_date.strftime('%Y-%m-%d')
+                                event["end_date"] = event_date.strftime('%Y-%m-%d')
+                                events.append(event)
+            
+            elif range_type == "weekday_list":
+                # 요일 리스트: "월,수,금요일에"
+                weekdays = range_info.get("weekdays", [1, 3, 5])
+                base_date_str = range_info.get("base_date")
+                repeat_count = range_info.get("repeat_count", 4)    # 기본 4주
+                
+                # 기준 날짜 설정
+                if base_date_str:
+                    try:
+                        base_date = datetime.strptime(base_date_str, '%Y-%m-%d')
+                    except:
+                        base_date = current_date + timedelta(days=7)
+                else:
+                    base_date = current_date + timedelta(days=7)
+                # 해당 주의 일요일 찾기
+                days_to_sunday = (6 - base_date.weekday()) % 7
+                week_start = base_date - timedelta(days=days_to_sunday)
+                
+                for week in range(repeat_count):
+                    current_week_start = week_start + timedelta(weeks=week)
+                    
+                    for weekday in weekdays:
+                        event_date = current_week_start + timedelta(days=weekday)
+                        if event_date.date() >= current_date.date():
+                            event = base_event.copy()
+                            event["start_date"] = event_date.strftime('%Y-%m-%d')
+                            event["end_date"] = event_date.strftime('%Y-%m-%d')
+                            events.append(event)
+            
+            elif range_type == "cross_week_range":
+                # 주 걸침 범위: "이번주 화요일부터 다음주 목요일까지"
+                start_weekday = range_info.get("start_weekday", 1)
+                end_weekday = range_info.get("end_weekday", 5)
+                start_week = range_info.get("start_week", "this_week")
+                end_week = range_info.get("end_week", "next_week")
+                
+                # 이번 주의 일요일 찾기
+                current_week_start = current_date - timedelta(days=current_date.weekday() + 1)
+                if current_date.weekday() == 6:  # 일요일인 경우
+                    current_week_start = current_date
+                
+                # 시작 주 계산
+                if start_week == "this_week":
+                    start_week_date = current_week_start
+                elif start_week == "next_week":
+                    start_week_date = current_week_start + timedelta(weeks=1)
+                else:
+                    start_week_date = current_week_start
+                
+                # 종료 주 계산
+                if end_week == "this_week":
+                    end_week_date = current_week_start
+                elif end_week == "next_week":
+                    end_week_date = current_week_start + timedelta(weeks=1)
+                else:
+                    end_week_date = current_week_start + timedelta(weeks=1)
+                
+                # 시작 날짜와 종료 날짜 계산
+                start_date = start_week_date + timedelta(days=start_weekday)
+                end_date = end_week_date + timedelta(days=end_weekday)
+                
+                # 연속된 날짜들에 일정 추가
+                current = start_date
+                while current <= end_date:
+                    if current.date() >= current_date.date():  # 과거 날짜 제외
+                        event = base_event.copy()
+                        event["start_date"] = current.strftime('%Y-%m-%d')
+                        event["end_date"] = current.strftime('%Y-%m-%d')
+                        events.append(event)
+                    current += timedelta(days=1)
+            
+            elif range_type == "single_week_range":
+                # 단일 주 범위: "다음주 월요일부터 금요일까지"
+                start_weekday = range_info.get("start_weekday", 1)
+                end_weekday = range_info.get("end_weekday", 5)
+                target_week = range_info.get("target_week", "next_week")
+                
+                # 이번 주의 일요일 찾기
+                current_week_start = current_date - timedelta(days=current_date.weekday() + 1)
+                if current_date.weekday() == 6:  # 일요일인 경우
+                    current_week_start = current_date
+                
+                # 대상 주 계산
+                if target_week == "this_week":
+                    target_week_date = current_week_start
+                elif target_week == "next_week":
+                    target_week_date = current_week_start + timedelta(weeks=1)
+                else:
+                    target_week_date = current_week_start + timedelta(weeks=1)
+                
+                # 해당 주의 지정된 요일들에 일정 추가
+                if start_weekday <= end_weekday:
+                    # 정상적인 범위 (월-금)
+                    for weekday in range(start_weekday, end_weekday + 1):
+                        event_date = target_week_date + timedelta(days=weekday)
+                        if event_date.date() >= current_date.date():  # 과거 날짜 제외
+                            event = base_event.copy()
+                            event["start_date"] = event_date.strftime('%Y-%m-%d')
+                            event["end_date"] = event_date.strftime('%Y-%m-%d')
+                            events.append(event)
+                else:
+                    # 주말을 포함하는 범위 (금-월)                    for weekday in list(range(start_weekday, 7)) + list(range(0, end_weekday + 1)):
+                        event_date = target_week_date + timedelta(days=weekday)
+                        if event_date.date() >= current_date.date():
+                            event = base_event.copy()
+                            event["start_date"] = event_date.strftime('%Y-%m-%d')
+                            event["end_date"] = event_date.strftime('%Y-%m-%d')
+                            events.append(event)
+            
+            print(f"기간 변환 결과: {range_type} -> {len(events)}개 일정 생성")
+            return events
+            
+        except Exception as e:
+            print(f"기간 변환 중 오류: {str(e)}")
+            # 오류 시 기본 단일 일정 반환
+            default_info = get_default_event_info()
+            default_info["title"] = range_data.get("title", "새 일정")
+            return [default_info]
+
     def _create_event_data(self, extracted_info: Dict[str, Any]) -> Dict[str, Any]:
         """추출된 정보를 Google Calendar API 형식으로 변환"""
         try:
@@ -1459,12 +2163,23 @@ def test_llm_service():
     
     async def run_tests():
         service = LLMService()
-        
-        # 테스트 케이스들 - 일요일 기준 주 계산 테스트 포함
+          # 테스트 케이스들 - 일요일 기준 주 계산 테스트 포함
         test_cases = [
+            # 기존 단일/다중 일정
             "내일 오후 3시에 팀 회의 일정 잡아줘",
             "다음주 월요일 오전 10시에 프레젠테이션",
             "다음주 일요일에 가족 모임",
+            "내일 저녁 7시에 카페 일정 추가하고 다음주 월요일 오전 11시에 점심 일정 추가해줘",
+            
+            # 기간 기반 일정 테스트
+            "6월 15일부터 20일까지 휴가",
+            "월요일부터 금요일까지 오전 9시에 운동",
+            "다음주 월,화,수요일에 교육",
+            "매일 오전 8시에 조깅",
+            "매주 월요일 오후 2시에 팀 미팅",
+            "내일부터 다음주 금요일까지 출장",
+            
+            # 기타
             "오늘 일정 뭐 있어?",
             "회의 시간을 4시로 바꿔줘",
             "내일 미팅 취소해줘",
@@ -1529,9 +2244,56 @@ def debug_date_calculation():
     print(f"다음주 = 다음 주 일요일: {rules.get('다음주')}")
     print(f"다음주 월요일: {rules.get('다음주 월요일')}")
 
+def debug_range_events():
+    """
+    기간 기반 일정 디버깅 함수
+    """
+    import asyncio
+    
+    async def test_range_extraction():
+        service = LLMService()
+        
+        range_test_cases = [
+            "6월 15일부터 20일까지 휴가",
+            "월요일부터 금요일까지 오전 9시에 운동", 
+            "다음주 월,화,수요일에 교육",
+            "매일 오전 8시에 조깅",
+            "매주 월요일 오후 2시에 팀 미팅",
+            "내일부터 다음주 금요일까지 출장",
+            "매월 15일에 월례회의"
+        ]
+        
+        for test_input in range_test_cases:
+            print(f"\n{'='*60}")
+            print(f"기간 테스트 입력: {test_input}")
+            print(f"{'='*60}")
+            
+            result = await service.process_calendar_input_with_workflow(test_input)
+            
+            print(f"의도: {result.get('intent')}")
+            extracted_info = result.get('extracted_info', {})
+            print(f"기간 여부: {extracted_info.get('is_range', False)}")
+            print(f"기간 타입: {extracted_info.get('range_type', 'N/A')}")
+            print(f"생성된 일정 수: {len(extracted_info.get('events', []))}")
+            
+            # 처음 3개 일정만 미리보기
+            events = extracted_info.get('events', [])
+            if events:
+                print("일정 미리보기:")
+                for i, event in enumerate(events[:3]):
+                    print(f"  {i+1}. {event.get('title')} - {event.get('start_date')} {event.get('start_time', '')}")
+                if len(events) > 3:
+                    print(f"  ... 외 {len(events) - 3}개 더")
+            
+            print(f"응답: {result.get('response')}")
+    
+    # 비동기 테스트 실행
+    asyncio.run(test_range_extraction())
+
 # 사용 예시:
 # if __name__ == "__main__":
 #     debug_date_calculation()
 #     test_llm_service()
 #     debug_intent_classification("다음주 일요일에 가족 모임")
 #     debug_time_parsing()
+#     debug_range_events()  # 새로운 기간 기반 일정 테스트

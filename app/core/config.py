@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     GOOGLE_SERVICE_ACCOUNT_JSON: Optional[str] = None
     GOOGLE_CALENDAR_ID: str = "primary"
     
-    # ChromaDB 설정
-    CHROMADB_HOST: str = "localhost"
-    CHROMADB_PORT: int = 9000
-    CHROMADB_PERSIST_DIR: str = "./chroma_db"
+    # # ChromaDB 설정
+    # CHROMADB_HOST: str = "localhost"
+    # CHROMADB_PORT: int = 9000
+    # CHROMADB_PERSIST_DIR: str = "./chroma_db"
     
     # TTS 설정 (향후 음성 응답을 위해)
     TTS_ENABLED: bool = False

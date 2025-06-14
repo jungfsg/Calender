@@ -12,28 +12,10 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://bcae-59-17-140-26.ngrok-free.app';
+  final String baseUrl = 'https://a06f-115-91-150-54.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
-  // 날씨 관련 키워드 목록
-  final List<String> _weatherKeywords = [
-    '날씨',
-    '기온',
-    '비',
-    '눈',
-    '맑음',
-    '흐림',
-    '예보',
-    '오늘 날씨',
-    '내일 날씨',
-    '이번 주 날씨',
-    '주간 날씨',
-    '기후',
-    '강수',
-    '습도',
-    '바람',
-    '온도',
-  ]; // LLM 서버에 메시지를 보내고 응답을 받는 메서드
+  // 날씨 관련 키워드 목록// LLM 서버에 메시지를 보내고 응답을 받는 메서드
   Future<types.TextMessage> sendMessage(
     String text,
     String userId, {
@@ -46,33 +28,10 @@ class ChatService {
     print('   eventManager 존재: ${eventManager != null}');
 
     try {
-      // 날씨 관련 질문인지 확인
       Map<String, dynamic> requestBody = {
         'message': text,
         'session_id': userId,
       };
-
-      // 날씨 관련 질문이면 날씨 데이터 추가
-      if (_isWeatherRelatedQuestion(text)) {
-        try {
-          final weatherData = await WeatherService.get5DayForecast();
-          requestBody['weather_context'] =
-              weatherData
-                  .map(
-                    (w) => {
-                      'date': w.date,
-                      'condition': w.condition,
-                      'temperature': w.temperature,
-                      'lat': w.lat,
-                      'lon': w.lon,
-                    },
-                  )
-                  .toList();
-        } catch (weatherError) {
-          print('날씨 데이터 가져오기 실패: $weatherError');
-          // 날씨 데이터 가져오기 실패해도 계속 진행
-        }
-      }
 
       // 일정 조회 관련 질문이면 캘린더 데이터 추가
       if (_isCalendarQueryQuestion(text)) {
@@ -248,6 +207,123 @@ class ChatService {
                   continue; // 다음 일정으로 건너뛰기
                 }
 
+                // 카테고리 분류를 위한 키워드 맵
+                final Map<int, List<String>> categoryKeywords = {
+                  1: [
+                    // 업무
+                    '회의', '미팅', '업무', '일', '직장', '사무실', '프로젝트', '발표', '보고서',
+                    '출장', '야근', '회사', '상사', '동료', '고객', '클라이언트', '계약', '협상',
+                    '세미나', '워크샵', '교육', '승진', '면접', '인사', '급여', '평가', '기획',
+                    '마케팅', '영업', '개발', '디자인', '분석', '데이터', '팀빌딩', '컨퍼런스',
+                  ],
+                  2: [
+                    // 집안일
+                    '청소', '빨래', '설거지', '요리', '장보기', '쓰레기', '정리', '대청소',
+                    '화분', '식물', '반려동물', '수리', '정비', '전기', '수도', '가스',
+                    '인테리어', '이사', '택배', '우편', '공과금', '관리비', '보험', '은행',
+                    '계산서', '가계부', '마트', '시장', '생필품', '세제', '휴지', '음식재료',
+                  ],
+                  3: [
+                    // 기념일
+                    '생일', '결혼', '기념일', '축하', '파티', '결혼식', '돌잔치', '졸업식',
+                    '입학식', '발표회', '시상식', '개업', '창립', '승진', '퇴직', '송별',
+                    '환영회', '신년회', '송년회', '크리스마스', '밸런타인', '화이트데이',
+                    '어버이날', '어린이날', '스승의날', '추석', '설날', '현충일', '광복절',
+                    '개천절', '한글날', '성년의날', '입대', '전역', '이벤트', '콘서트',
+                  ],
+                  4: [
+                    // 학교
+                    '수업', '강의', '시험', '중간고사', '기말고사', '과제', '숙제', '발표',
+                    '토론', '세미나', '실험', '실습', '견학', '현장학습', '체험', '방학',
+                    '개학', '졸업', '입학', '전학', '휴학', '복학', '장학금', '등록금',
+                    '교과서', '참고서', '문제집', '필기', '복습', '예습', '스터디', '그룹',
+                    '동아리', '학생회', '축제', '체육대회', '소풍', '수학여행', '캠프',
+                  ],
+                  5: [
+                    // 운동
+                    '헬스', '피트니스', '체육관', '요가', '필라테스', '수영', '달리기', '조깅',
+                    '마라톤', '사이클링', '등산', '하이킹', '축구', '농구', '야구', '배구',
+                    '테니스', '배드민턴', '탁구', '골프', '볼링', '당구', '태권도', '검도',
+                    '주짓수', '복싱', '댄스', '에어로빅', '스피닝', '크로스핏', '스쿼시',
+                    '클라이밍', '스키', '스노보드', '서핑', '다이빙', '트레이닝', '스트레칭',
+                  ],
+                  6: [
+                    // 공부
+                    '공부', '학습', '독서', '시험', '자격증', '토익', '토플', '한능검',
+                    '컴활', '워드', '엑셀', '파워포인트', '코딩', '프로그래밍', '언어',
+                    '영어', '중국어', '일본어', '독일어', '프랑스어', '스페인어', '회화',
+                    '문법', '단어', '어휘', '리딩', '리스닝', '스피킹', '라이팅', '온라인',
+                    '강의', '인강', '과외', '학원', '독서실', '도서관', '스터디카페', '복습',
+                  ],
+                  7: [
+                    // 여행
+                    '여행', '휴가', '여행사', '항공', '비행기', '공항', '호텔', '숙박',
+                    '펜션', '리조트', '모텔', '게스트하우스', '에어비앤비', '캠핑', '글램핑',
+                    '국내여행', '해외여행', '배낭여행', '패키지', '자유여행', '크루즈',
+                    '관광', '명소', '박물관', '미술관', '테마파크', '놀이공원', '해변',
+                    '바다', '산', '온천', '스파', '맛집', '카페', '쇼핑', '면세점',
+                    '기념품', '사진', '셀카', '인스타', 'SNS', '맛보기', '체험', '액티비티',
+                  ],
+                  8: [
+                    // 기타
+                    '기타', '개인', '취미', '여가', '휴식', '쉬는날', '자유시간', '독서',
+                    '영화', '드라마', '예능', '유튜브', '넷플릭스', '게임', '음악', '노래',
+                    '악기', '피아노', '기타', '바이올린', '드럼', '그림', '미술', '사진',
+                    '요리', '베이킹', '원예', '정원', 'DIY', '만들기', '수집', '컬렉션',
+                    '봉사', '자원봉사', '기부', '종교', '명상', '힐링', '산책', '드라이브',
+                  ],
+                  9: [
+                    // 친구
+                    '친구', '모임', '만남', '약속', '데이트', '소개팅', '미팅', '파티',
+                    '술자리', '회식', '뒤풀이', '카페', '맛집', '식사', '점심', '저녁',
+                    '치킨', '피자', '족발', '보쌈', '삼겹살', '고기', '술', '맥주', '소주',
+                    '와인', '칵테일', '노래방', 'KTV', '볼링', '당구', '게임', 'PC방',
+                    '영화', '공연', '콘서트', '뮤지컬', '연극', '전시회', '쇼핑', '놀이공원',
+                    '동창회', '동문회', '반모임', '동아리', '클럽', '커뮤니티', '번개',
+                  ],
+                  10: [
+                    // 가족
+                    '가족', '부모님', '아버지', '어머니', '아빠', '엄마', '형', '누나',
+                    '언니', '오빠', '동생', '남동생', '여동생', '할아버지', '할머니',
+                    '외할아버지', '외할머니', '삼촌', '고모', '이모', '시댁', '친정',
+                    '시아버지', '시어머니', '장인', '장모', '처남', '처제', '시누이',
+                    '형수', '올케', '조카', '손자', '손녀', '사위', '며느리', '제사',
+                    '차례', '성묘', '이사', '집들이', '돌잔치', '백일', '결혼식', '장례식',
+                  ],
+                  11: [
+                    // 병원
+                    '병원', '의원', '클리닉', '치과', '안과', '피부과', '이비인후과',
+                    '정형외과', '산부인과', '소아과', '내과', '외과', '신경과', '정신과',
+                    '응급실', '응급', '119', '검진', '건강검진', '종합검진', '인간독',
+                    '예방접종', '백신', '주사', '수술', '입원', '외래', '진료', '치료',
+                    '처방', '약국', '처방전', '의약품', '약', '물리치료', '재활', '엑스레이',
+                    'CT', 'MRI', '초음파', '혈액검사', '소변검사', '심전도', '내시경',
+                  ],
+                };
+
+                // 카테고리 자동 분류 함수
+                int? getColorIdFromText(String text) {
+                  text = text.toLowerCase();
+
+                  for (int colorId in categoryKeywords.keys) {
+                    List<String> keywords = categoryKeywords[colorId]!;
+                    for (String keyword in keywords) {
+                      if (text.contains(keyword.toLowerCase())) {
+                        return colorId;
+                      }
+                    }
+                  }
+
+                  return null; // 매칭되는 카테고리가 없으면 null 반환
+                }
+
+                // 제목으로부터 colorId 결정
+                int? categoryColorId = getColorIdFromText(title);
+                String colorId =
+                    categoryColorId?.toString() ??
+                    (1 + Random().nextInt(11)).toString();
+                print('🎨 카테고리 분류 결과: $colorId (제목: $title)');
+
                 // Event 객체 생성
                 final event = Event(
                   title: title,
@@ -255,17 +331,24 @@ class ChatService {
                   endTime: endTime, // 종료 시간 추가
                   date: eventDate,
                   description: description,
-                  source: 'local',
-                  colorId: (1 + Random().nextInt(11)).toString(),
+                  source: 'local', // 로컬에서 생성된 이벤트
+                  colorId: colorId, // 카테고리 기반 colorId 사용
                 );
 
-                // EventManager가 전달되었다면 이벤트 매니저를 통해 추가
+                print('생성된 Event 객체: ${event.toJson()}');
+
+                // EventManager가 전달되었다면 이벤트 매니저를 통해 추가 (Google 동기화 포함)
                 if (eventManager != null) {
+                  print(
+                    '🔄 ChatService: EventManager의 addEvent로 일정 추가 중 (Google 동기화 포함)',
+                  );
                   await eventManager.addEvent(event, syncWithGoogle: true);
-                  print('✅ 다중 일정 ${i + 1} 추가 완료: $title');
+                  print('✅ AI 채팅으로 추가된 일정이 로컬 및 Google 캘린더에 저장되었습니다: $title');
                 } else {
+                  // EventManager가 없는 경우 폴백: 로컬 저장소에만 저장
+                  print('⚠️ EventManager가 없어 로컬에만 저장합니다');
                   await EventStorageService.addEvent(eventDate, event);
-                  print('✅ 다중 일정 ${i + 1} 로컬 추가 완료: $title');
+                  print('✅ AI 채팅으로 추가된 일정이 로컬 캘린더에만 저장되었습니다: $title');
                 }
 
                 addedCount++;
@@ -273,9 +356,6 @@ class ChatService {
                 print('❌ 다중 일정 ${i + 1} 추가 오류: $e');
                 allSuccessful = false;
               }
-            } else {
-              print('❌ 다중 일정 ${i + 1}: startDate가 null입니다');
-              allSuccessful = false;
             }
           }
 
@@ -320,7 +400,126 @@ class ChatService {
               if (isDuplicate) {
                 print('🚫 AI 채팅: 중복된 일정이므로 추가하지 않음: $title ($eventTime)');
                 return false; // 중복이므로 추가하지 않음
-              } // Event 객체 생성 (랜덤 colorId 지정)
+              }
+
+              // 카테고리 분류를 위한 키워드 맵
+              final Map<int, List<String>> categoryKeywords = {
+                1: [
+                  // 업무
+                  '회의', '미팅', '업무', '일', '직장', '사무실', '프로젝트', '발표', '보고서',
+                  '출장', '야근', '회사', '상사', '동료', '고객', '클라이언트', '계약', '협상',
+                  '세미나', '워크샵', '교육', '승진', '면접', '인사', '급여', '평가', '기획',
+                  '마케팅', '영업', '개발', '디자인', '분석', '데이터', '팀빌딩', '컨퍼런스',
+                ],
+                2: [
+                  // 집안일
+                  '집안일', '청소', '빨래', '설거지', '요리', '장보기', '쓰레기', '정리', '대청소',
+                  '화분', '식물', '반려동물', '수리', '정비', '전기', '수도', '가스',
+                  '인테리어', '이사', '택배', '우편', '공과금', '관리비', '보험', '은행',
+                  '계산서', '가계부', '마트', '시장', '생필품', '세제', '휴지', '음식재료',
+                ],
+                3: [
+                  // 기념일
+                  '생일', '결혼', '기념일', '축하', '파티', '결혼식', '돌잔치', '졸업식',
+                  '입학식', '발표회', '시상식', '개업', '창립', '승진', '퇴직', '송별',
+                  '환영회', '신년회', '송년회', '크리스마스', '밸런타인', '화이트데이',
+                  '어버이날', '어린이날', '스승의날', '추석', '설날', '현충일', '광복절',
+                  '개천절', '한글날', '성년의날', '입대', '전역', '이벤트', '콘서트',
+                ],
+                4: [
+                  // 학교
+                  '학교', '수업', '강의', '시험', '중간고사', '기말고사', '과제', '숙제', '발표',
+                  '토론', '세미나', '실험', '실습', '견학', '현장학습', '체험', '방학',
+                  '개학', '졸업', '입학', '전학', '휴학', '복학', '장학금', '등록금',
+                  '교과서', '참고서', '문제집', '필기', '복습', '예습', '스터디', '그룹',
+                  '동아리', '학생회', '축제', '체육대회', '소풍', '수학여행', '캠프',
+                ],
+                5: [
+                  // 운동
+                  '운동', '헬스', '피트니스', '체육관', '요가', '필라테스', '수영', '달리기', '조깅',
+                  '마라톤', '사이클링', '등산', '하이킹', '축구', '농구', '야구', '배구',
+                  '테니스', '배드민턴', '탁구', '골프', '볼링', '당구', '태권도', '검도',
+                  '주짓수', '복싱', '댄스', '에어로빅', '스피닝', '크로스핏', '스쿼시',
+                  '클라이밍', '스키', '스노보드', '서핑', '다이빙', '트레이닝', '스트레칭',
+                ],
+                6: [
+                  // 공부
+                  '공부', '학습', '독서', '시험', '자격증', '토익', '토플', '한능검',
+                  '컴활', '워드', '엑셀', '파워포인트', '코딩', '프로그래밍', '언어',
+                  '영어', '중국어', '일본어', '독일어', '프랑스어', '스페인어', '회화',
+                  '문법', '단어', '어휘', '리딩', '리스닝', '스피킹', '라이팅', '온라인',
+                  '강의', '인강', '과외', '학원', '독서실', '도서관', '스터디카페', '복습',
+                ],
+                7: [
+                  // 여행
+                  '여행', '휴가', '여행사', '항공', '비행기', '공항', '호텔', '숙박',
+                  '펜션', '리조트', '모텔', '게스트하우스', '에어비앤비', '캠핑', '글램핑',
+                  '국내여행', '해외여행', '배낭여행', '패키지', '자유여행', '크루즈',
+                  '관광', '명소', '박물관', '미술관', '테마파크', '놀이공원', '해변',
+                  '바다', '산', '온천', '스파', '맛집', '카페', '쇼핑', '면세점',
+                  '기념품', '사진', '셀카', '인스타', 'SNS', '맛보기', '체험', '액티비티',
+                ],
+                8: [
+                  // 기타
+                  '기타', '개인', '취미', '여가', '휴식', '쉬는날', '자유시간', '독서',
+                  '영화', '드라마', '예능', '유튜브', '넷플릭스', '게임', '음악', '노래',
+                  '악기', '피아노', '기타', '바이올린', '드럼', '그림', '미술', '사진',
+                  '요리', '베이킹', '원예', '정원', 'DIY', '만들기', '수집', '컬렉션',
+                  '봉사', '자원봉사', '기부', '종교', '명상', '힐링', '산책', '드라이브',
+                ],
+                9: [
+                  // 친구
+                  '친구', '모임', '만남', '약속', '데이트', '소개팅', '미팅', '파티',
+                  '술자리', '회식', '뒤풀이', '카페', '맛집', '식사', '점심', '저녁',
+                  '치킨', '피자', '족발', '보쌈', '삼겹살', '고기', '술', '맥주', '소주',
+                  '와인', '칵테일', '노래방', 'KTV', '볼링', '당구', '게임', 'PC방',
+                  '영화', '공연', '콘서트', '뮤지컬', '연극', '전시회', '쇼핑', '놀이공원',
+                  '동창회', '동문회', '반모임', '동아리', '클럽', '커뮤니티', '번개',
+                ],
+                10: [
+                  // 가족
+                  '가족', '부모님', '아버지', '어머니', '아빠', '엄마', '형', '누나',
+                  '언니', '오빠', '동생', '남동생', '여동생', '할아버지', '할머니',
+                  '외할아버지', '외할머니', '삼촌', '고모', '이모', '시댁', '친정',
+                  '시아버지', '시어머니', '장인', '장모', '처남', '처제', '시누이',
+                  '형수', '올케', '조카', '손자', '손녀', '사위', '며느리', '제사',
+                  '차례', '성묘', '이사', '집들이', '돌잔치', '백일', '결혼식', '장례식',
+                ],
+                11: [
+                  // 병원
+                  '병원', '의원', '클리닉', '치과', '안과', '피부과', '이비인후과',
+                  '정형외과', '산부인과', '소아과', '내과', '외과', '신경과', '정신과',
+                  '응급실', '응급', '119', '검진', '건강검진', '종합검진', '인간독',
+                  '예방접종', '백신', '주사', '수술', '입원', '외래', '진료', '치료',
+                  '처방', '약국', '처방전', '의약품', '약', '물리치료', '재활', '엑스레이',
+                  'CT', 'MRI', '초음파', '혈액검사', '소변검사', '심전도', '내시경',
+                ],
+              };
+
+              // 카테고리 자동 분류 함수
+              int? getColorIdFromText(String text) {
+                text = text.toLowerCase();
+
+                for (int colorId in categoryKeywords.keys) {
+                  List<String> keywords = categoryKeywords[colorId]!;
+                  for (String keyword in keywords) {
+                    if (text.contains(keyword.toLowerCase())) {
+                      return colorId;
+                    }
+                  }
+                }
+
+                return null; // 매칭되는 카테고리가 없으면 null 반환
+              }
+
+              // 제목으로부터 colorId 결정
+              int? categoryColorId = getColorIdFromText(title);
+              String colorId =
+                  categoryColorId?.toString() ??
+                  (1 + Random().nextInt(11)).toString();
+              print('🎨 카테고리 분류 결과: $colorId (제목: $title)');
+
+              // Event 객체 생성
               final event = Event(
                 title: title,
                 time: eventTime,
@@ -328,9 +527,7 @@ class ChatService {
                 date: eventDate,
                 description: description,
                 source: 'local', // 로컬에서 생성된 이벤트
-                colorId:
-                    (1 + Random().nextInt(11))
-                        .toString(), // 1-11 사이 랜덤 색상 ID 지정
+                colorId: colorId, // 카테고리 기반 colorId 사용
               );
 
               print('생성된 Event 객체: ${event.toJson()}');
@@ -519,22 +716,56 @@ class ChatService {
                   }
                 }
 
+                // 시간 수정 처리 - 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 자동으로 1시간으로 설정
+                String finalStartTime =
+                    (newStartTime != null && newStartTime != eventToUpdate.time)
+                        ? newStartTime
+                        : eventToUpdate.time;
+                String? finalEndTime;
+
+                if (newStartTime != null &&
+                    newStartTime != eventToUpdate.time) {
+                  // 시작 시간이 변경된 경우
+                  if (newEndTime != null &&
+                      newEndTime != eventToUpdate.endTime) {
+                    // 종료 시간도 명시적으로 변경된 경우
+                    finalEndTime = newEndTime;
+                  } else {
+                    // 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 -> 기본 1시간으로 설정
+                    try {
+                      final startTimeParts = finalStartTime.split(':');
+                      if (startTimeParts.length == 2) {
+                        final startHour = int.parse(startTimeParts[0]);
+                        final startMinute = int.parse(startTimeParts[1]);
+                        final endHour = (startHour + 1) % 24;
+                        finalEndTime =
+                            '${endHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}';
+                        print(
+                          '⏰ 시작 시간만 변경됨 - 종료 시간 자동 설정: $finalStartTime → $finalEndTime',
+                        );
+                      }
+                    } catch (e) {
+                      print('⚠️ 종료 시간 자동 설정 실패: $e');
+                      finalEndTime = eventToUpdate.endTime; // 기존 종료 시간 유지
+                    }
+                  }
+                } else {
+                  // 시작 시간이 변경되지 않은 경우
+                  finalEndTime =
+                      (newEndTime != null &&
+                              newEndTime != eventToUpdate.endTime)
+                          ? newEndTime
+                          : eventToUpdate.endTime;
+                }
+
                 // 수정된 이벤트 생성 (기존 값들을 더 잘 보존)
                 final updatedEvent = eventToUpdate.copyWith(
                   title:
                       (newTitle != null && newTitle != eventToUpdate.title)
                           ? newTitle
                           : eventToUpdate.title,
-                  time:
-                      (newStartTime != null &&
-                              newStartTime != eventToUpdate.time)
-                          ? newStartTime
-                          : eventToUpdate.time,
-                  endTime:
-                      (newEndTime != null &&
-                              newEndTime != eventToUpdate.endTime)
-                          ? newEndTime
-                          : eventToUpdate.endTime,
+                  time: finalStartTime,
+                  endTime: finalEndTime,
                   date: updatedDate,
                   description:
                       (newDescription != null &&
@@ -557,12 +788,12 @@ class ChatService {
 
                 print('🔄 수정된 Event 객체: ${updatedEvent.toJson()}');
 
-                // EventManager를 통해 수정 (Google 동기화 포함)
+                // EventManager를 통해 수정
                 if (eventManager != null) {
                   await eventManager.updateEvent(
                     eventToUpdate,
                     updatedEvent,
-                    syncWithGoogle: true, // Google 캘린더에서도 수정
+                    syncWithGoogle: true,
                   );
                   print('✅ EventManager를 통해 일정 수정 및 Google Calendar 동기화 완료');
                 } else {
@@ -698,6 +929,13 @@ class ChatService {
         } else if (deleteType == 'multiple') {
           // 다중 개별 삭제 처리
           return await _handleMultipleDelete(
+            extractedInfo,
+            eventManager,
+            onCalendarUpdate,
+          );
+        } else if (deleteType == 'mixed') {
+          // 혼합 삭제 처리 (개별 삭제 + 전체 삭제)
+          return await _handleMixedDelete(
             extractedInfo,
             eventManager,
             onCalendarUpdate,
@@ -1006,9 +1244,148 @@ class ChatService {
     }
   }
 
-  // 날씨 관련 질문인지 확인하는 메서드
-  bool _isWeatherRelatedQuestion(String text) {
-    return _weatherKeywords.any((keyword) => text.contains(keyword));
+  // 혼합 삭제 처리 메서드 (개별 삭제 + 전체 삭제)
+  Future<bool> _handleMixedDelete(
+    Map<String, dynamic> extractedInfo,
+    EventManager? eventManager,
+    Function()? onCalendarUpdate,
+  ) async {
+    try {
+      final actions = extractedInfo['actions'] as List<dynamic>? ?? [];
+
+      print('📋 혼합 삭제 처리 시작: ${actions.length}개 액션');
+
+      bool anyDeleted = false;
+      int totalDeletedCount = 0;
+
+      for (int i = 0; i < actions.length; i++) {
+        final action = actions[i] as Map<String, dynamic>;
+        final actionType = action['type'] as String?;
+
+        print('🎯 액션 ${i + 1}: $actionType');
+
+        if (actionType == 'individual') {
+          // 개별 일정 삭제
+          final title = action['title'] as String? ?? '';
+          final date = action['date'] as String?;
+          final time = action['time'] as String?;
+
+          print('🗑️ 개별 삭제: $title ($date $time)');
+
+          if (date != null) {
+            try {
+              final eventDate = DateTime.parse(date);
+              final existingEvents = await EventStorageService.getEvents(
+                eventDate,
+              );
+
+              Event? eventToDelete;
+
+              // 제목으로 이벤트 찾기
+              for (var event in existingEvents) {
+                if (title.isNotEmpty) {
+                  bool titleMatch =
+                      event.title.toLowerCase().contains(title.toLowerCase()) ||
+                      title.toLowerCase().contains(event.title.toLowerCase());
+
+                  if (titleMatch) {
+                    eventToDelete = event;
+                    break;
+                  }
+                }
+              }
+
+              if (eventToDelete != null) {
+                if (eventManager != null) {
+                  await eventManager.removeEventAndRefresh(
+                    eventDate,
+                    eventToDelete,
+                    syncWithGoogle: true,
+                  );
+                } else {
+                  await EventStorageService.removeEvent(
+                    eventDate,
+                    eventToDelete,
+                  );
+                }
+
+                totalDeletedCount++;
+                anyDeleted = true;
+                print('✅ 개별 삭제 완료: ${eventToDelete.title}');
+              } else {
+                print('❌ 개별 삭제 실패: 일정을 찾을 수 없음 ($title)');
+              }
+            } catch (e) {
+              print('❌ 개별 삭제 처리 중 오류: $e');
+            }
+          } else {
+            print('❌ 개별 삭제: 날짜 정보가 없음');
+          }
+        } else if (actionType == 'bulk') {
+          // 전체 일정 삭제
+          final targetDate = action['target_date'] as String?;
+          final dateDescription =
+              action['date_description'] as String? ?? '해당 날짜';
+
+          print('📋 전체 삭제: $targetDate ($dateDescription)');
+
+          if (targetDate != null) {
+            try {
+              final eventDate = DateTime.parse(targetDate);
+              final existingEvents = await EventStorageService.getEvents(
+                eventDate,
+              );
+
+              print('🔍 전체 삭제할 이벤트들: ${existingEvents.length}개');
+
+              int bulkDeletedCount = 0;
+
+              for (var event in existingEvents) {
+                try {
+                  if (eventManager != null) {
+                    await eventManager.removeEventAndRefresh(
+                      eventDate,
+                      event,
+                      syncWithGoogle: true,
+                    );
+                  } else {
+                    await EventStorageService.removeEvent(eventDate, event);
+                  }
+                  bulkDeletedCount++;
+                  print('✅ 전체 삭제 완료: ${event.title}');
+                } catch (e) {
+                  print('❌ 전체 삭제 실패: ${event.title} - $e');
+                }
+              }
+
+              totalDeletedCount += bulkDeletedCount;
+              if (bulkDeletedCount > 0) {
+                anyDeleted = true;
+              }
+
+              print('📊 전체 삭제 완료: $bulkDeletedCount/${existingEvents.length}개');
+            } catch (e) {
+              print('❌ 전체 삭제 처리 중 오류: $e');
+            }
+          } else {
+            print('❌ 전체 삭제: 날짜 정보가 없음');
+          }
+        } else {
+          print('❌ 알 수 없는 액션 타입: $actionType');
+        }
+      }
+
+      print('📊 혼합 삭제 총 완료: $totalDeletedCount개');
+
+      if (onCalendarUpdate != null && anyDeleted) {
+        onCalendarUpdate();
+      }
+
+      return anyDeleted;
+    } catch (e) {
+      print('❌ 혼합 삭제 처리 중 오류: $e');
+      return false;
+    }
   }
 
   // 일정 조회 관련 키워드 목록
@@ -1325,7 +1702,7 @@ class ChatService {
             }
 
             // Google Event ID로 찾지 못했거나 ID가 없는 경우 제목으로 검색
-            if (eventToUpdate == null && originalTitle.isNotEmpty) {
+            if (eventToUpdate == null) {
               print('🔍 제목으로 이벤트 검색: $originalTitle');
               for (var event in existingEvents) {
                 bool titleMatch =
@@ -1365,31 +1742,74 @@ class ChatService {
                 }
               }
 
+              // 시간 수정 처리 - 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 자동으로 1시간으로 설정
+              String finalStartTime =
+                  (newStartTime != null && newStartTime != eventToUpdate.time)
+                      ? newStartTime
+                      : eventToUpdate.time;
+              String? finalEndTime;
+
+              if (newStartTime != null && newStartTime != eventToUpdate.time) {
+                // 시작 시간이 변경된 경우
+                if (newEndTime != null && newEndTime != eventToUpdate.endTime) {
+                  // 종료 시간도 명시적으로 변경된 경우
+                  finalEndTime = newEndTime;
+                } else {
+                  // 시작 시간만 변경되고 종료 시간이 명시되지 않은 경우 -> 기본 1시간으로 설정
+                  try {
+                    final startTimeParts = finalStartTime.split(':');
+                    if (startTimeParts.length == 2) {
+                      final startHour = int.parse(startTimeParts[0]);
+                      final startMinute = int.parse(startTimeParts[1]);
+                      final endHour = (startHour + 1) % 24;
+                      finalEndTime =
+                          '${endHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}';
+                      print(
+                        '⏰ 시작 시간만 변경됨 - 종료 시간 자동 설정: $finalStartTime → $finalEndTime',
+                      );
+                    }
+                  } catch (e) {
+                    print('⚠️ 종료 시간 자동 설정 실패: $e');
+                    finalEndTime = eventToUpdate.endTime; // 기존 종료 시간 유지
+                  }
+                }
+              } else {
+                // 시작 시간이 변경되지 않은 경우
+                finalEndTime =
+                    (newEndTime != null && newEndTime != eventToUpdate.endTime)
+                        ? newEndTime
+                        : eventToUpdate.endTime;
+              }
+
               // 수정된 이벤트 생성
               final updatedEvent = eventToUpdate.copyWith(
                 title:
                     (newTitle != null && newTitle != eventToUpdate.title)
                         ? newTitle
                         : eventToUpdate.title,
-                time:
-                    (newStartTime != null && newStartTime != eventToUpdate.time)
-                        ? newStartTime
-                        : eventToUpdate.time,
-                endTime:
-                    (newEndTime != null && newEndTime != eventToUpdate.endTime)
-                        ? newEndTime
-                        : eventToUpdate.endTime,
+                time: finalStartTime,
+                endTime: finalEndTime,
                 date: updatedDate,
                 description:
                     (newDescription != null &&
                             newDescription != eventToUpdate.description)
                         ? newDescription
                         : eventToUpdate.description,
-                // location 필드가 Event 모델에 있다면 추가
               );
 
               print('🔄 수정 전: ${eventToUpdate.toJson()}');
-              print('🔄 수정 후: ${updatedEvent.toJson()}');
+              print('🔄 적용할 변경사항:');
+              print('   제목: ${eventToUpdate.title} -> ${updatedEvent.title}');
+              print('   시간: ${eventToUpdate.time} -> ${updatedEvent.time}');
+              print(
+                '   종료시간: ${eventToUpdate.endTime} -> ${updatedEvent.endTime}',
+              );
+              print('   날짜: ${eventToUpdate.date} -> ${updatedEvent.date}');
+              print(
+                '   설명: "${eventToUpdate.description}" -> "${updatedEvent.description}"',
+              );
+
+              print('🔄 수정된 Event 객체: ${updatedEvent.toJson()}');
 
               // EventManager를 통해 수정
               if (eventManager != null) {
@@ -1406,7 +1826,29 @@ class ChatService {
                   eventToUpdate,
                 );
                 await EventStorageService.addEvent(updatedDate, updatedEvent);
-                print('⚠️ EventManager가 없어 로컬에서만 수정되었습니다');
+                print(
+                  '⚠️ EventManager가 없어 로컬에서만 수정되었습니다 (Google Calendar 동기화 없음)',
+                );
+              }
+
+              print(
+                '✅ AI 채팅으로 요청된 일정이 수정되었습니다: ${eventToUpdate.title} -> ${updatedEvent.title}',
+              );
+              print('📅 수정된 날짜: $updatedDate');
+
+              // 수정 후 확인
+              final updatedEvents = await EventStorageService.getEvents(
+                updatedDate,
+              );
+              print('🔍 수정 후 확인 - 해당 날짜의 이벤트들 (${updatedEvents.length}개):');
+              for (int i = 0; i < updatedEvents.length; i++) {
+                print('  $i: ${updatedEvents[i].toJson()}');
+              }
+
+              // 캘린더 업데이트 콜백 호출
+              if (onCalendarUpdate != null) {
+                onCalendarUpdate();
+                print('📱 캘린더 업데이트 콜백 호출됨');
               }
 
               successCount++;
@@ -1440,10 +1882,10 @@ class ChatService {
             });
           }
         } else {
-          print('❌ 수정 요청 ${i + 1} 실패: 날짜 정보 없음');
+          print('❌ 수정 요청 ${i + 1} 실패: 날짜 정보가 없음');
           updateResults.add({
             'success': false,
-            'error': '날짜 정보 없음',
+            'error': '날짜 정보가 없음',
             'target_title': originalTitle,
           });
         }

@@ -122,3 +122,5 @@ docker-compose.override.yml
 .env.development.local
 .env.test.local
 .env.production.local 
+# API Key config file
+/lib/config.dart

@@ -281,4 +281,53 @@ class CalendarController {
       _events.remove(key);
     }
   }
+
+  /// 🆕 모든 이벤트 가져오기 (멀티데이 이벤트 처리용)
+  List<Event> getAllEvents() {
+    final allEvents = <Event>[];
+    for (final eventList in _events.values) {
+      allEvents.addAll(eventList);
+    }
+    return allEvents;
+  }
+
+  /// 🆕 멀티데이 이벤트 추가 (여러 날짜에 추가)
+  void addMultiDayEvent(Event event) {
+    if (!event.isMultiDay || event.startDate == null || event.endDate == null) {
+      // 일반 이벤트로 처리
+      addEvent(event);
+      return;
+    }
+
+    // 멀티데이 이벤트를 각 날짜에 추가
+    final startDate = event.startDate!;
+    final endDate = event.endDate!;
+
+    for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+      final currentDate = startDate.add(Duration(days: i));
+      final dailyEvent = event.copyWith(date: currentDate);
+      addEvent(dailyEvent);
+    }
+  }
+
+  /// 🆕 멀티데이 이벤트 제거 (모든 날짜에서 제거)
+  void removeMultiDayEvent(Event event) {
+    if (!event.isMultiDay || event.startDate == null || event.endDate == null) {
+      // 일반 이벤트로 처리
+      removeEvent(event);
+      return;
+    }
+
+    // 멀티데이 이벤트를 모든 관련 날짜에서 제거
+    final startDate = event.startDate!;
+    final endDate = event.endDate!;
+
+    for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+      final currentDate = startDate.add(Duration(days: i));
+      final key = _getKey(currentDate);
+      if (_events[key] != null) {
+        _events[key]!.removeWhere((e) => e.uniqueId == event.uniqueId);
+      }
+    }
+  }
 }

@@ -15,6 +15,7 @@ class WeatherCalendarCell extends StatelessWidget {
   final Map<String, Color>? eventIdColors; // ID 기반 색상 매핑 추가
   final Map<String, Color>? colorIdColors; // Google colorId 색상 매핑 추가
   final WeatherInfo? weatherInfo;
+  final List<Event>? allEvents; // 🆕 전체 이벤트 목록 (멀티데이 이벤트 처리용)
   const WeatherCalendarCell({
     super.key,
     required this.day,
@@ -26,6 +27,7 @@ class WeatherCalendarCell extends StatelessWidget {
     this.eventIdColors,
     this.colorIdColors,
     this.weatherInfo,
+    this.allEvents, // 🆕 전체 이벤트 목록
   });
 
   // 셀 배경 색상 결정
@@ -90,16 +92,16 @@ class WeatherCalendarCell extends StatelessWidget {
 
   // 이벤트 색상 가져오기 - 고유 ID 기반 시스템 우선
   Color _getEventColor(Event event) {
-    // 1. Event 객체의 color 속성 우선
-    if (event.color != null) {
-      return event.color!;
-    }
-
-    // 2. Google colorId 기반 매핑
+    // 1. Google colorId 기반 매핑
     if (event.colorId != null &&
         colorIdColors != null &&
         colorIdColors!.containsKey(event.colorId)) {
       return colorIdColors![event.colorId]!;
+    }
+
+    // 2. Event 객체의 color 속성 우선
+    if (event.color != null) {
+      return event.color!;
     }
 
     // 3. 고유 ID 기반 색상 매핑 (새로운 방식)
@@ -133,6 +135,35 @@ class WeatherCalendarCell extends StatelessWidget {
     }
   }
 
+  // 🆕 해당 날짜의 멀티데이 이벤트들을 찾는 메서드
+  List<Event> _getMultiDayEventsForDate() {
+    if (allEvents == null) {
+      return [];
+    }
+
+    final multiDayEvents =
+        allEvents!.where((event) {
+          return event.isMultiDay && event.containsDate(day);
+        }).toList();
+
+    if (multiDayEvents.isNotEmpty) {
+      print(
+        '📅 ${day.toString().substring(0, 10)}에 멀티데이 이벤트 ${multiDayEvents.length}개 발견: ${multiDayEvents.map((e) => e.title).join(', ')}',
+      );
+    }
+
+    return multiDayEvents;
+  }
+
+  // 🆕 멀티데이 이벤트가 이 날짜에서 어떤 상태인지 확인
+  String _getMultiDayEventStatus(Event event) {
+    if (!event.isMultiDay) return 'none';
+    if (event.isStartDate(day)) return 'start';
+    if (event.isEndDate(day)) return 'end';
+    if (event.isMiddleDate(day)) return 'middle';
+    return 'none';
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -149,11 +180,11 @@ class WeatherCalendarCell extends StatelessWidget {
             color: _getBackgroundColor(),
             child: Stack(
               children: [
-                // 날씨 아이콘 (있는 경우에만 표시 + 5일 범위 내인 경우만) - 우상단 유지
+                // 날씨 아이콘 (있는 경우에만 표시 + 5일 범위 내인 경우만) - 우상단
                 if (weatherInfo != null &&
                     WeatherService.isWithinForecastRange(day))
                   Positioned(
-                    top: 0,
+                    top: 2,
                     right: 0,
                     child: Container(
                       padding: EdgeInsets.all(1),
@@ -161,7 +192,7 @@ class WeatherCalendarCell extends StatelessWidget {
                     ),
                   ),
 
-                // 날짜를 날씨 아이콘 위에 표시
+                // 날짜 표시 - 상단 중앙
                 Positioned(
                   top: 8,
                   left: 0,
@@ -175,7 +206,74 @@ class WeatherCalendarCell extends StatelessWidget {
                       ),
                     ),
                   ),
-                ), // 이벤트 리스트 - 하단 유지, Event 객체 기반으로 변경 + 시간순 정렬
+                ),
+
+                // 🆕 멀티데이 이벤트들을 날짜 바로 아래에 표시 (중복 제거)
+                ...() {
+                  final multiDayEvents = _getMultiDayEventsForDate();
+                  final uniqueEvents = <String, Event>{};
+
+                  // 중복 제거: 같은 uniqueId를 가진 이벤트는 하나만 표시
+                  for (final event in multiDayEvents) {
+                    if (!uniqueEvents.containsKey(event.uniqueId)) {
+                      uniqueEvents[event.uniqueId] = event;
+                    }
+                  }
+
+                  return uniqueEvents.values.toList().asMap().entries.map((
+                    entry,
+                  ) {
+                    final index = entry.key;
+                    final event = entry.value;
+                    final status = _getMultiDayEventStatus(event);
+                    final bgColor = _getEventColor(event);
+
+                    return Positioned(
+                      top:
+                          28.0 +
+                          (index * 12.0), // 날짜(top: 8 + fontSize) 바로 아래에 배치
+                      left: 1,
+                      right: 1,
+                      child: Container(
+                        height: 15,
+                        decoration: BoxDecoration(
+                          color: bgColor.withOpacity(0.8),
+                          borderRadius:
+                              status == 'start'
+                                  ? const BorderRadius.only(
+                                    topLeft: Radius.circular(3),
+                                    bottomLeft: Radius.circular(3),
+                                  )
+                                  : status == 'end'
+                                  ? const BorderRadius.only(
+                                    topRight: Radius.circular(3),
+                                    bottomRight: Radius.circular(3),
+                                  )
+                                  : BorderRadius.zero,
+                          border: Border.all(
+                            color: bgColor.withOpacity(0.9),
+                            width: 1,
+                          ),
+                        ),
+                        child:
+                            status == 'start'
+                                ? Padding(
+                                  padding: const EdgeInsets.only(left: 2),
+                                  child: Text(
+                                    event.title,
+                                    style: getTextStyle(
+                                      fontSize: 6, // 4는 너무 작아서 6으로 조정
+                                      color: Colors.white,
+                                    ),
+                                    overflow: TextOverflow.clip,
+                                    maxLines: 1,
+                                  ),
+                                )
+                                : Container(), // 중간이나 끝에서는 제목 표시 안함
+                      ),
+                    );
+                  }).toList();
+                }(), // 이벤트 리스트 - 하단 유지, Event 객체 기반으로 변경 + 시간순 정렬 (멀티데이 이벤트 제외)
                 if (events.isNotEmpty)
                   Positioned(
                     bottom: 2,
@@ -185,8 +283,18 @@ class WeatherCalendarCell extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: () {
+                        // 멀티데이 이벤트는 제외하고 일반 이벤트만 표시 (isMultiDay 플래그와 uniqueId 패턴 모두 체크)
+                        final regularEvents =
+                            events
+                                .where(
+                                  (event) =>
+                                      !event.isMultiDay &&
+                                      !event.uniqueId.contains('_multiday_'),
+                                )
+                                .toList();
+
                         // 이벤트를 시간순으로 정렬
-                        final sortedEvents = List<Event>.from(events);
+                        final sortedEvents = List<Event>.from(regularEvents);
                         sortedEvents.sort((a, b) {
                           if (a.time.isEmpty && b.time.isEmpty) return 0;
                           if (a.time.isEmpty) return 1;
@@ -199,10 +307,14 @@ class WeatherCalendarCell extends StatelessWidget {
                         });
 
                         // 정렬된 이벤트에서 표시할 개수만 선택
+                        final hasMultiDayEvents =
+                            _getMultiDayEventsForDate().isNotEmpty;
+                        final maxEvents = hasMultiDayEvents ? 3 : 4;
+                        final displayEvents = hasMultiDayEvents ? 2 : 3;
                         final eventsToShow =
-                            sortedEvents.length > 4
-                                ? sortedEvents.take(3).toList()
-                                : sortedEvents.take(4).toList();
+                            sortedEvents.length > maxEvents
+                                ? sortedEvents.take(displayEvents).toList()
+                                : sortedEvents.take(maxEvents).toList();
 
                         List<Widget> widgets =
                             eventsToShow.map((event) {
@@ -227,7 +339,7 @@ class WeatherCalendarCell extends StatelessWidget {
                                 ),
                                 child: Text(
                                   event.title,
-                                  style: getCustomTextStyle(
+                                  style: getTextStyle(
                                     fontSize: 10,
                                     color: const Color.fromARGB(255, 0, 0, 0),
                                   ),
@@ -238,7 +350,7 @@ class WeatherCalendarCell extends StatelessWidget {
                             }).toList();
 
                         // "+N개 더" 표시 추가
-                        if (sortedEvents.length > 4) {
+                        if (sortedEvents.length > maxEvents) {
                           widgets.add(
                             Container(
                               margin: const EdgeInsets.only(bottom: 1),
@@ -259,8 +371,8 @@ class WeatherCalendarCell extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                '+${sortedEvents.length - 3}',
-                                style: getCustomTextStyle(
+                                '+${sortedEvents.length - displayEvents}',
+                                style: getTextStyle(
                                   fontSize: 10,
                                   color: const Color.fromARGB(135, 0, 0, 0),
                                 ),

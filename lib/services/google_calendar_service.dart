@@ -496,8 +496,25 @@ class GoogleCalendarService {
     try {
       DateTime startDateTime;
       DateTime endDateTime;
-      if (event.time == '종일') {
-        // 종일 이벤트
+      
+      // 🆕 멀티데이 이벤트 처리 (Google Calendar의 '종일' 이벤트로 등록)
+      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+        print('📅 멀티데이 이벤트를 Google Calendar 종일 이벤트로 등록: ${event.title}');
+        print('📅 기간: ${event.startDate} ~ ${event.endDate}');
+        
+        startDateTime = DateTime(
+          event.startDate!.year,
+          event.startDate!.month,
+          event.startDate!.day,
+        );
+        // Google Calendar에서 종일 이벤트의 종료일은 실제 종료일 + 1일
+        endDateTime = DateTime(
+          event.endDate!.year,
+          event.endDate!.month,
+          event.endDate!.day + 1,
+        );
+      } else if (event.time == '종일') {
+        // 일반 종일 이벤트
         startDateTime = DateTime(
           event.date.year,
           event.date.month,
@@ -557,11 +574,11 @@ class GoogleCalendarService {
             ..summary = event.title
             ..description = event.description
             ..start =
-                (event.time == '종일')
+                (event.isMultiDay || event.time == '종일')
                     ? calendar.EventDateTime(date: startDateTime)
                     : calendar.EventDateTime(dateTime: startDateTime.toUtc())
             ..end =
-                (event.time == '종일')
+                (event.isMultiDay || event.time == '종일')
                     ? calendar.EventDateTime(date: endDateTime)
                     : calendar.EventDateTime(
                       dateTime: endDateTime.toUtc(),

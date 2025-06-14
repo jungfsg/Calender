@@ -6,6 +6,9 @@ class Event {
   final String time; // HH:mm 형식의 시작 시간
   final String? endTime; // HH:mm 형식의 종료 시간, null일 경우 시작시간+1시간으로 자동 계산
   final DateTime date;
+  final DateTime? startDate; // 🆕 멀티데이 이벤트의 시작 날짜
+  final DateTime? endDate; // 🆕 멀티데이 이벤트의 종료 날짜  
+  final bool isMultiDay; // 🆕 멀티데이 이벤트 여부
   final String description; // 이벤트 설명 추가
   final String? colorId; // 구글 캘린더 색상 ID 추가
   final Color? color; // Flutter Color 객체 추가
@@ -17,9 +20,12 @@ class Event {
 
   Event({
     required this.title,
-    required this.time,
+    this.time = '', // 🆕 멀티데이 이벤트는 시간이 없을 수도 있음
     this.endTime,
-    required this.date,
+    DateTime? date, // 🆕 nullable로 변경
+    this.startDate, // 🆕 멀티데이 이벤트의 시작 날짜
+    this.endDate, // 🆕 멀티데이 이벤트의 종료 날짜
+    this.isMultiDay = false, // 🆕 기본값은 단일날짜 이벤트
     this.description = '', // 기본값으로 빈 문자열 설정
     this.colorId,
     this.color,
@@ -28,10 +34,33 @@ class Event {
     this.googleEventId, // Google Calendar 이벤트 ID
     this.recurrence = RecurrenceType.none, // 🆕 기본값은 반복 없음
     int? recurrenceCount, // 🆕 반복 횟수는 선택적 매개변수
-  }) : uniqueId =
+  }) : date = date ?? startDate ?? DateTime.now(), // 🆕 date는 startDate 또는 현재 날짜로 fallback
+       uniqueId =
            uniqueId ??
-           '${title}_${date.toIso8601String()}_${time}_${DateTime.now().microsecondsSinceEpoch}',
+           '${title}_${(date ?? startDate ?? DateTime.now()).toIso8601String()}_${time}_${DateTime.now().microsecondsSinceEpoch}',
        recurrenceCount = recurrenceCount ?? recurrence.defaultCount;
+
+  // 🆕 멀티데이 이벤트 생성자
+  Event.multiDay({
+    required this.title,
+    required DateTime startDate,
+    required DateTime endDate,
+    this.description = '',
+    this.colorId,
+    this.color,
+    this.source = 'local',
+    String? uniqueId,
+    this.googleEventId,
+  }) : time = '',
+       endTime = null,
+       date = startDate,
+       startDate = startDate,
+       endDate = endDate,
+       isMultiDay = true,
+       recurrence = RecurrenceType.none,
+       recurrenceCount = 1,
+       uniqueId = uniqueId ?? 
+           '${title}_${startDate.toIso8601String()}_multiday_${DateTime.now().microsecondsSinceEpoch}';
 
   // 고유 ID 생성 메소드 (날짜+시간+제목 기반)
   static String generateUniqueId(String title, DateTime date, String time) {
@@ -45,6 +74,9 @@ class Event {
       'time': time,
       'endTime': endTime, // 종료 시간 추가
       'date': date.toIso8601String(),
+      'startDate': startDate?.toIso8601String(), // 🆕 멀티데이 시작 날짜
+      'endDate': endDate?.toIso8601String(), // 🆕 멀티데이 종료 날짜
+      'isMultiDay': isMultiDay, // 🆕 멀티데이 여부
       'description': description,
       'colorId': colorId,
       'color': color?.value, // Color를 int 값으로 저장
@@ -55,7 +87,7 @@ class Event {
       'recurrenceCount': recurrenceCount, // 🆕 반복 횟수 저장
     };
     print(
-      '💾 Event toJson: $title -> colorId: $colorId, color: ${color?.value}, source: $source, uniqueId: $uniqueId, googleEventId: $googleEventId, recurrence: $recurrence, count: $recurrenceCount',
+      '💾 Event toJson: $title -> colorId: $colorId, color: ${color?.value}, source: $source, uniqueId: $uniqueId, googleEventId: $googleEventId, recurrence: $recurrence, count: $recurrenceCount, multiDay: $isMultiDay',
     );
     return json;
   }
@@ -64,9 +96,12 @@ class Event {
   factory Event.fromJson(Map<String, dynamic> json) {
     final event = Event(
       title: json['title'],
-      time: json['time'],
+      time: json['time'] ?? '', // 🆕 time이 null일 수도 있음
       endTime: json['endTime'], // 종료 시간 복원
-      date: DateTime.parse(json['date']),
+      date: json['date'] != null ? DateTime.parse(json['date']) : null, // 🆕 date가 null일 수도 있음
+      startDate: json['startDate'] != null ? DateTime.parse(json['startDate']) : null, // 🆕 멀티데이 시작 날짜 복원
+      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null, // 🆕 멀티데이 종료 날짜 복원
+      isMultiDay: json['isMultiDay'] ?? false, // 🆕 멀티데이 여부 복원
       description: json['description'] ?? '',
       colorId: json['colorId'],
       color: json['color'] != null ? Color(json['color']) : null,
@@ -80,7 +115,7 @@ class Event {
       recurrenceCount: json['recurrenceCount'] ?? 1, // 🆕 반복 횟수 복원
     );
     print(
-      '📖 Event fromJson: ${event.title} -> colorId: ${event.colorId}, color: ${event.color?.value}, source: ${event.source}, uniqueId: ${event.uniqueId}, googleEventId: ${event.googleEventId}, recurrence: ${event.recurrence}, count: ${event.recurrenceCount}',
+      '📖 Event fromJson: ${event.title} -> colorId: ${event.colorId}, color: ${event.color?.value}, source: ${event.source}, uniqueId: ${event.uniqueId}, googleEventId: ${event.googleEventId}, recurrence: ${event.recurrence}, count: ${event.recurrenceCount}, multiDay: ${event.isMultiDay}',
     );
     return event;
   }
@@ -101,6 +136,9 @@ class Event {
     String? time,
     String? endTime,
     DateTime? date,
+    DateTime? startDate, // 🆕 멀티데이 시작 날짜
+    DateTime? endDate, // 🆕 멀티데이 종료 날짜
+    bool? isMultiDay, // 🆕 멀티데이 여부
     String? description,
     String? colorId,
     Color? color,
@@ -115,6 +153,9 @@ class Event {
       time: time ?? this.time,
       endTime: endTime ?? this.endTime,
       date: date ?? this.date,
+      startDate: startDate ?? this.startDate, // 🆕 멀티데이 시작 날짜 유지
+      endDate: endDate ?? this.endDate, // 🆕 멀티데이 종료 날짜 유지
+      isMultiDay: isMultiDay ?? this.isMultiDay, // 🆕 멀티데이 여부 유지
       description: description ?? this.description,
       colorId: colorId ?? this.colorId,
       color: color ?? this.color,
@@ -177,5 +218,48 @@ class Event {
   // 커스텀 색상을 가지고 있는지 확인
   bool hasCustomColor() {
     return colorId != null && colorId!.isNotEmpty;
+  }
+
+  // 🆕 멀티데이 이벤트 관련 메서드들
+  
+  // 멀티데이 이벤트의 기간(일수) 반환
+  int getMultiDayDuration() {
+    if (!isMultiDay || startDate == null || endDate == null) return 1;
+    return endDate!.difference(startDate!).inDays + 1;
+  }
+
+  // 특정 날짜가 멀티데이 이벤트 기간에 포함되는지 확인
+  bool containsDate(DateTime date) {
+    if (!isMultiDay || startDate == null || endDate == null) {
+      return isSameDay(this.date, date);
+    }
+    final targetDate = DateTime(date.year, date.month, date.day);
+    final start = DateTime(startDate!.year, startDate!.month, startDate!.day);
+    final end = DateTime(endDate!.year, endDate!.month, endDate!.day);
+    return (targetDate.isAtSameMomentAs(start) || targetDate.isAfter(start)) &&
+           (targetDate.isAtSameMomentAs(end) || targetDate.isBefore(end));
+  }
+
+  // 멀티데이 이벤트에서 특정 날짜가 시작일인지 확인
+  bool isStartDate(DateTime date) {
+    if (!isMultiDay || startDate == null) return true;
+    return isSameDay(startDate!, date);
+  }
+
+  // 멀티데이 이벤트에서 특정 날짜가 종료일인지 확인
+  bool isEndDate(DateTime date) {
+    if (!isMultiDay || endDate == null) return true;
+    return isSameDay(endDate!, date);
+  }
+
+  // 멀티데이 이벤트에서 특정 날짜가 중간일인지 확인
+  bool isMiddleDate(DateTime date) {
+    if (!isMultiDay) return false;
+    return containsDate(date) && !isStartDate(date) && !isEndDate(date);
+  }
+
+  // 날짜 비교 유틸리티 메서드
+  static bool isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }

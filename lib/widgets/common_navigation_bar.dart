@@ -7,20 +7,14 @@ class CommonNavigationBar extends StatelessWidget {
   final Function(int) onItemTapped;
 
   const CommonNavigationBar({
-    Key? key,
+    super.key,
     required this.selectedIndex,
     required this.onItemTapped,
-  }) : super(key: key);
+  });
 
   // 인덱스별 색상 정의 (다양한 옵션들)
   Color _getBackgroundColor(int index) {
     switch (index) {
-      case 0: // Calendar
-        return const Color.fromARGB(255, 162, 222, 141);
-      // case 1: // Mic
-      //   return const Color.fromARGB(255, 255, 152, 0);
-      case 2: // Chat
-        return const Color.fromARGB(255, 154, 96, 207);
       default:
         return const Color.fromARGB(255, 162, 222, 141);
     }
