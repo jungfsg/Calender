@@ -555,7 +555,7 @@ Confidence 기준:
             "all_day": false,
             "timezone": "Asia/Seoul",
             "priority": "normal|high|low",
-            "category": "work|personal|meeting|appointment|other"
+            "category": "other"
         }}
     ]
 }}
@@ -617,7 +617,7 @@ Confidence 기준:
     "all_day": false,
     "timezone": "Asia/Seoul",
     "priority": "normal|high|low",
-    "category": "work|personal|meeting|appointment|other"
+    "category": "other"
 }}
 
 추출 가이드라인:
@@ -965,20 +965,7 @@ Confidence 기준:
                                     location = event_data.get('location')
                                     if location:
                                         state['current_output'] += f"📍 장소: {location}\n"
-                                    
-                                    # 카테고리 표시
-                                    category = event_data.get('category', 'other')
-                                    category_icons = {
-                                        'vacation': '🏖️ 휴가',
-                                        'work': '💼 업무',
-                                        'meeting': '🤝 회의',
-                                        'personal': '👤 개인',
-                                        'appointment': '📋 약속',
-                                        'other': '📅 기타'
-                                    }
-                                    
-                                    category_display = category_icons.get(category, f"📅 {category}")
-                                    state['current_output'] += f"🏷️ 분류: {category_display}\n"
+                                      # 카테고리는 Chat Service에서 자동 분류됩니다
                                     
                                     state['current_output'] += f"\n Multi Day Event가 캘린더에 잘 등록되었어요! 😊"
                                 
@@ -1807,7 +1794,7 @@ Confidence 기준:
     "all_day": true/false,
     "timezone": "Asia/Seoul",
     "priority": "normal|high|low",
-    "category": "work|personal|meeting|appointment|vacation|other",
+    "category": "other",
     "is_multi_day": true
 }}
 
@@ -1820,24 +1807,17 @@ Multi Day Event 처리 가이드라인:
    - "주말 내내" → 토요일부터 일요일까지
    - "연휴 내내" → 연휴 기간 전체
 
-2. 종료일 계산:
+    "category": "other",
    - 종료일은 포함되는 마지막 날짜
    - "6월 15일부터 20일까지" → 20일도 포함
    - "3일간" → 시작일 + 2일 (총 3일)
 
 3. 시간 처리:
-   - 시간이 명시되지 않은 경우 all_day: true
-   - "오전 9시부터 오후 6시까지 3일간" → start_time: "09:00", end_time: "18:00", all_day: false
+   - 시간이 명시되지 않은 경우 all_day: true   - "오전 9시부터 오후 6시까지 3일간" → start_time: "09:00", end_time: "18:00", all_day: false
    - 매일 같은 시간대 적용
 
-4. 카테고리 자동 분류:
-   - "휴가", "여행" → "vacation"
-   - "회의", "미팅" → "meeting"  
-   - "업무", "프로젝트" → "work"
-   - "개인" → "personal"
-
 예시:
-- "6월 15일부터 20일까지 휴가" → start_date: "2025-06-15", end_date: "2025-06-20", all_day: true, category: "vacation"
+- "6월 15일부터 20일까지 휴가" → start_date: "2025-06-15", end_date: "2025-06-20", all_day: true, category: "other"
 - "다음주 월요일부터 금요일까지 오전 9시부터 오후 6시까지 교육" → start_date: "다음주월요일", end_date: "다음주금요일", start_time: "09:00", end_time: "18:00", all_day: false
 - "3일간 워크샵" → start_date: 시작일, end_date: 시작일+2일, all_day: true
 """
