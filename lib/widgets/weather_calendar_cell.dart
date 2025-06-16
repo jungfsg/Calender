@@ -155,6 +155,72 @@ class WeatherCalendarCell extends StatelessWidget {
     return multiDayEvents;
   }
 
+  // 🆕 주별로 멀티데이 이벤트들을 길이순으로 정렬하여 레벨 할당
+  Map<String, int> _assignMultiDayEventLevels() {
+    if (allEvents == null) return {};
+
+    // 현재 날짜가 속한 주의 시작일 계산 (일요일 기준)
+    final DateTime weekStart = day.subtract(Duration(days: day.weekday % 7));
+    final DateTime weekEnd = weekStart.add(const Duration(days: 6));
+
+    print(
+      '📅 주간 범위: ${weekStart.toString().split(' ')[0]} ~ ${weekEnd.toString().split(' ')[0]}',
+    );
+
+    // 이 주에 포함되는 멀티데이 이벤트들 찾기
+    final Map<String, Event> weekMultiDayEvents = {};
+    final Map<String, int> eventDurations = {};
+
+    for (final event in allEvents!) {
+      if (!event.isMultiDay || event.startDate == null || event.endDate == null)
+        continue;
+
+      // 이벤트가 현재 주와 겹치는지 확인
+      final eventStart = event.startDate!;
+      final eventEnd = event.endDate!;
+
+      if ((eventStart.isBefore(weekEnd.add(const Duration(days: 1))) ||
+              eventStart.isAtSameMomentAs(weekEnd)) &&
+          (eventEnd.isAfter(weekStart.subtract(const Duration(days: 1))) ||
+              eventEnd.isAtSameMomentAs(weekStart))) {
+        // 이벤트의 전체 기간 계산
+        final totalDuration = eventEnd.difference(eventStart).inDays + 1;
+
+        weekMultiDayEvents[event.uniqueId] = event;
+        eventDurations[event.uniqueId] = totalDuration;
+
+        print(
+          '📊 멀티데이 이벤트: ${event.title} - ${totalDuration}일 (${eventStart.toString().split(' ')[0]} ~ ${eventEnd.toString().split(' ')[0]})',
+        );
+      }
+    }
+
+    // 길이순으로 정렬 (긴 이벤트가 먼저)
+    final sortedEventIds =
+        eventDurations.keys.toList()..sort((a, b) {
+          final durationA = eventDurations[a]!;
+          final durationB = eventDurations[b]!;
+          if (durationA != durationB) {
+            return durationB.compareTo(durationA); // 내림차순 (긴 것부터)
+          }
+          // 기간이 같으면 시작일 순으로 정렬
+          final eventA = weekMultiDayEvents[a]!;
+          final eventB = weekMultiDayEvents[b]!;
+          return eventA.startDate!.compareTo(eventB.startDate!);
+        });
+
+    // 레벨 할당 (0부터 시작, 위쪽부터)
+    final Map<String, int> eventLevels = {};
+    for (int i = 0; i < sortedEventIds.length; i++) {
+      eventLevels[sortedEventIds[i]] = i;
+      print(
+        '🎯 레벨 할당: ${weekMultiDayEvents[sortedEventIds[i]]!.title} -> Level $i (${eventDurations[sortedEventIds[i]]}일)',
+      );
+    }
+
+    return eventLevels;
+  }
+
   // 🆕 멀티데이 이벤트가 이 날짜에서 어떤 상태인지 확인
   String _getMultiDayEventStatus(Event event) {
     if (!event.isMultiDay) return 'none';
@@ -220,36 +286,37 @@ class WeatherCalendarCell extends StatelessWidget {
                     }
                   }
 
-                  return uniqueEvents.values.toList().asMap().entries.map((
-                    entry,
-                  ) {
+                  // 🆕 주별 기본 레벨 사용 (일관성 보장)
+                  final eventLevels = _assignMultiDayEventLevels();
+
+                  // 레벨별로 정렬된 이벤트 리스트 생성
+                  final sortedEvents =
+                      uniqueEvents.values.toList()..sort((a, b) {
+                        final levelA = eventLevels[a.uniqueId] ?? 999;
+                        final levelB = eventLevels[b.uniqueId] ?? 999;
+                        return levelA.compareTo(levelB);
+                      });
+
+                  return sortedEvents.asMap().entries.map((entry) {
                     final index = entry.key;
                     final event = entry.value;
                     final status = _getMultiDayEventStatus(event);
                     final bgColor = _getEventColor(event);
+                    final level = eventLevels[event.uniqueId] ?? index;
+
+                    print(
+                      '🎨 렌더링: ${event.title} - 주별 Level $level, Status: $status',
+                    );
 
                     return Positioned(
-                      top:
-                          28.0 +
-                          (index * 12.0), // 날짜(top: 8 + fontSize) 바로 아래에 배치
+                      top: 25 + (level * 14.0), // 각 레벨당 14px 간격
                       left: 1,
                       right: 1,
                       child: Container(
-                        height: 15,
+                        height: 12,
                         decoration: BoxDecoration(
-                          color: bgColor.withOpacity(0.8),
-                          borderRadius:
-                              status == 'start'
-                                  ? const BorderRadius.only(
-                                    topLeft: Radius.circular(3),
-                                    bottomLeft: Radius.circular(3),
-                                  )
-                                  : status == 'end'
-                                  ? const BorderRadius.only(
-                                    topRight: Radius.circular(3),
-                                    bottomRight: Radius.circular(3),
-                                  )
-                                  : BorderRadius.zero,
+                          color: bgColor.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(3),
                           border: Border.all(
                             color: bgColor.withOpacity(0.9),
                             width: 1,
@@ -263,7 +330,7 @@ class WeatherCalendarCell extends StatelessWidget {
                                     event.title,
                                     style: getTextStyle(
                                       fontSize: 6, // 4는 너무 작아서 6으로 조정
-                                      color: Colors.white,
+                                      color: const Color.fromARGB(255, 0, 0, 0),
                                     ),
                                     overflow: TextOverflow.clip,
                                     maxLines: 1,
@@ -273,7 +340,7 @@ class WeatherCalendarCell extends StatelessWidget {
                       ),
                     );
                   }).toList();
-                }(), // 이벤트 리스트 - 하단 유지, Event 객체 기반으로 변경 + 시간순 정렬 (멀티데이 이벤트 제외)
+                }(),
                 if (events.isNotEmpty)
                   Positioned(
                     bottom: 2,
@@ -307,14 +374,41 @@ class WeatherCalendarCell extends StatelessWidget {
                         });
 
                         // 정렬된 이벤트에서 표시할 개수만 선택
-                        final hasMultiDayEvents =
-                            _getMultiDayEventsForDate().isNotEmpty;
-                        final maxEvents = hasMultiDayEvents ? 3 : 4;
-                        final displayEvents = hasMultiDayEvents ? 2 : 3;
+                        final multiDayEventLevels =
+                            _assignMultiDayEventLevels();
+                        final currentMultiDayEvents =
+                            _getMultiDayEventsForDate();
+                        final actualLevels =
+                            currentMultiDayEvents
+                                .map(
+                                  (e) => multiDayEventLevels[e.uniqueId] ?? 0,
+                                )
+                                .toList();
+                        final maxMultiDayLevel =
+                            actualLevels.isEmpty
+                                ? -1
+                                : actualLevels.reduce((a, b) => a > b ? a : b);
+                        final multiDayLevels =
+                            maxMultiDayLevel + 1; // 레벨은 0부터 시작하므로 +1
+
+                        // 멀티데이 이벤트가 차지하는 공간을 고려하여 일반 이벤트 개수 조정
+                        final maxEvents =
+                            multiDayLevels > 0
+                                ? (4 - multiDayLevels).clamp(2, 4)
+                                : 4;
+                        final displayEvents =
+                            multiDayLevels > 0
+                                ? (3 - multiDayLevels).clamp(1, 3)
+                                : 3;
+
                         final eventsToShow =
                             sortedEvents.length > maxEvents
                                 ? sortedEvents.take(displayEvents).toList()
                                 : sortedEvents.take(maxEvents).toList();
+
+                        print(
+                          '🎯 ${day.toString().split(' ')[0]} 일반 이벤트: 멀티데이 레벨 $multiDayLevels개, 최대 $maxEvents개, 표시 ${eventsToShow.length}개',
+                        );
 
                         List<Widget> widgets =
                             eventsToShow.map((event) {
