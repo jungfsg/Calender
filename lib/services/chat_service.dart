@@ -12,7 +12,7 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://a06f-115-91-150-54.ngrok-free.app';
+  final String baseUrl = 'https://345b-220-90-168-2.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 날씨 관련 키워드 목록// LLM 서버에 메시지를 보내고 응답을 받는 메서드
@@ -105,7 +105,7 @@ class ChatService {
                 final dayOfWeek =
                     ['일', '월', '화', '수', '목', '금', '토'][startDate.weekday % 7];
                 finalMessage =
-                    '📅 ${startDate.month}월 ${startDate.day}일 (${dayOfWeek})에는 등록된 일정이 없습니다.';
+                    '📅 ${startDate.month}월 ${startDate.day}일 ($dayOfWeek)에는 등록된 일정이 없습니다.';
                 print('📭 해당 날짜에 일정 없음 - 빈 일정 메시지로 응답');
               }
             } catch (e) {
@@ -151,23 +151,112 @@ class ChatService {
 
       print('Intent: $intent');
       print('ExtractedInfo: $extractedInfo');
-      print('CalendarResult: $calendarResult');
-
-      // 일정 추가가 성공한 경우
+      print('CalendarResult: $calendarResult'); // 일정 추가가 성공한 경우
       if (intent == 'calendar_add' &&
           calendarResult != null &&
           calendarResult['success'] == true &&
           extractedInfo != null) {
         print('일정 추가 조건 만족! 이벤트 생성 시작...');
 
-        // 다중 일정 처리 확인
+        // Multi Day Event 처리 확인
+        final isMultiDay = extractedInfo['is_multi_day'] as bool? ?? false;
         final isMultiple = extractedInfo['is_multiple'] as bool? ?? false;
 
-        if (isMultiple) {
+        if (isMultiDay) {
+          // Multi Day Event 처리
+          print('📅 Multi Day Event 처리 시작...');
+          final events = extractedInfo['events'] as List<dynamic>? ?? [];
+
+          if (events.isNotEmpty) {
+            final eventData = events[0] as Map<String, dynamic>;
+            final title = eventData['title'] as String? ?? '새 일정';
+            final startDate = eventData['start_date'] as String?;
+            final endDate = eventData['end_date'] as String?;
+            final startTime = eventData['start_time'] as String?;
+            final endTime = eventData['end_time'] as String?;
+            final description = eventData['description'] as String? ?? '';
+
+            print('Multi Day Event 데이터:');
+            print('  Title: $title');
+            print('  StartDate: $startDate');
+            print('  EndDate: $endDate');
+            print('  StartTime: $startTime');
+            print('  EndTime: $endTime');
+            print('  Description: $description');
+
+            if (startDate != null && endDate != null) {
+              try {
+                final parsedStartDate = DateTime.parse(startDate);
+                final parsedEndDate = DateTime.parse(endDate);
+
+                // 카테고리 분류를 위한 키워드 맵
+                final Map<int, List<String>> categoryKeywords = {
+                  1: ['회의', '미팅', '업무', '일', '직장', '사무실', '프로젝트', '발표', '보고서'],
+                  2: ['청소', '빨래', '설거지', '요리', '장보기', '쓰레기', '정리', '대청소'],
+                  3: ['생일', '결혼', '기념일', '축하', '파티', '결혼식', '돌잔치', '졸업식'],
+                  4: ['수업', '강의', '시험', '중간고사', '기말고사', '과제', '숙제', '발표'],
+                  5: ['헬스', '피트니스', '체육관', '요가', '필라테스', '수영', '달리기', '조깅'],
+                  6: ['휴가', '여행', '여행지', '관광', '호텔', '항공', '비행기', '기차', '버스'],
+                  7: ['병원', '의원', '치과', '한의원', '검진', '진료', '수술', '입원', '퇴원'],
+                  8: ['친구', '가족', '데이트', '만남', '식사', '저녁', '점심', '술', '카페'],
+                  9: ['쇼핑', '백화점', '마트', '시장', '온라인', '구매', '주문', '배송', '택배'],
+                  10: ['취미', '독서', '영화', '드라마', '게임', '음악', '콘서트', '전시회'],
+                  11: ['기타', '개인', '중요', '긴급', '알림', '메모', '할일', '체크', '확인'],
+                };
+
+                // 카테고리 자동 분류 함수
+                int? getColorIdFromText(String text) {
+                  text = text.toLowerCase();
+                  for (int colorId in categoryKeywords.keys) {
+                    List<String> keywords = categoryKeywords[colorId]!;
+                    for (String keyword in keywords) {
+                      if (text.contains(keyword.toLowerCase())) {
+                        return colorId;
+                      }
+                    }
+                  }
+                  return null;
+                }
+
+                // 제목으로부터 colorId 결정
+                int? categoryColorId = getColorIdFromText(title);
+                String colorId =
+                    categoryColorId?.toString() ?? '6'; // 기본값을 6(여행/휴가)로 설정
+                print('🎨 Multi Day Event 카테고리 분류 결과: $colorId (제목: $title)');
+
+                // Multi Day Event 객체 생성
+                final event = Event.multiDay(
+                  title: title,
+                  startDate: parsedStartDate,
+                  endDate: parsedEndDate,
+                  description: description,
+                  colorId: colorId,
+                );
+
+                print('생성된 Multi Day Event 객체: ${event.toJson()}');
+
+                // EventManager가 전달되었다면 이벤트 매니저를 통해 추가
+                if (eventManager != null) {
+                  print(
+                    '🔄 ChatService: EventManager의 addEvent로 Multi Day Event 추가 중',
+                  );
+                  await eventManager.addEvent(event, syncWithGoogle: true);
+                  print('✅ AI 채팅으로 추가된 Multi Day Event가 저장되었습니다: $title');
+                } else {
+                  print('⚠️ EventManager가 없어 Multi Day Event를 추가할 수 없습니다');
+                }
+
+                return true;
+              } catch (e) {
+                print('❌ Multi Day Event 추가 오류: $e');
+                return false;
+              }
+            }
+          }
+        } else if (isMultiple) {
           // 다중 일정 처리
           print('📋 다중 일정 처리 시작...');
           final events = extractedInfo['events'] as List<dynamic>? ?? [];
-          bool allSuccessful = true;
           int addedCount = 0;
 
           for (int i = 0; i < events.length; i++) {
@@ -350,16 +439,14 @@ class ChatService {
                   await EventStorageService.addEvent(eventDate, event);
                   print('✅ AI 채팅으로 추가된 일정이 로컬 캘린더에만 저장되었습니다: $title');
                 }
-
                 addedCount++;
               } catch (e) {
                 print('❌ 다중 일정 ${i + 1} 추가 오류: $e');
-                allSuccessful = false;
               }
             }
           }
 
-          print('📊 다중 일정 처리 완료: ${addedCount}/${events.length}개 추가');
+          print('📊 다중 일정 처리 완료: $addedCount/${events.length}개 추가');
           return addedCount > 0; // 하나라도 추가되었으면 true
         } else {
           // 단일 일정 처리 (기존 로직)
@@ -1627,7 +1714,7 @@ class ChatService {
       0,
       (sum, events) => sum + events.length,
     );
-    buffer.writeln('\n📊 총 ${totalEvents}개의 일정이 있습니다.');
+    buffer.writeln('\n📊 총 $totalEvents개의 일정이 있습니다.');
 
     return buffer.toString();
   }
@@ -1891,7 +1978,7 @@ class ChatService {
         }
       }
 
-      print('🎯 다중 수정 완료: 총 ${updates.length}개 중 ${successCount}개 성공');
+      print('🎯 다중 수정 완료: 총 ${updates.length}개 중 $successCount개 성공');
 
       // 캘린더 업데이트 콜백 호출
       if (onCalendarUpdate != null) {
