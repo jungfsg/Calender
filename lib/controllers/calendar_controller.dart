@@ -322,12 +322,55 @@ class CalendarController {
     final startDate = event.startDate!;
     final endDate = event.endDate!;
 
+    print('🗑️ CalendarController: 멀티데이 이벤트 제거 시작');
+    print('   이벤트: ${event.title}');
+    print(
+      '   기간: ${startDate.toString().split(' ')[0]} ~ ${endDate.toString().split(' ')[0]}',
+    );
+    print('   uniqueId: ${event.uniqueId}');
+
+    // 기본 uniqueId 패턴 추출
+    final baseUniqueId = event.uniqueId.split('_multiday_')[0];
+
     for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
       final currentDate = startDate.add(Duration(days: i));
       final key = _getKey(currentDate);
+
       if (_events[key] != null) {
-        _events[key]!.removeWhere((e) => e.uniqueId == event.uniqueId);
+        final initialCount = _events[key]!.length;
+
+        // 더 강력한 매칭으로 관련 이벤트들 제거
+        _events[key]!.removeWhere(
+          (e) =>
+              // 1. uniqueId 패턴 매칭
+              (e.uniqueId.contains(baseUniqueId) &&
+                  e.uniqueId.contains('_multiday_')) ||
+              // 2. 정확한 uniqueId 매칭
+              e.uniqueId == event.uniqueId ||
+              // 3. 멀티데이 속성과 제목, 범위 매칭
+              (e.isMultiDay &&
+                  e.title == event.title &&
+                  e.startDate != null &&
+                  e.endDate != null &&
+                  e.startDate!.isAtSameMomentAs(startDate) &&
+                  e.endDate!.isAtSameMomentAs(endDate)) ||
+              // 4. 제목과 날짜 범위가 일치하는 모든 이벤트
+              (e.title == event.title &&
+                  e.startDate != null &&
+                  e.endDate != null &&
+                  e.startDate!.isAtSameMomentAs(startDate) &&
+                  e.endDate!.isAtSameMomentAs(endDate)),
+        );
+
+        final removedCount = initialCount - _events[key]!.length;
+        if (removedCount > 0) {
+          print(
+            '   ${currentDate.toString().split(' ')[0]}: ${removedCount}개 이벤트 제거됨',
+          );
+        }
       }
     }
+
+    print('✅ CalendarController: 멀티데이 이벤트 제거 완료');
   }
 }
