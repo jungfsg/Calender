@@ -61,9 +61,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ocrText.contains('추가') ||
         ocrText.contains('등록')) {
       return ocrText;
-    }
-
-    // 날짜/시간 키워드가 있으면 일정으로 판단
+    } // 날짜/시간 키워드가 있으면 일정으로 판단
     final scheduleKeywords = [
       '일',
       '월',
@@ -82,11 +80,34 @@ class _ChatScreenState extends State<ChatScreen> {
       '세미나',
       '워크샵',
       '이벤트',
+      '~', // 날짜 범위 표시
+      '-', // 날짜 범위 표시 (하이픈)
+      '부터',
+      '까지',
+      '동안',
     ];
 
-    final hasScheduleInfo = scheduleKeywords.any(
+    // 날짜 패턴 정규표현식 (예: 7.10, 2024.7.10, 7/10, 12:30 등)
+    final datePatterns = [
+      RegExp(r'\d{1,2}\.\d{1,2}'), // 7.10 형식
+      RegExp(r'\d{4}\.\d{1,2}\.\d{1,2}'), // 2024.7.10 형식
+      RegExp(r'\d{1,2}/\d{1,2}'), // 7/10 형식
+      RegExp(r'\d{4}/\d{1,2}/\d{1,2}'), // 2024/7/10 형식
+      RegExp(r'\d{1,2}:\d{2}'), // 12:30 시간 형식
+      RegExp(r'\d{1,2}월\s*\d{1,2}일'), // 7월 10일 형식
+      RegExp(r'\d{1,2}\.\d{1,2}\s*~\s*\d{1,2}\.\d{1,2}'), // 7.10 ~ 7.14 형식
+      RegExp(r'\d{1,2}/\d{1,2}\s*~\s*\d{1,2}/\d{1,2}'), // 7/10 ~ 7/14 형식
+    ];
+
+    final hasScheduleKeyword = scheduleKeywords.any(
       (keyword) => ocrText.contains(keyword),
     );
+
+    final hasDatePattern = datePatterns.any(
+      (pattern) => pattern.hasMatch(ocrText),
+    );
+
+    final hasScheduleInfo = hasScheduleKeyword || hasDatePattern;
 
     if (hasScheduleInfo) {
       return "다음 내용으로 일정을 추가해줘:\n\n$ocrText";
@@ -204,21 +225,12 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.insert(0, imageMessage);
           _isLoading = true;
         });
-
         try {
           final inputImage = InputImage.fromFilePath(imageFile.path);
           final RecognizedText recognizedText = await _textRecognizer
               .processImage(inputImage);
           if (recognizedText.text.isNotEmpty) {
-            final textMessage = types.TextMessage(
-              author: _user,
-              createdAt: DateTime.now().millisecondsSinceEpoch,
-              id: _uuid.v4(),
-              text: recognizedText.text,
-            );
-            setState(() {
-              _messages.insert(0, textMessage);
-            }); // OCR 텍스트를 일정 추가 요청으로 가공
+            // OCR 텍스트를 일정 추가 요청으로 가공
             final enhancedText = _enhanceOcrTextForSchedule(
               recognizedText.text,
             );
@@ -294,18 +306,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final RecognizedText recognizedText = await _textRecognizer.processImage(
         inputImage,
       );
-
       if (recognizedText.text.isNotEmpty) {
-        final textMessage = types.TextMessage(
-          author: _user,
-          createdAt: DateTime.now().millisecondsSinceEpoch,
-          id: _uuid.v4(),
-          text: recognizedText.text,
-        );
-        setState(() {
-          _messages.insert(0, textMessage);
-        });
-
         // OCR 텍스트를 일정 추가 요청으로 가공
         final enhancedText = _enhanceOcrTextForSchedule(recognizedText.text);
         print('🔤 갤러리 OCR 원본 텍스트: ${recognizedText.text}');
