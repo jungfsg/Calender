@@ -67,7 +67,13 @@ class NotificationService {
       final bool? granted =
           await androidImplementation.requestNotificationsPermission();
       print('📱 Android 알림 권한: ${granted ?? false}');
-      return granted ?? false;
+
+      // 정확한 알람 권한도 요청
+      final bool? exactAlarmGranted =
+          await androidImplementation.requestExactAlarmsPermission();
+      print('📱 Android 정확한 알람 권한: ${exactAlarmGranted ?? false}');
+
+      return (granted ?? false) && (exactAlarmGranted ?? false);
     }
 
     // iOS 권한 요청 (현재 미사용 - 필요시 주석 해제)
