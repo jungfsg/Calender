@@ -7,7 +7,7 @@ class Event {
   final String? endTime; // HH:mm 형식의 종료 시간, null일 경우 시작시간+1시간으로 자동 계산
   final DateTime date;
   final DateTime? startDate; // 🆕 멀티데이 이벤트의 시작 날짜
-  final DateTime? endDate; // 🆕 멀티데이 이벤트의 종료 날짜  
+  final DateTime? endDate; // 🆕 멀티데이 이벤트의 종료 날짜
   final bool isMultiDay; // 🆕 멀티데이 이벤트 여부
   final String description; // 이벤트 설명 추가
   final String? colorId; // 구글 캘린더 색상 ID 추가
@@ -17,6 +17,9 @@ class Event {
   final String? googleEventId; // Google Calendar 이벤트 ID 저장
   final RecurrenceType recurrence; // 🆕 반복 타입 추가
   final int recurrenceCount; // 🆕 반복 횟수 추가
+  final bool isNotificationEnabled; // 🆕 알림 활성화 여부
+  final int notificationMinutesBefore; // 🆕 이벤트 몇 분 전에 알림 (기본값: 10분)
+  final int? notificationId; // 🆕 시스템 알림 ID (스케줄링된 알림의 식별자)
 
   Event({
     required this.title,
@@ -34,7 +37,13 @@ class Event {
     this.googleEventId, // Google Calendar 이벤트 ID
     this.recurrence = RecurrenceType.none, // 🆕 기본값은 반복 없음
     int? recurrenceCount, // 🆕 반복 횟수는 선택적 매개변수
-  }) : date = date ?? startDate ?? DateTime.now(), // 🆕 date는 startDate 또는 현재 날짜로 fallback
+    this.isNotificationEnabled = true, // 🆕 기본값은 알림 활성화
+    this.notificationMinutesBefore = 10, // 🆕 기본값은 10분 전 알림
+    this.notificationId, // 🆕 시스템 알림 ID
+  }) : date =
+           date ??
+           startDate ??
+           DateTime.now(), // 🆕 date는 startDate 또는 현재 날짜로 fallback
        uniqueId =
            uniqueId ??
            '${title}_${(date ?? startDate ?? DateTime.now()).toIso8601String()}_${time}_${DateTime.now().microsecondsSinceEpoch}',
@@ -51,6 +60,9 @@ class Event {
     this.source = 'local',
     String? uniqueId,
     this.googleEventId,
+    this.isNotificationEnabled = true, // 🆕 기본값은 알림 활성화
+    this.notificationMinutesBefore = 10, // 🆕 기본값은 10분 전 알림
+    this.notificationId, // 🆕 시스템 알림 ID
   }) : time = '',
        endTime = null,
        date = startDate,
@@ -59,7 +71,8 @@ class Event {
        isMultiDay = true,
        recurrence = RecurrenceType.none,
        recurrenceCount = 1,
-       uniqueId = uniqueId ?? 
+       uniqueId =
+           uniqueId ??
            '${title}_${startDate.toIso8601String()}_multiday_${DateTime.now().microsecondsSinceEpoch}';
 
   // 고유 ID 생성 메소드 (날짜+시간+제목 기반)
@@ -85,6 +98,9 @@ class Event {
       'googleEventId': googleEventId, // Google Calendar 이벤트 ID 저장
       'recurrence': recurrence.toString(), // 🆕 반복 타입 저장
       'recurrenceCount': recurrenceCount, // 🆕 반복 횟수 저장
+      'isNotificationEnabled': isNotificationEnabled, // 🆕 알림 활성화 여부 저장
+      'notificationMinutesBefore': notificationMinutesBefore, // 🆕 알림 시간 저장
+      'notificationId': notificationId, // 🆕 시스템 알림 ID 저장
     };
     print(
       '💾 Event toJson: $title -> colorId: $colorId, color: ${color?.value}, source: $source, uniqueId: $uniqueId, googleEventId: $googleEventId, recurrence: $recurrence, count: $recurrenceCount, multiDay: $isMultiDay',
@@ -98,9 +114,18 @@ class Event {
       title: json['title'],
       time: json['time'] ?? '', // 🆕 time이 null일 수도 있음
       endTime: json['endTime'], // 종료 시간 복원
-      date: json['date'] != null ? DateTime.parse(json['date']) : null, // 🆕 date가 null일 수도 있음
-      startDate: json['startDate'] != null ? DateTime.parse(json['startDate']) : null, // 🆕 멀티데이 시작 날짜 복원
-      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null, // 🆕 멀티데이 종료 날짜 복원
+      date:
+          json['date'] != null
+              ? DateTime.parse(json['date'])
+              : null, // 🆕 date가 null일 수도 있음
+      startDate:
+          json['startDate'] != null
+              ? DateTime.parse(json['startDate'])
+              : null, // 🆕 멀티데이 시작 날짜 복원
+      endDate:
+          json['endDate'] != null
+              ? DateTime.parse(json['endDate'])
+              : null, // 🆕 멀티데이 종료 날짜 복원
       isMultiDay: json['isMultiDay'] ?? false, // 🆕 멀티데이 여부 복원
       description: json['description'] ?? '',
       colorId: json['colorId'],
@@ -113,6 +138,11 @@ class Event {
               ? RecurrenceType.fromString(json['recurrence'])
               : RecurrenceType.none, // 🆕 반복 타입 복원
       recurrenceCount: json['recurrenceCount'] ?? 1, // 🆕 반복 횟수 복원
+      isNotificationEnabled:
+          json['isNotificationEnabled'] ?? true, // 🆕 알림 활성화 여부 복원
+      notificationMinutesBefore:
+          json['notificationMinutesBefore'] ?? 10, // 🆕 알림 시간 복원
+      notificationId: json['notificationId'], // 🆕 시스템 알림 ID 복원
     );
     print(
       '📖 Event fromJson: ${event.title} -> colorId: ${event.colorId}, color: ${event.color?.value}, source: ${event.source}, uniqueId: ${event.uniqueId}, googleEventId: ${event.googleEventId}, recurrence: ${event.recurrence}, count: ${event.recurrenceCount}, multiDay: ${event.isMultiDay}',
@@ -147,6 +177,9 @@ class Event {
     String? googleEventId, // Google Calendar 이벤트 ID 복사 옵션 추가
     RecurrenceType? recurrence, // 🆕 반복 타입 추가
     int? recurrenceCount, // 🆕 반복 횟수 추가
+    bool? isNotificationEnabled, // 🆕 알림 활성화 여부 복사 옵션
+    int? notificationMinutesBefore, // 🆕 알림 시간 복사 옵션
+    int? notificationId, // 🆕 시스템 알림 ID 복사 옵션
   }) {
     return Event(
       title: title ?? this.title,
@@ -165,6 +198,13 @@ class Event {
           googleEventId ?? this.googleEventId, // Google Calendar 이벤트 ID 유지
       recurrence: recurrence ?? this.recurrence, // 🆕 반복 타입 유지
       recurrenceCount: recurrenceCount ?? this.recurrenceCount, // 🆕 반복 횟수 유지
+      isNotificationEnabled:
+          isNotificationEnabled ??
+          this.isNotificationEnabled, // 🆕 알림 활성화 여부 유지
+      notificationMinutesBefore:
+          notificationMinutesBefore ??
+          this.notificationMinutesBefore, // 🆕 알림 시간 유지
+      notificationId: notificationId ?? this.notificationId, // 🆕 시스템 알림 ID 유지
     );
   }
 
@@ -221,7 +261,7 @@ class Event {
   }
 
   // 🆕 멀티데이 이벤트 관련 메서드들
-  
+
   // 멀티데이 이벤트의 기간(일수) 반환
   int getMultiDayDuration() {
     if (!isMultiDay || startDate == null || endDate == null) return 1;
@@ -237,7 +277,7 @@ class Event {
     final start = DateTime(startDate!.year, startDate!.month, startDate!.day);
     final end = DateTime(endDate!.year, endDate!.month, endDate!.day);
     return (targetDate.isAtSameMomentAs(start) || targetDate.isAfter(start)) &&
-           (targetDate.isAtSameMomentAs(end) || targetDate.isBefore(end));
+        (targetDate.isAtSameMomentAs(end) || targetDate.isBefore(end));
   }
 
   // 멀티데이 이벤트에서 특정 날짜가 시작일인지 확인

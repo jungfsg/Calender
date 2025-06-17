@@ -12,7 +12,7 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://345b-220-90-168-2.ngrok-free.app';
+  final String baseUrl = 'https://22b6-218-158-75-120.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 카테고리 분류를 위한 공통 키워드 맵

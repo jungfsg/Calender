@@ -2,13 +2,24 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:calander/services/tts_service.dart'; // --- ★★★ 추가: TtsService 임포트 ★★★ ---
+import 'package:calander/services/notification_service.dart'; // 🆕 NotificationService 임포트
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  
+
+  // 🆕 NotificationService 초기화 및 권한 요청
+  try {
+    await NotificationService.initialize();
+    await NotificationService.requestPermissions();
+    print('✅ 알림 서비스 초기화 완료');
+  } catch (e) {
+    print('⚠️ 알림 서비스 초기화 실패: $e');
+    // 알림 실패해도 앱은 실행되도록 계속 진행
+  }
+
   runApp(MyApp());
 }
 
