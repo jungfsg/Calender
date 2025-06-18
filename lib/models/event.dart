@@ -17,6 +17,9 @@ class Event {
   final String? googleEventId; // Google Calendar 이벤트 ID 저장
   final RecurrenceType recurrence; // 🆕 반복 타입 추가
   final int recurrenceCount; // 🆕 반복 횟수 추가
+  final bool isNotificationEnabled; // 🆕 알림 활성화 여부
+  final int notificationMinutesBefore; // 🆕 이벤트 몇 분 전에 알림 (기본값: 10분)
+  final int? notificationId; // 🆕 시스템 알림 ID (스케줄링된 알림의 식별자)
 
   Event({
     required this.title,
@@ -34,6 +37,9 @@ class Event {
     this.googleEventId, // Google Calendar 이벤트 ID
     this.recurrence = RecurrenceType.none, // 🆕 기본값은 반복 없음
     int? recurrenceCount, // 🆕 반복 횟수는 선택적 매개변수
+    this.isNotificationEnabled = true, // 🆕 기본값은 알림 활성화
+    this.notificationMinutesBefore = 10, // 🆕 기본값은 10분 전 알림
+    this.notificationId, // 🆕 시스템 알림 ID
   }) : date =
            date ??
            startDate ??
@@ -54,6 +60,9 @@ class Event {
     this.source = 'local',
     String? uniqueId,
     this.googleEventId,
+    this.isNotificationEnabled = true, // 🆕 기본값은 알림 활성화
+    this.notificationMinutesBefore = 10, // 🆕 기본값은 10분 전 알림
+    this.notificationId, // 🆕 시스템 알림 ID
   }) : time = '',
        endTime = null,
        date = startDate,
@@ -89,6 +98,9 @@ class Event {
       'googleEventId': googleEventId, // Google Calendar 이벤트 ID 저장
       'recurrence': recurrence.toString(), // 🆕 반복 타입 저장
       'recurrenceCount': recurrenceCount, // 🆕 반복 횟수 저장
+      'isNotificationEnabled': isNotificationEnabled, // 🆕 알림 활성화 여부 저장
+      'notificationMinutesBefore': notificationMinutesBefore, // 🆕 알림 시간 저장
+      'notificationId': notificationId, // 🆕 시스템 알림 ID 저장
     };
     print(
       '💾 Event toJson: $title -> colorId: $colorId, color: ${color?.value}, source: $source, uniqueId: $uniqueId, googleEventId: $googleEventId, recurrence: $recurrence, count: $recurrenceCount, multiDay: $isMultiDay',
@@ -126,6 +138,11 @@ class Event {
               ? RecurrenceType.fromString(json['recurrence'])
               : RecurrenceType.none, // 🆕 반복 타입 복원
       recurrenceCount: json['recurrenceCount'] ?? 1, // 🆕 반복 횟수 복원
+      isNotificationEnabled:
+          json['isNotificationEnabled'] ?? true, // 🆕 알림 활성화 여부 복원
+      notificationMinutesBefore:
+          json['notificationMinutesBefore'] ?? 10, // 🆕 알림 시간 복원
+      notificationId: json['notificationId'], // 🆕 시스템 알림 ID 복원
     );
     print(
       '📖 Event fromJson: ${event.title} -> colorId: ${event.colorId}, color: ${event.color?.value}, source: ${event.source}, uniqueId: ${event.uniqueId}, googleEventId: ${event.googleEventId}, recurrence: ${event.recurrence}, count: ${event.recurrenceCount}, multiDay: ${event.isMultiDay}',
@@ -160,6 +177,9 @@ class Event {
     String? googleEventId, // Google Calendar 이벤트 ID 복사 옵션 추가
     RecurrenceType? recurrence, // 🆕 반복 타입 추가
     int? recurrenceCount, // 🆕 반복 횟수 추가
+    bool? isNotificationEnabled, // 🆕 알림 활성화 여부 복사 옵션
+    int? notificationMinutesBefore, // 🆕 알림 시간 복사 옵션
+    int? notificationId, // 🆕 시스템 알림 ID 복사 옵션
   }) {
     return Event(
       title: title ?? this.title,
@@ -178,6 +198,13 @@ class Event {
           googleEventId ?? this.googleEventId, // Google Calendar 이벤트 ID 유지
       recurrence: recurrence ?? this.recurrence, // 🆕 반복 타입 유지
       recurrenceCount: recurrenceCount ?? this.recurrenceCount, // 🆕 반복 횟수 유지
+      isNotificationEnabled:
+          isNotificationEnabled ??
+          this.isNotificationEnabled, // 🆕 알림 활성화 여부 유지
+      notificationMinutesBefore:
+          notificationMinutesBefore ??
+          this.notificationMinutesBefore, // 🆕 알림 시간 유지
+      notificationId: notificationId ?? this.notificationId, // 🆕 시스템 알림 ID 유지
     );
   }
 

@@ -325,7 +325,8 @@ class WeatherService {
       }
     } catch (e) {
       print('위치 정보 오류: $e');
-    } // 위치 정보를 가져올 수 없는 경우 네이버 날씨 메인 페이지
+    }
+    // 위치 정보를 가져올 수 없는 경우 네이버 날씨 메인 페이지
     return 'https://weather.naver.com/';
   }
 

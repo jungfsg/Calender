@@ -7,6 +7,7 @@ class CalendarSideMenu extends StatelessWidget {
   final VoidCallback onGoogleCalendarDownload;
   final VoidCallback onGoogleCalendarUpload;
   final VoidCallback onLogoutTap;
+  final VoidCallback onBriefingSettingsTap; // 🆕 브리핑 설정 콜백 추가
   final bool isGoogleCalendarConnected;
 
   // --- ★★★ 수정: TTS 관련 속성 모두 제거 ★★★ ---
@@ -16,6 +17,7 @@ class CalendarSideMenu extends StatelessWidget {
     required this.onGoogleCalendarDownload,
     required this.onGoogleCalendarUpload,
     required this.onLogoutTap,
+    required this.onBriefingSettingsTap, // 🆕 브리핑 설정 콜백 추가
     this.isGoogleCalendarConnected = false,
   });
 
@@ -24,9 +26,7 @@ class CalendarSideMenu extends StatelessWidget {
     return Theme(
       data: Theme.of(context).copyWith(
         drawerTheme: const DrawerThemeData(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         ),
       ),
       child: Drawer(
@@ -55,11 +55,28 @@ class CalendarSideMenu extends StatelessWidget {
                 onWeatherForecastTap();
               },
             ),
+            ListTile(
+              leading: const Icon(
+                Icons.notifications_active,
+                color: Colors.blue,
+              ),
+              title: Text(
+                '브리핑 설정',
+                style: getTextStyle(fontSize: 12, color: Colors.black),
+              ),
+              subtitle: Text(
+                '일일 일정 브리핑 알림 설정',
+                style: getTextStyle(fontSize: 10, color: Colors.grey),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onBriefingSettingsTap();
+              },
+            ),
 
             // --- ★★★ 수정: TTS 설정 스위치와 구분선(Divider) 완전 제거 ★★★ ---
             // const Divider(),
             // SwitchListTile(...) -> 이 부분이 완전히 삭제되었습니다.
-
             const Spacer(),
             const Divider(),
             ListTile(
@@ -83,17 +100,31 @@ class CalendarSideMenu extends StatelessWidget {
                 itemCount: 11,
                 itemBuilder: (context, index) {
                   final colors = [
-                    const Color(0xFF9AA0F5), const Color(0xFF33B679),
-                    const Color(0xFF8E24AA), const Color(0xFFE67C73),
-                    const Color(0xFFF6BF26), const Color(0xFFFF8A65),
-                    const Color(0xFF039BE5), const Color(0xFF616161),
-                    const Color(0xFF3F51B5), const Color(0xFF0B8043),
+                    const Color(0xFF9AA0F5),
+                    const Color(0xFF33B679),
+                    const Color(0xFF8E24AA),
+                    const Color(0xFFE67C73),
+                    const Color(0xFFF6BF26),
+                    const Color(0xFFFF8A65),
+                    const Color(0xFF039BE5),
+                    const Color(0xFF616161),
+                    const Color(0xFF3F51B5),
+                    const Color(0xFF0B8043),
                     const Color(0xFFD50000),
                   ];
 
                   final categories = [
-                    '업무', '집안일', '기념일', '학교', '운동', '공부',
-                    '여행', '기타', '친구', '가족', '병원',
+                    '업무',
+                    '집안일',
+                    '기념일',
+                    '학교',
+                    '운동',
+                    '공부',
+                    '여행',
+                    '기타',
+                    '친구',
+                    '가족',
+                    '병원',
                   ];
 
                   return Container(

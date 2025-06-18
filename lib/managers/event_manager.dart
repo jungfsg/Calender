@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'sync_manager.dart';
 import '../services/tts_service.dart'; // TtsService 임포트
+import '../services/notification_service.dart'; // 🆕 알림 서비스 임포트
 
 class EventManager {
   final CalendarController _controller;
@@ -203,6 +204,34 @@ class EventManager {
           );
         }
       }
+      // 🆕 알림 스케줄링 (Google 동기화 전에 수행)
+      if (eventToSave.isNotificationEnabled) {
+        try {
+          final notificationId =
+              await NotificationService.scheduleEventNotification(eventToSave);
+          if (notificationId != null) {
+            // 알림 ID를 포함한 이벤트로 업데이트
+            final eventWithNotificationId = eventToSave.copyWith(
+              notificationId: notificationId,
+            );
+            await EventStorageService.removeEvent(
+              eventToSave.date,
+              eventToSave,
+            );
+            await EventStorageService.addEvent(
+              eventToSave.date,
+              eventWithNotificationId,
+            );
+            _controller.removeEvent(eventToSave);
+            _controller.addEvent(eventWithNotificationId);
+            print('🔔 알림 스케줄링 완료: ${eventToSave.title} (ID: $notificationId)');
+          }
+        } catch (e) {
+          print('⚠️ 알림 스케줄링 실패: ${eventToSave.title} - $e');
+          // 알림 실패해도 이벤트는 저장되도록 계속 진행
+        }
+      }
+
       if (syncWithGoogle && eventToSave.source == 'local') {
         await _syncManager.syncEventAddition(eventToSave);
       }
@@ -308,6 +337,20 @@ class EventManager {
       print(
         '🔄 EventManager: 이벤트 수정 시작 - ${originalEvent.title} -> ${updatedEvent.title}',
       );
+      // 🆕 기존 이벤트의 알림 취소
+      if (originalEvent.notificationId != null) {
+        try {
+          await NotificationService.cancelNotification(
+            originalEvent.notificationId!,
+          );
+          print(
+            '🗑️ 기존 이벤트 알림 취소: ${originalEvent.title} (ID: ${originalEvent.notificationId})',
+          );
+        } catch (e) {
+          print('⚠️ 기존 알림 취소 실패: ${originalEvent.title} - $e');
+        }
+      }
+
       await EventStorageService.removeEvent(originalEvent.date, originalEvent);
       _controller.removeEvent(originalEvent);
       final eventToSave = updatedEvent.copyWith(
@@ -319,6 +362,36 @@ class EventManager {
       if (originalColor != null) {
         _controller.setEventIdColor(eventToSave.uniqueId, originalColor);
       }
+
+      // 🆕 새로운 이벤트 알림 스케줄링
+      if (eventToSave.isNotificationEnabled) {
+        try {
+          final notificationId =
+              await NotificationService.scheduleEventNotification(eventToSave);
+          if (notificationId != null) {
+            // 알림 ID를 포함한 이벤트로 업데이트
+            final eventWithNotificationId = eventToSave.copyWith(
+              notificationId: notificationId,
+            );
+            await EventStorageService.removeEvent(
+              eventToSave.date,
+              eventToSave,
+            );
+            await EventStorageService.addEvent(
+              eventToSave.date,
+              eventWithNotificationId,
+            );
+            _controller.removeEvent(eventToSave);
+            _controller.addEvent(eventWithNotificationId);
+            print(
+              '🔔 수정된 이벤트 알림 스케줄링 완료: ${eventToSave.title} (ID: $notificationId)',
+            );
+          }
+        } catch (e) {
+          print('⚠️ 수정된 이벤트 알림 스케줄링 실패: ${eventToSave.title} - $e');
+        }
+      }
+
       if (syncWithGoogle) {
         await _syncManager.syncEventUpdate(originalEvent, eventToSave);
       }
@@ -396,6 +469,16 @@ class EventManager {
           event.endDate != null) {
         await removeMultiDayEvent(event, syncWithGoogle: syncWithGoogle);
         return;
+      }
+
+      // 🆕 이벤트 알림 취소
+      if (event.notificationId != null) {
+        try {
+          await NotificationService.cancelNotification(event.notificationId!);
+          print('🗑️ 이벤트 알림 취소: ${event.title} (ID: ${event.notificationId})');
+        } catch (e) {
+          print('⚠️ 알림 취소 실패: ${event.title} - $e');
+        }
       }
 
       // 일반 이벤트 삭제
@@ -600,6 +683,7 @@ class EventManager {
         }
       }
       int addedCount = 0, skippedCount = 0, removedCount = 0;
+      List<Event> eventsToScheduleNotifications = []; // 🆕 알림 스케줄링할 이벤트 목록
       await _clearGoogleEventsFromStorage(startOfYear, endOfYear);
       for (var dateKey in newGoogleEventsMap.keys) {
         final events = newGoogleEventsMap[dateKey]!;
@@ -655,6 +739,16 @@ class EventManager {
           _controller.addEvent(googleEvent);
           addedCount++;
 
+          // 🆕 알림 스케줄링이 필요한 이벤트를 목록에 추가 (나중에 일괄 처리)
+          print(
+            '🔍 Google 이벤트 알림 체크: ${googleEvent.title} - 시간: "${googleEvent.time}", 알림활성화: ${googleEvent.isNotificationEnabled}, 멀티데이: ${googleEvent.isMultiDay}',
+          );
+          if (googleEvent.isNotificationEnabled &&
+              googleEvent.time.isNotEmpty) {
+            eventsToScheduleNotifications.add(googleEvent);
+            print('📋 알림 스케줄링 대기 목록에 추가: ${googleEvent.title}');
+          }
+
           // 색상 설정
           if (_controller.getEventIdColor(googleEvent.uniqueId) == null) {
             Color eventColor =
@@ -677,11 +771,52 @@ class EventManager {
               .toSet()
               .difference(newGoogleEventsMap.keys.toSet())
               .length;
+      // 🆕 모든 이벤트 로드 완료 후 일괄 알림 스케줄링
+      print(
+        '🔔 Google Calendar 이벤트 로드 완료! 이제 알림 스케줄링 시작... (${eventsToScheduleNotifications.length}개)',
+      );
+      int notificationSuccessCount = 0;
+      for (final event in eventsToScheduleNotifications) {
+        try {
+          final notificationId =
+              await NotificationService.scheduleEventNotification(event);
+          if (notificationId != null) {
+            // 알림 ID를 포함한 이벤트로 업데이트
+            final eventWithNotificationId = event.copyWith(
+              notificationId: notificationId,
+            );
+            await EventStorageService.removeEvent(event.date, event);
+            await EventStorageService.addEvent(
+              event.date,
+              eventWithNotificationId,
+            );
+            _controller.removeEvent(event);
+            _controller.addEvent(eventWithNotificationId);
+            notificationSuccessCount++;
+            print(
+              '🔔 Google 이벤트 알림 스케줄링 완료: ${event.title} (ID: $notificationId)',
+            );
+          }
+        } catch (e) {
+          print('⚠️ Google 이벤트 알림 스케줄링 실패: ${event.title} - $e');
+          // 알림 실패해도 계속 진행
+        }
+      }
+
       final currentMonth = _controller.focusedDay;
       await loadEventsForMonth(currentMonth);
       print(
-        '✅ EventManager: Google Calendar 동기화 완료\n- 추가: $addedCount개\n- 중복 제외: $skippedCount개\n- 삭제된 이벤트 포함 날짜: $removedCount일\n- 총 ${newGoogleEventsMap.length}일치 데이터 동기화됨',
+        '✅ EventManager: Google Calendar 동기화 완료\n- 추가: $addedCount개\n- 중복 제외: $skippedCount개\n- 삭제된 이벤트 포함 날짜: $removedCount일\n- 총 ${newGoogleEventsMap.length}일치 데이터 동기화됨\n- 알림 스케줄링: $notificationSuccessCount/${eventsToScheduleNotifications.length}개 성공',
       );
+
+      // 🧪 테스트 알림 발송 (개발용)
+      print('🧪 테스트 알림 발송 중...');
+      await NotificationService.showTestNotification();
+
+      // 🔍 현재 예약된 알림 개수 확인
+      final pendingNotifications =
+          await NotificationService.getPendingNotifications();
+      print('📋 현재 예약된 알림 개수: ${pendingNotifications.length}');
     } catch (e) {
       print('❌ EventManager: Google Calendar 동기화 중 오류: $e');
       rethrow;

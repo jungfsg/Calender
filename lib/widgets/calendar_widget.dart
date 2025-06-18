@@ -95,6 +95,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
           }
         },
         onLogoutTap: widget.onLogout ?? () {},
+        onBriefingSettingsTap: () {
+          Navigator.pushNamed(context, '/briefing_settings');
+        },
         isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
         // --- ★★★ 삭제: isTtsEnabled, onTtsToggle 전달 코드 제거 ★★★ ---
       ),
