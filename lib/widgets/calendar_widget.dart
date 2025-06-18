@@ -99,6 +99,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
           Navigator.pushNamed(context, '/briefing_settings');
         },
         isGoogleCalendarConnected: _googleCalendarService.isSignedIn,
+        events: widget.controller.getAllEvents(), // 🆕 전체 이벤트 목록 전달
+        currentMonth: widget.controller.focusedDay, // 🆕 현재 포커스된 월 전달
         // --- ★★★ 삭제: isTtsEnabled, onTtsToggle 전달 코드 제거 ★★★ ---
       ),
       body: SafeArea(
