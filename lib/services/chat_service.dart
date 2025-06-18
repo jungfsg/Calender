@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:uuid/uuid.dart';
-import 'weather_service.dart';
 import 'event_storage_service.dart';
 import '../models/event.dart';
 import '../managers/event_manager.dart';
@@ -485,9 +484,8 @@ class ChatService {
         print(data);
         print('🔍 응답 키들: ${data.keys.toList()}');
 
-        final botMessage = data['response'] as String;
-
-        // 일정 추가/수정/삭제 관련 응답인지 확인하고 로컬 캘린더에 저장
+        final botMessage =
+            data['response'] as String; // 일정 추가/수정/삭제 관련 응답인지 확인하고 로컬 캘린더에 저장
         final calendarUpdated = await _handleCalendarResponse(
           data,
           onCalendarUpdate: onCalendarUpdate,
@@ -497,12 +495,32 @@ class ChatService {
         // 일정 조회인 경우 로컬에서 직접 조회해서 응답 생성
         final intent = data['intent'] as String?;
         final extractedInfo = data['extracted_info'] as Map<String, dynamic>?;
+        final calendarResult = data['calendar_result'] as Map<String, dynamic>?;
 
         String finalMessage = botMessage;
+
+        // 삭제 의도인 경우 실제 삭제 결과에 따른 메시지 처리
+        if (intent == 'calendar_delete' &&
+            calendarResult != null &&
+            calendarResult['success'] == true &&
+            extractedInfo != null) {
+          print('🔄 일정 삭제 인텐트 감지 - 실제 삭제 결과 확인');
+
+          if (!calendarUpdated) {
+            // 실제로는 삭제되지 않았으면 적절한 메시지로 대체
+            print('❌ 실제 삭제 실패 - 메시지 수정');
+            finalMessage =
+                '😔 죄송합니다. 요청하신 일정을 찾을 수 없어 삭제할 수 없습니다.\n\n삭제하려는 일정의 제목이나 날짜를 다시 확인해 주세요.';
+          } else {
+            print('✅ 실제 삭제 성공 - 백엔드 응답 사용');
+          }
+        } // 일정 조회인 경우 캘린더 업데이트 플래그를 별도로 관리
+        bool isQueryOperation = false;
 
         if ((intent == 'calendar_query' || intent == 'calendar_search') &&
             extractedInfo != null) {
           print('🔄 일정 조회 인텐트 감지 - 로컬에서 직접 조회');
+          isQueryOperation = true; // 조회 작업임을 표시
 
           final queryDate = extractedInfo['start_date'] as String?;
           final queryDateEnd = extractedInfo['end_date'] as String?;
@@ -543,8 +561,8 @@ class ChatService {
           }
         }
 
-        // 캘린더가 업데이트되었으면 콜백 호출
-        if (calendarUpdated && onCalendarUpdate != null) {
+        // 캘린더가 업데이트되었고 조회 작업이 아닌 경우에만 콜백 호출
+        if (calendarUpdated && !isQueryOperation && onCalendarUpdate != null) {
           onCalendarUpdate();
         }
 
@@ -1104,8 +1122,7 @@ class ChatService {
             print('❌ 수정할 일정의 날짜 정보가 없습니다');
           }
         }
-      }
-      // 일정 조회가 성공한 경우 (calendar_query 또는 calendar_search)
+      } // 일정 조회가 성공한 경우 (calendar_query 또는 calendar_search)
       else if ((intent == 'calendar_query' || intent == 'calendar_search') &&
           extractedInfo != null) {
         print('📅 일정 조회 조건 만족! 일정 조회 시작...');
@@ -1156,12 +1173,12 @@ class ChatService {
               );
               print('📝 포맷팅된 일정 브리핑: $formattedSchedule');
 
-              // 채팅에 일정 정보 추가 - 직접 메시지 생성해서 표시
-              return true; // 캘린더 조회 완료
+              // 일정 조회는 캘린더를 수정하지 않으므로 false 반환
+              return false; // 캘린더 조회 완료 (수정 없음)
             } else {
               print('📭 해당 기간에 일정이 없습니다.');
-              // 일정이 없어도 응답 생성
-              return true; // 빈 일정도 응답으로 처리
+              // 일정이 없어도 응답 생성하지만 캘린더 수정은 없음
+              return false; // 빈 일정도 조회 작업이므로 수정 없음
             }
           } catch (e) {
             print('❌ 일정 조회 중 날짜 파싱 오류: $e');
@@ -1320,6 +1337,8 @@ class ChatService {
                 print('   검색한 제목: "$title"');
                 print('   검색한 날짜: $eventDate');
                 print('   검색한 시간: $startTime');
+                print('   기존 이벤트 개수: ${existingEvents.length}개');
+                return false; // 삭제할 이벤트가 없음을 명시적으로 반환
               }
             } catch (e) {
               print('❌ 일정 삭제 중 날짜 파싱 오류: $e');
@@ -1468,7 +1487,6 @@ class ChatService {
                 }
               }
             }
-
             if (eventToDelete != null) {
               if (eventManager != null) {
                 await eventManager.removeEventAndRefresh(
@@ -1485,6 +1503,7 @@ class ChatService {
               print('✅ 개별 삭제 ${i + 1} 완료: ${eventToDelete.title}');
             } else {
               print('❌ 개별 삭제 ${i + 1} 실패: 일정을 찾을 수 없음 ($title)');
+              // 일정을 찾을 수 없는 경우에도 로그만 출력하고 계속 진행
             }
           } catch (e) {
             print('❌ 개별 삭제 ${i + 1} 처리 중 오류: $e');
