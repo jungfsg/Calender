@@ -523,15 +523,17 @@ class PopupManager {
                                       ),
                                     );
                                     return;
-                                  }
+                                  } // 개선: 시간 유효성 검사
+                                  // 24시간 기준으로 비교하여 다음날로 넘어가는 경우도 허용
+                                  final startTotalMinutes =
+                                      selectedStartTime.hour * 60 +
+                                      selectedStartTime.minute;
+                                  final endTotalMinutes =
+                                      selectedEndTime.hour * 60 +
+                                      selectedEndTime.minute;
 
-                                  // 개선: 시간 유효성 검사
-                                  if (selectedStartTime.hour >
-                                          selectedEndTime.hour ||
-                                      (selectedStartTime.hour ==
-                                              selectedEndTime.hour &&
-                                          selectedStartTime.minute >=
-                                              selectedEndTime.minute)) {
+                                  // 시작 시간과 종료 시간이 같은 경우에만 오류
+                                  if (startTotalMinutes == endTotalMinutes) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
@@ -543,20 +545,47 @@ class PopupManager {
                                     return;
                                   }
 
-                                  // 기존 코드...
-                                  final event = Event(
-                                    title:
-                                        titleController.text
-                                            .trim(), // 개선: 공백 제거
-                                    time:
-                                        '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                    endTime:
-                                        '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                    date: _controller.selectedDay,
-                                    source: 'local',
-                                    recurrence: selectedRecurrence,
-                                    recurrenceCount: recurrenceCount,
-                                  );
+                                  // 시간 변환
+                                  final startTimeStr =
+                                      '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}';
+                                  final endTimeStr =
+                                      '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}';
+
+                                  // 시작 시간이 종료 시간보다 큰 경우 (예: 23:00 시작, 01:00 종료)
+                                  // 다음 날을 가리키는 이벤트로 처리
+                                  final Event event;
+
+                                  if (startTotalMinutes > endTotalMinutes) {
+                                    // 날짜가 넘어가는 경우 - 멀티데이 이벤트로 처리
+                                    final today = _controller.selectedDay;
+                                    final tomorrow = today.add(
+                                      const Duration(days: 1),
+                                    );
+
+                                    event = Event(
+                                      title: titleController.text.trim(),
+                                      time: startTimeStr,
+                                      endTime: endTimeStr,
+                                      date: today,
+                                      isMultiDay: true,
+                                      startDate: today,
+                                      endDate: tomorrow,
+                                      source: 'local',
+                                      recurrence: selectedRecurrence,
+                                      recurrenceCount: recurrenceCount,
+                                    );
+                                  } else {
+                                    // 일반적인 경우 - 기존과 동일한 방식
+                                    event = Event(
+                                      title: titleController.text.trim(),
+                                      time: startTimeStr,
+                                      endTime: endTimeStr,
+                                      date: _controller.selectedDay,
+                                      source: 'local',
+                                      recurrence: selectedRecurrence,
+                                      recurrenceCount: recurrenceCount,
+                                    );
+                                  }
 
                                   try {
                                     // 반복 옵션이 있는 경우 반복 이벤트들을 생성
@@ -1140,12 +1169,15 @@ class PopupManager {
                                   }
 
                                   // 시간 유효성 검사
-                                  if (selectedStartTime.hour >
-                                          selectedEndTime.hour ||
-                                      (selectedStartTime.hour ==
-                                              selectedEndTime.hour &&
-                                          selectedStartTime.minute >=
-                                              selectedEndTime.minute)) {
+                                  final startTotalMinutes =
+                                      selectedStartTime.hour * 60 +
+                                      selectedStartTime.minute;
+                                  final endTotalMinutes =
+                                      selectedEndTime.hour * 60 +
+                                      selectedEndTime.minute;
+
+                                  // 시작 시간과 종료 시간이 같은 경우에만 오류
+                                  if (startTotalMinutes == endTotalMinutes) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
@@ -1157,16 +1189,47 @@ class PopupManager {
                                     return;
                                   }
 
-                                  final updatedEvent = event.copyWith(
-                                    title: titleController.text.trim(),
-                                    time:
-                                        '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                    endTime:
-                                        '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                    colorId: selectedColorId.toString(),
-                                    recurrence: selectedRecurrence,
-                                    recurrenceCount: recurrenceCount,
-                                  );
+                                  // 시간 변환
+                                  final startTimeStr =
+                                      '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}';
+                                  final endTimeStr =
+                                      '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}';
+
+                                  // 다음 날을 넘어가는 경우 처리
+                                  final Event updatedEvent;
+
+                                  if (startTotalMinutes > endTotalMinutes) {
+                                    // 날짜가 넘어가는 경우 - 멀티데이 이벤트로 처리
+                                    final today = event.date;
+                                    final tomorrow = today.add(
+                                      const Duration(days: 1),
+                                    );
+
+                                    updatedEvent = event.copyWith(
+                                      title: titleController.text.trim(),
+                                      time: startTimeStr,
+                                      endTime: endTimeStr,
+                                      isMultiDay: true,
+                                      startDate: today,
+                                      endDate: tomorrow,
+                                      colorId: selectedColorId.toString(),
+                                      recurrence: selectedRecurrence,
+                                      recurrenceCount: recurrenceCount,
+                                    );
+                                  } else {
+                                    // 일반적인 경우
+                                    updatedEvent = event.copyWith(
+                                      title: titleController.text.trim(),
+                                      time: startTimeStr,
+                                      endTime: endTimeStr,
+                                      isMultiDay: false, // 명시적으로 설정
+                                      startDate: null, // 멀티데이 속성 제거
+                                      endDate: null, // 멀티데이 속성 제거
+                                      colorId: selectedColorId.toString(),
+                                      recurrence: selectedRecurrence,
+                                      recurrenceCount: recurrenceCount,
+                                    );
+                                  }
 
                                   try {
                                     await _eventManager.updateEvent(
