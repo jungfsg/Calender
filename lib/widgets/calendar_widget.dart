@@ -539,6 +539,14 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   }
 
   void _onItemTapped(int index) {
+    // 마이크 버튼(index 1)이고 팝업이 열려있을 때는 아무것도 하지 않음
+    if (index == 1 &&
+        (widget.controller.showEventPopup ||
+            widget.controller.showWeatherPopup)) {
+      print('🚫 팝업이 열려있어서 마이크 버튼이 비활성화됨');
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
