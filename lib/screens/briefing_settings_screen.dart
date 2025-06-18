@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/daily_briefing_service.dart';
 import '../utils/font_utils.dart';
+import '../services/notification_service.dart';
 
 class BriefingSettingsScreen extends StatefulWidget {
   const BriefingSettingsScreen({super.key});
@@ -10,10 +11,8 @@ class BriefingSettingsScreen extends StatefulWidget {
 }
 
 class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
-  bool _isEnabled = false;
-  String _briefingTime = '08:00';
-  bool _includeWeather = true;
-  bool _includeTomorrow = true;
+  bool _briefingEnabled = false;
+  TimeOfDay _briefingTime = TimeOfDay(hour: 8, minute: 0);
   bool _isLoading = true;
 
   @override
@@ -26,33 +25,36 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
     try {
       final settings = await DailyBriefingService.getBriefingSettings();
       setState(() {
-        _isEnabled = settings['enabled'] ?? false;
-        _briefingTime = settings['time'] ?? '08:00';
-        _includeWeather = settings['includeWeather'] ?? true;
-        _includeTomorrow = settings['includeTomorrow'] ?? true;
+        _briefingEnabled = settings['enabled'] ?? false;
+
+        final timeString = settings['time'] ?? '08:00';
+        final timeParts = timeString.split(':');
+        _briefingTime = TimeOfDay(
+          hour: int.parse(timeParts[0]),
+          minute: int.parse(timeParts[1]),
+        );
+
         _isLoading = false;
       });
     } catch (e) {
       print('설정 로드 실패: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
   Future<void> _saveSettings() async {
     try {
       final settings = {
-        'enabled': _isEnabled,
-        'time': _briefingTime,
-        'includeWeather': _includeWeather,
-        'includeTomorrow': _includeTomorrow,
+        'enabled': _briefingEnabled,
+        'time':
+            '${_briefingTime.hour.toString().padLeft(2, '0')}:'
+            '${_briefingTime.minute.toString().padLeft(2, '0')}',
       };
 
       await DailyBriefingService.saveBriefingSettings(settings);
 
       // 설정이 활성화되었다면 브리핑 업데이트
-      if (_isEnabled) {
+      if (_briefingEnabled) {
         await DailyBriefingService.updateBriefings();
       }
 
@@ -82,16 +84,12 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
   Future<void> _selectTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay(
-        hour: int.parse(_briefingTime.split(':')[0]),
-        minute: int.parse(_briefingTime.split(':')[1]),
-      ),
+      initialTime: _briefingTime,
     );
 
     if (picked != null) {
       setState(() {
-        _briefingTime =
-            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+        _briefingTime = picked;
       });
     }
   }
@@ -162,6 +160,96 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
     }
   }
 
+  // 알림 테스트 기능 추가
+  Future<void> _testNotification() async {
+    try {
+      setState(() => _isLoading = true);
+
+      // 즉시 테스트 알림 보내기
+      await NotificationService.showTestNotification();
+
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '테스트 알림을 보냈습니다. 알림이 오는지 확인해보세요.',
+            style: getTextStyle(fontSize: 12, color: Colors.white),
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '테스트 알림 실패: $e',
+            style: getTextStyle(fontSize: 12, color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // 예약된 알림 목록 확인
+  Future<void> _checkScheduledNotifications() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final pendingNotifications =
+          await NotificationService.getPendingNotifications();
+
+      setState(() => _isLoading = false);
+
+      String message;
+      if (pendingNotifications.isEmpty) {
+        message = '예약된 알림이 없습니다.';
+      } else {
+        message = '예약된 알림 ${pendingNotifications.length}개:\n';
+        for (var notification in pendingNotifications) {
+          message += '• ID: ${notification.id}, 제목: ${notification.title}\n';
+        }
+      }
+
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: Text(
+                '예약된 알림 목록',
+                style: getTextStyle(fontSize: 16, color: Colors.black),
+              ),
+              content: Text(
+                message,
+                style: getTextStyle(fontSize: 12, color: Colors.black),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    '확인',
+                    style: getTextStyle(fontSize: 12, color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '알림 목록 확인 실패: $e',
+            style: getTextStyle(fontSize: 12, color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -218,13 +306,15 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                       style: getTextStyle(fontSize: 14, color: Colors.black),
                     ),
                     subtitle: Text(
-                      _isEnabled ? '브리핑 알림이 활성화되어 있습니다' : '브리핑 알림이 비활성화되어 있습니다',
+                      _briefingEnabled
+                          ? '브리핑 알림이 활성화되어 있습니다'
+                          : '브리핑 알림이 비활성화되어 있습니다',
                       style: getTextStyle(fontSize: 12, color: Colors.grey),
                     ),
-                    value: _isEnabled,
+                    value: _briefingEnabled,
                     onChanged: (value) {
                       setState(() {
-                        _isEnabled = value;
+                        _briefingEnabled = value;
                       });
                     },
                   ),
@@ -233,7 +323,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          if (_isEnabled) ...[
+          if (_briefingEnabled) ...[
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -258,7 +348,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                         style: getTextStyle(fontSize: 14, color: Colors.black),
                       ),
                       subtitle: Text(
-                        _briefingTime,
+                        '${_briefingTime.hour.toString().padLeft(2, '0')}:${_briefingTime.minute.toString().padLeft(2, '0')}',
                         style: getTextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       trailing: const Icon(Icons.edit),
@@ -276,44 +366,21 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '🛠️ 추가 옵션',
+                      '📋 브리핑 포함 내용',
                       style: getTextStyle(
                         fontSize: 16,
                         color: Colors.black,
                       ).copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
-                    SwitchListTile(
-                      title: Text(
-                        '내일 일정 포함',
-                        style: getTextStyle(fontSize: 14, color: Colors.black),
+                    Text(
+                      '• 오늘의 일정 및 날씨 정보\n'
+                      '• 내일의 일정 정보\n'
+                      '• 시간대별 일정 요약',
+                      style: getTextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
                       ),
-                      subtitle: Text(
-                        '내일 일정도 미리 브리핑에 포함합니다',
-                        style: getTextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      value: _includeTomorrow,
-                      onChanged: (value) {
-                        setState(() {
-                          _includeTomorrow = value;
-                        });
-                      },
-                    ),
-                    SwitchListTile(
-                      title: Text(
-                        '날씨 정보 포함',
-                        style: getTextStyle(fontSize: 14, color: Colors.black),
-                      ),
-                      subtitle: Text(
-                        '브리핑에 날씨 정보를 포함합니다 (향후 추가 예정)',
-                        style: getTextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      value: _includeWeather,
-                      onChanged: (value) {
-                        setState(() {
-                          _includeWeather = value;
-                        });
-                      },
                     ),
                   ],
                 ),
@@ -349,13 +416,42 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                       ),
                       onTap: _testBriefing,
                     ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.notifications_active,
+                        color: Colors.orange,
+                      ),
+                      title: Text(
+                        '즉시 알림 테스트',
+                        style: getTextStyle(fontSize: 14, color: Colors.black),
+                      ),
+                      subtitle: Text(
+                        '알림이 정상적으로 오는지 즉시 테스트',
+                        style: getTextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      onTap: _testNotification,
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.list_alt, color: Colors.purple),
+                      title: Text(
+                        '예약된 알림 목록',
+                        style: getTextStyle(fontSize: 14, color: Colors.black),
+                      ),
+                      subtitle: Text(
+                        '현재 예약된 알림들을 확인',
+                        style: getTextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      onTap: _checkScheduledNotifications,
+                    ),
                   ],
                 ),
               ),
             ),
           ],
           const SizedBox(height: 24),
-          if (_isEnabled)
+          if (_briefingEnabled) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -389,6 +485,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                 ],
               ),
             ),
+          ],
         ],
       ),
     );
