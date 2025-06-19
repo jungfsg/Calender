@@ -94,123 +94,59 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
     }
   }
 
-  Future<void> _testBriefing() async {
-    try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      final today = DateTime.now();
-      final briefing = await DailyBriefingService.generateBriefingSummary(
-        today,
-      );
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (briefing != null) {
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: Text(
-                  '오늘의 브리핑 미리보기',
-                  style: getTextStyle(fontSize: 16, color: Colors.black),
-                ),
-                content: Text(
-                  briefing,
-                  style: getTextStyle(fontSize: 12, color: Colors.black),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      '확인',
-                      style: getTextStyle(fontSize: 12, color: Colors.blue),
-                    ),
-                  ),
-                ],
-              ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '브리핑 생성에 실패했습니다.',
-              style: getTextStyle(fontSize: 12, color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '브리핑 테스트에 실패했습니다: $e',
-            style: getTextStyle(fontSize: 12, color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  // 알림 테스트 기능 추가
-  Future<void> _testNotification() async {
-    try {
-      setState(() => _isLoading = true);
-
-      // 즉시 테스트 알림 보내기
-      await NotificationService.showTestNotification();
-
-      setState(() => _isLoading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '테스트 알림을 보냈습니다. 알림이 오는지 확인해보세요.',
-            style: getTextStyle(fontSize: 12, color: Colors.white),
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '테스트 알림 실패: $e',
-            style: getTextStyle(fontSize: 12, color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  // 예약된 알림 목록 확인
+  // 오늘과 내일의 브리핑 내용 확인
   Future<void> _checkScheduledNotifications() async {
     try {
       setState(() => _isLoading = true);
 
-      final pendingNotifications =
-          await NotificationService.getPendingNotifications();
+      final today = DateTime.now();
+      final tomorrow = today.add(const Duration(days: 1));
+
+      // 먼저 저장된 브리핑 확인, 없으면 새로 생성
+      String? todayBriefing;
+      String? tomorrowBriefing;
+
+      // 오늘 브리핑 - 저장된 것 우선 확인
+      final savedTodayBriefing = await DailyBriefingService.getBriefing(today);
+      if (savedTodayBriefing != null && savedTodayBriefing.summary.isNotEmpty) {
+        todayBriefing = savedTodayBriefing.summary;
+      } else {
+        todayBriefing = await DailyBriefingService.generateBriefingSummary(
+          today,
+        );
+      }
+
+      // 내일 브리핑 - 저장된 것 우선 확인
+      final savedTomorrowBriefing = await DailyBriefingService.getBriefing(
+        tomorrow,
+      );
+      if (savedTomorrowBriefing != null &&
+          savedTomorrowBriefing.summary.isNotEmpty) {
+        tomorrowBriefing = savedTomorrowBriefing.summary;
+      } else {
+        tomorrowBriefing = await DailyBriefingService.generateBriefingSummary(
+          tomorrow,
+        );
+      }
 
       setState(() => _isLoading = false);
 
-      String message;
-      if (pendingNotifications.isEmpty) {
-        message = '예약된 알림이 없습니다.';
+      String message = '';
+
+      // 오늘 브리핑
+      message += '📅 오늘 (${today.month}/${today.day})\n';
+      if (todayBriefing != null && todayBriefing.isNotEmpty) {
+        message += '$todayBriefing\n\n';
       } else {
-        message = '예약된 알림 ${pendingNotifications.length}개:\n';
-        for (var notification in pendingNotifications) {
-          message += '• ID: ${notification.id}, 제목: ${notification.title}\n';
-        }
+        message += '오늘 일정이 없습니다.\n\n';
+      }
+
+      // 내일 브리핑
+      message += '📅 내일 (${tomorrow.month}/${tomorrow.day})\n';
+      if (tomorrowBriefing != null && tomorrowBriefing.isNotEmpty) {
+        message += tomorrowBriefing;
+      } else {
+        message += '내일 일정이 없습니다.';
       }
 
       showDialog(
@@ -218,12 +154,17 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
         builder:
             (context) => AlertDialog(
               title: Text(
-                '예약된 알림 목록',
+                '브리핑 내용 미리보기',
                 style: getTextStyle(fontSize: 16, color: Colors.black),
               ),
-              content: Text(
-                message,
-                style: getTextStyle(fontSize: 12, color: Colors.black),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: SingleChildScrollView(
+                  child: Text(
+                    message,
+                    style: getTextStyle(fontSize: 12, color: Colors.black),
+                  ),
+                ),
               ),
               actions: [
                 TextButton(
@@ -241,7 +182,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '알림 목록 확인 실패: $e',
+            '브리핑 내용 확인 실패: $e',
             style: getTextStyle(fontSize: 12, color: Colors.white),
           ),
           backgroundColor: Colors.red,
@@ -394,53 +335,22 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '🧪 테스트',
+                      '🧪 미리보기',
                       style: getTextStyle(
                         fontSize: 16,
                         color: Colors.black,
                       ).copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
+
                     ListTile(
-                      leading: const Icon(
-                        Icons.play_arrow,
-                        color: Colors.green,
-                      ),
+                      // leading: const Icon(Icons.preview, color: Colors.purple),
                       title: Text(
-                        '브리핑 미리보기',
+                        '예약된 브리핑 목록',
                         style: getTextStyle(fontSize: 14, color: Colors.black),
                       ),
                       subtitle: Text(
-                        '오늘 일정으로 브리핑을 미리 확인해보세요',
-                        style: getTextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      onTap: _testBriefing,
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.notifications_active,
-                        color: Colors.orange,
-                      ),
-                      title: Text(
-                        '즉시 알림 테스트',
-                        style: getTextStyle(fontSize: 14, color: Colors.black),
-                      ),
-                      subtitle: Text(
-                        '알림이 정상적으로 오는지 즉시 테스트',
-                        style: getTextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      onTap: _testNotification,
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(Icons.list_alt, color: Colors.purple),
-                      title: Text(
-                        '예약된 알림 목록',
-                        style: getTextStyle(fontSize: 14, color: Colors.black),
-                      ),
-                      subtitle: Text(
-                        '현재 예약된 알림들을 확인',
+                        '오늘과 내일의 브리핑 내용을 미리 확인',
                         style: getTextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       onTap: _checkScheduledNotifications,

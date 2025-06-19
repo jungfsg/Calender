@@ -226,22 +226,10 @@ class EventPopup extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            // 수정 버튼
-                            if (onEditEvent != null)
+                            // 수정 버튼 (멀티데이 이벤트가 아닌 경우만 표시)
+                            if (onEditEvent != null && !event.isMultiDay)
                               GestureDetector(
-                                onTap: () {
-                                  if (event.isMultiDay) {
-                                    // 멀티데이 이벤트 수정 알림
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('며칠 일정은 삭제 후 다시 생성해주세요.'),
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  } else {
-                                    onEditEvent!(event);
-                                  }
-                                },
+                                onTap: () => onEditEvent!(event),
                                 child: Container(
                                   width: 24,
                                   height: 24,

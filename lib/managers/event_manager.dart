@@ -818,10 +818,6 @@ class EventManager {
         '✅ EventManager: Google Calendar 동기화 완료\n- 추가: $addedCount개\n- 중복 제외: $skippedCount개\n- 삭제된 이벤트 포함 날짜: $removedCount일\n- 총 ${newGoogleEventsMap.length}일치 데이터 동기화됨\n- 알림 스케줄링: $notificationSuccessCount/${eventsToScheduleNotifications.length}개 성공',
       );
 
-      // 🧪 테스트 알림 발송 (개발용)
-      print('🧪 테스트 알림 발송 중...');
-      await NotificationService.showTestNotification();
-
       // 🔍 현재 예약된 알림 개수 확인
       final pendingNotifications =
           await NotificationService.getPendingNotifications();
