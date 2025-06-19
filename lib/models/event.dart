@@ -155,11 +155,6 @@ class Event {
     return event;
   }
 
-  // 시간 비교를 위한 메서드
-  int compareTo(Event other) {
-    return time.compareTo(other.time);
-  }
-
   // 종료 시간이 있는지 확인하는 메서드
   bool hasEndTime() {
     return endTime != null && endTime!.isNotEmpty;
@@ -308,5 +303,44 @@ class Event {
   // 날짜 비교 유틸리티 메서드
   static bool isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  // 이벤트 정렬을 위한 compareTo 메서드
+  int compareTo(Event other) {
+    // 먼저 날짜로 비교
+    final dateComparison = date.compareTo(other.date);
+    if (dateComparison != 0) {
+      return dateComparison;
+    }
+
+    // 같은 날짜라면 시간으로 비교
+    // 종일 이벤트는 시간 기반 이벤트보다 앞에 표시
+    if (time == '종일' && other.time != '종일') {
+      return -1; // 종일 이벤트가 먼저
+    }
+    if (time != '종일' && other.time == '종일') {
+      return 1; // 시간 이벤트가 나중
+    }
+    if (time == '종일' && other.time == '종일') {
+      return 0; // 둘 다 종일 이벤트면 같음
+    }
+
+    // 둘 다 시간 기반 이벤트인 경우 시간으로 비교
+    try {
+      final thisParts = time.split(':');
+      final otherParts = other.time.split(':');
+
+      final thisHour = int.parse(thisParts[0]);
+      final thisMinute = int.parse(thisParts[1]);
+      final otherHour = int.parse(otherParts[0]);
+      final otherMinute = int.parse(otherParts[1]);
+
+      final thisTotalMinutes = thisHour * 60 + thisMinute;
+      final otherTotalMinutes = otherHour * 60 + otherMinute;
+      return thisTotalMinutes.compareTo(otherTotalMinutes);
+    } catch (e) {
+      // 시간 파싱 실패 시 제목으로 비교
+      return title.compareTo(other.title);
+    }
   }
 }

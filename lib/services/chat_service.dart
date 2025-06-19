@@ -1,6 +1,5 @@
 ﻿import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
@@ -451,7 +450,7 @@ class ChatService {
               try {
                 // 날짜 파싱
                 final eventDate = DateTime.parse(startDate);
-                final eventTime = startTime ?? '10:00';
+                final eventTime = startTime ?? '종일'; // 시간이 없으면 종일 일정으로 처리
 
                 // 중복 체크
                 final existingEvents = await EventStorageService.getEvents(
@@ -545,7 +544,7 @@ class ChatService {
             try {
               // 날짜 파싱
               final eventDate = DateTime.parse(startDate);
-              final eventTime = startTime ?? '10:00';
+              final eventTime = startTime ?? '종일'; // 시간이 없으면 종일 일정으로 처리
 
               print('파싱된 날짜: $eventDate');
               print('파싱된 시간: $eventTime');
