@@ -568,21 +568,23 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   void _navigateToChatScreen() async {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (context) => ChatScreen(
-              onCalendarUpdate: () {
-                // 🚀 성능 최적화: 필요한 경우에만 새로고침
-                print('📱 ChatScreen: 캘린더 업데이트 요청 (최적화됨)');
-                widget.eventManager.loadEventsForDay(
-                  widget.controller.selectedDay,
-                  forceRefresh: true,
-                );
-                setState(() {});
-              },
-              eventManager: widget.eventManager,
-            ),
+        builder: (context) => ChatScreen(
+          ttsService: widget.ttsService, // ttsService 매개변수 추가
+          onCalendarUpdate: () {
+            // 🚀 성능 최적화: 필요한 경우에만 새로고침
+            print('📱 ChatScreen: 캘린더 업데이트 요청 (최적화됨)');
+            widget.eventManager.loadEventsForDay(
+              widget.controller.selectedDay,
+              forceRefresh: true,
+            );
+            setState(() {});
+          },
+          eventManager: widget.eventManager,
+        ),
       ),
-    ); // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
+    );
+
+    // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
     if (result != null && result['refreshNavigation'] == true) {
       setState(() {
         _selectedIndex = 0;

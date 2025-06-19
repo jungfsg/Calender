@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -11,7 +11,7 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://eaee-121-184-19-116.ngrok-free.app';
+  final String baseUrl = 'https://db03-210-113-31-95.ngrok-free.app';
   final Uuid _uuid = Uuid();
 
   // 카테고리 매핑 (LLM이 반환할 수 있는 카테고리 ID들)

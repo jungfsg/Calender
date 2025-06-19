@@ -1,4 +1,3 @@
-// lib/screens/chat_screen.dart (최종 수정본 - TTS 기능 완전 제거)
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
@@ -11,17 +10,19 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
+import '../services/tts_service.dart';
 
-// --- ★★★ 삭제: TTS 서비스 임포트 제거 ★★★ ---
-// import '../services/tts_service.dart';
-
-// --- ★★★ 수정: 클래스 이름을 파일명과 일치시켜 명확성 향상 ★★★ ---
 class ChatScreen extends StatefulWidget {
   final VoidCallback? onCalendarUpdate;
   final dynamic eventManager;
+  final TtsService ttsService; // TTS 서비스 매개변수 복원
 
-  // --- ★★★ 수정: 생성자에서 TTS 관련 매개변수 제거 ★★★ ---
-  const ChatScreen({super.key, this.onCalendarUpdate, this.eventManager});
+  const ChatScreen({
+    super.key, 
+    this.onCalendarUpdate, 
+    this.eventManager,
+    required this.ttsService, // TTS 서비스 필수 매개변수로 복원
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -47,8 +48,8 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     const initialMessage = '안녕하세요! 무엇을 도와드릴까요?';
     _addSystemMessage(initialMessage);
-    // --- ★★★ 삭제: 초기 메시지 TTS 호출 제거 ★★★ ---
-    // TtsService.instance.speak(initialMessage);
+    // TTS 초기 메시지 재생 복원
+    TtsService.instance.speak(initialMessage);
   }
 
   // OCR 텍스트를 일정 추가 요청으로 가공하는 함수
@@ -61,7 +62,9 @@ class _ChatScreenState extends State<ChatScreen> {
         ocrText.contains('추가') ||
         ocrText.contains('등록')) {
       return ocrText;
-    } // 날짜/시간 키워드가 있으면 일정으로 판단
+    }
+
+    // 날짜/시간 키워드가 있으면 일정으로 판단
     final scheduleKeywords = [
       '일',
       '월',
@@ -129,7 +132,6 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.insert(0, message);
     });
   }
-
   Future<void> _handleSendPressed(types.PartialText message) async {
     if (!mounted) return;
 
@@ -164,8 +166,8 @@ class _ChatScreenState extends State<ChatScreen> {
         _isLoading = false;
       });
 
-      // --- ★★★ 삭제: 봇 응답 TTS 호출 제거 ★★★ ---
-      // TtsService.instance.speak(botResponse.text);
+      // 봇 응답 TTS 재생 복원
+      TtsService.instance.speak(botResponse.text);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -173,8 +175,8 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       final errorMessage = '죄송합니다. 서버 통신 중 오류가 발생했습니다: $e';
       _addSystemMessage(errorMessage);
-      // --- ★★★ 삭제: 에러 메시지 TTS 호출 제거 ★★★ ---
-      // TtsService.instance.speak(errorMessage);
+      // 에러 메시지 TTS 재생 복원
+      TtsService.instance.speak(errorMessage);
     }
   }
 
@@ -225,6 +227,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.insert(0, imageMessage);
           _isLoading = true;
         });
+
         try {
           final inputImage = InputImage.fromFilePath(imageFile.path);
           final RecognizedText recognizedText = await _textRecognizer
@@ -252,13 +255,16 @@ class _ChatScreenState extends State<ChatScreen> {
               _messages.insert(0, botResponse);
               _isLoading = false;
             });
-            // --- ★★★ 삭제: OCR 결과 TTS 호출 제거 ★★★ ---
-            // TtsService.instance.speak(botResponse.text);
+            // OCR 결과 TTS 재생 복원
+            TtsService.instance.speak(botResponse.text);
           } else {
             setState(() {
               _isLoading = false;
             });
-            _addSystemMessage('이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.');
+            const noTextMessage = '이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.';
+            _addSystemMessage(noTextMessage);
+            // 인식 실패 메시지 TTS 재생 추가
+            TtsService.instance.speak(noTextMessage);
           }
         } catch (e) {
           setState(() {
@@ -266,8 +272,8 @@ class _ChatScreenState extends State<ChatScreen> {
           });
           final errorMessage = '이미지 처리 중 오류가 발생했습니다: $e';
           _addSystemMessage(errorMessage);
-          // --- ★★★ 삭제: 에러 메시지 TTS 호출 제거 ★★★ ---
-          // TtsService.instance.speak(errorMessage);
+          // 에러 메시지 TTS 재생 복원
+          TtsService.instance.speak(errorMessage);
         }
       }
     } catch (e) {
@@ -327,11 +333,16 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.insert(0, botResponse);
           _isLoading = false;
         });
+        // 갤러리 OCR 결과 TTS 재생 추가
+        TtsService.instance.speak(botResponse.text);
       } else {
         setState(() {
           _isLoading = false;
         });
-        _addSystemMessage('이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.');
+        const noTextMessage = '이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.';
+        _addSystemMessage(noTextMessage);
+        // 인식 실패 메시지 TTS 재생 추가
+        TtsService.instance.speak(noTextMessage);
       }
     } catch (e) {
       if (!mounted) return;
@@ -340,9 +351,10 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       final errorMessage = '이미지 처리 중 오류가 발생했습니다: $e';
       _addSystemMessage(errorMessage);
+      // 에러 메시지 TTS 재생 추가
+      TtsService.instance.speak(errorMessage);
     }
   }
-
   Widget _buildCustomInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -466,7 +478,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -474,8 +485,8 @@ class _ChatScreenState extends State<ChatScreen> {
         if (_isLoading) {
           return false;
         }
-        // --- ★★★ 삭제: 화면 나가기 전 TTS 중지 호출 제거 ★★★ ---
-        // TtsService.instance.stop();
+        // 화면 나가기 전 TTS 중지 복원
+        TtsService.instance.stop();
         Navigator.of(context).pop({'refreshNavigation': true});
         return false;
       },
@@ -542,7 +553,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     color: Colors.grey[600],
                     text: '날짜 구분선',
                   ),
-                ),
+               ),
                 l10n: const ChatL10nKo(),
               ),
             ),
@@ -562,8 +573,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!kIsWeb) {
       _textRecognizer.close();
     }
-    // --- ★★★ 삭제: 화면 종료 시 TTS 중지 호출 제거 ★★★ ---
-    // TtsService.instance.stop();
+    // 화면 종료 시 TTS 중지 복원
+    TtsService.instance.stop();
     super.dispose();
   }
 }
