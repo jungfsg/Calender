@@ -571,7 +571,12 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         builder:
             (context) => ChatScreen(
               onCalendarUpdate: () {
-                widget.eventManager.refreshCurrentMonthEvents();
+                // 🚀 성능 최적화: 필요한 경우에만 새로고침
+                print('📱 ChatScreen: 캘린더 업데이트 요청 (최적화됨)');
+                widget.eventManager.loadEventsForDay(
+                  widget.controller.selectedDay,
+                  forceRefresh: true,
+                );
                 setState(() {});
               },
               eventManager: widget.eventManager,
@@ -616,14 +621,12 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       ttsService: widget.ttsService,
       onCommandProcessed: _handleVoiceCommandResponse,
       onCalendarUpdate: () async {
-        print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음');
+        print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음 (최적화됨)');
+        // 🚀 성능 최적화: 불필요한 중복 새로고침 제거
         await widget.eventManager.loadEventsForDay(
           widget.controller.selectedDay,
           forceRefresh: true,
         );
-        widget.eventManager.refreshCurrentMonthEvents().then((_) {
-          print('🔄 월 전체 이벤트 새로고침 완료');
-        });
         setState(() {});
       },
     );
@@ -639,13 +642,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       widget.eventManager,
       () => setState(() {}),
     );
-    print('🔄 음성 명령 후 이벤트 강제 새로고침');
-    widget.eventManager.refreshCurrentMonthEvents().then((_) {
-      widget.eventManager
-          .loadEventsForDay(widget.controller.selectedDay, forceRefresh: true)
-          .then((_) {
-            setState(() {});
-          });
-    });
+    // 🚀 성능 최적화: 중복 새로고침 제거 - onCalendarUpdate에서 이미 처리됨
+    print('🔄 음성 명령 완료 - onCalendarUpdate에서 새로고침 처리됨');
   }
 }

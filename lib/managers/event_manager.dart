@@ -606,24 +606,33 @@ class EventManager {
   Future<void> refreshCurrentMonthEvents({bool forceRefresh = true}) async {
     print('🔄 EventManager: 현재 월 이벤트 새로고침 시작 (강제 갱신: $forceRefresh)');
     final currentMonth = _controller.focusedDay;
-    final startOfMonth = DateTime(currentMonth.year, currentMonth.month, 1);
-    final endOfMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0);
     final selectedDay = _controller.selectedDay;
+
+    // 🚀 성능 최적화: 선택된 날짜만 우선 새로고침
     if (selectedDay.month == currentMonth.month &&
         selectedDay.year == currentMonth.year) {
-      print('🎯 EventManager: 선택된 날짜 ($selectedDay) 강제 갱신');
+      print('🎯 EventManager: 선택된 날짜 ($selectedDay) 우선 갱신');
       await loadEventsForDay(selectedDay, forceRefresh: true);
     }
-    for (int day = startOfMonth.day; day <= endOfMonth.day; day++) {
-      final date = DateTime(currentMonth.year, currentMonth.month, day);
-      if (date.isAtSameMomentAs(
-        DateTime(selectedDay.year, selectedDay.month, selectedDay.day),
-      )) {
-        continue;
+
+    // 🚀 성능 최적화: 백그라운드에서 나머지 날짜 새로고침 (비동기)
+    Future.microtask(() async {
+      final startOfMonth = DateTime(currentMonth.year, currentMonth.month, 1);
+      final endOfMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0);
+
+      for (int day = startOfMonth.day; day <= endOfMonth.day; day++) {
+        final date = DateTime(currentMonth.year, currentMonth.month, day);
+        if (date.isAtSameMomentAs(
+          DateTime(selectedDay.year, selectedDay.month, selectedDay.day),
+        )) {
+          continue; // 이미 처리된 선택된 날짜는 건너뛰기
+        }
+        await loadEventsForDay(date, forceRefresh: forceRefresh);
       }
-      await loadEventsForDay(date, forceRefresh: forceRefresh);
-    }
-    print('✅ EventManager: 현재 월 이벤트 새로고침 완료');
+      print('✅ EventManager: 백그라운드 월 이벤트 새로고침 완료');
+    });
+
+    print('✅ EventManager: 우선순위 이벤트 새로고침 완료');
   }
 
   Future<void> syncWithGoogleCalendar() async {
