@@ -99,26 +99,112 @@ def safe_json_parse(response_text: str, fallback_data: dict) -> dict:
         return fallback_data
 
 def keyword_based_classification(user_input: str) -> dict:
-    """키워드 기반 의도 분류 폴백"""
+    """키워드 기반 의도 분류 폴백 - 간접적 표현 강화"""
     user_input_lower = user_input.lower()
     
-    # 커스터마이징 포인트: 키워드 추가/수정 가능
-    # 예: '예약'을 추가하거나 특정 도메인 용어 추가
+    # 간접적인 일정 추가 표현들 대폭 추가
     intent_keywords = {
-        'calendar_add': ['추가', '만들', '생성', '등록', '잡아', '스케줄', '예약', '설정'],
-        'calendar_update': ['수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정', '이름 바꿔', '시간 바꿔', '날짜 바꿔'],
-        'calendar_delete': ['삭제', '지워', '취소', '없애', '빼', '제거', '다 삭제', '모두 삭제', '전체 삭제', '다 지워', '모두 지워', '전부 삭제'],
-        'calendar_search': ['검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인'],
+        'calendar_add': [
+            # 기존 직접적 표현
+            '추가', '만들', '생성', '등록', '잡아', '스케줄', '예약', '설정',
+            
+            # 의무/할 일 표현 (가장 많이 사용됨)
+            '해야해', '해야 해', '드려야 해', '줘야해', '줘야 해', 
+            '가야해', '가야 해', '와야해', '와야 해', '봐야해', '봐야 해',
+            '먹어야해', '먹어야 해', '사야해', '사야 해',
+            
+            # 계획/예정 표현
+            '기로 했어', '기로했어', '할 예정', '할예정', '예정이야', '예정이에요',
+            '하려고 해', '하려고해', '계획이야', '계획이에요',
+            
+            # 약속/만남 표현
+            '약속', '만나기로', '만나기로 했어', '만날 예정', '만날예정',
+            '참석', '참석해야', '참여', '참여해야',
+            
+            # 반복/습관 표현
+            '매일', '매주', '매월', '마다', '때마다',
+            '하루에', '일주일에', '한 달에',
+            
+            # 기간 표현
+            '부터', '까지', '동안', '간',
+            '박', '일간', '시간', '분간'
+        ],
+        
+        'calendar_update': [
+            '수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정', 
+            '이름 바꿔', '시간 바꿔', '날짜 바꿔', '미뤄', '당겨'
+        ],
+        
+        'calendar_delete': [
+            '삭제', '지워', '취소', '없애', '빼', '제거', 
+            '다 삭제', '모두 삭제', '전체 삭제', '다 지워', '모두 지워', '전부 삭제'
+        ],
+        
+        'calendar_search': [
+            '검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인',
+            # STT에서 물음표 없이 들어오는 의문문 패턴들
+            '뭐 있어', '뭐있어', '무슨 일', '언제', 
+            '있어', '있나', '뭐야', '언제야',  # 물음표 없는 의문문
+            '일정 뭐', '오늘 뭐', '내일 뭐', '이번주 뭐',
+            '시간 있어', '시간있어', '바쁘', '바빠',
+            # 확인 요청 표현들
+            '확인해', '알려줘', '보여줘', '말해줘',
+        ],
+        
         'calendar_copy': ['복사', '복제', '같은 일정', '동일한']
     }
     
-    for intent, keywords in intent_keywords.items():
-        if any(keyword in user_input_lower for keyword in keywords):
+    # 문맥상 의문문인지 판단하는 패턴들 (STT용)
+    import re
+    question_patterns = [
+        r'.*뭐\s*(있어|있나|야)',           # "뭐 있어", "뭐야" 등
+        r'.*(언제|몇시|며칠).*',           # 시간 질문
+        r'.*시간\s*있어.*',               # "시간 있어"
+        r'.*(바쁘|바빠).*',               # "바쁘지", "바빠"
+        r'.*일정.*뭐.*',                  # "일정 뭐 있어"
+        r'.*(오늘|내일|이번주|다음주)\s*뭐.*', # "오늘 뭐 해"
+    ]
+    
+    # 의문문 패턴 매칭 시 search로 우선 분류
+    for pattern in question_patterns:
+        if re.search(pattern, user_input_lower):
             return {
-                "intent": intent,
-                "confidence": 0.7,
-                "reason": f"키워드 기반 분류: {[k for k in keywords if k in user_input_lower]}"
+                "intent": "calendar_search",
+                "confidence": 0.85,
+                "reason": f"의문문 패턴 감지: {pattern}"
             }
+    
+    # 가중치 기반 점수 계산 (간접적 표현에 더 높은 가중치)
+    scores = {}
+    for intent, keywords in intent_keywords.items():
+        score = 0
+        matched_keywords = []
+        
+        for keyword in keywords:
+            if keyword in user_input_lower:
+                # 간접적 표현에 더 높은 가중치 부여
+                if any(pattern in keyword for pattern in ['해야', '줘야', '가야', '기로', '예정', '약속']):
+                    score += 2.0  # 간접적 표현에 높은 가중치
+                else:
+                    score += 1.0  # 직접적 표현에 기본 가중치
+                matched_keywords.append(keyword)
+        
+        if score > 0:
+            scores[intent] = {
+                'score': score,
+                'keywords': matched_keywords
+            }
+    
+    if scores:
+        # 가장 높은 점수의 의도 선택
+        best_intent = max(scores.keys(), key=lambda x: scores[x]['score'])
+        confidence = min(0.9, 0.5 + scores[best_intent]['score'] * 0.1)
+        
+        return {
+            "intent": best_intent,
+            "confidence": confidence,
+            "reason": f"키워드 기반 분류 (간접표현): {scores[best_intent]['keywords']}"
+        }
     
     return {
         "intent": "general_chat",
@@ -183,8 +269,48 @@ def extract_search_keyword_from_input(user_input: str) -> str:
     return user_input.strip()  # 원본 입력 반환
 
 def extract_title_from_input(user_input: str) -> str:
-    """사용자 입력에서 제목 추출"""
+    """사용자 입력에서 제목 추출 - 간접적 표현 강화"""
     import re
+    
+    # 간접적 표현을 자연스러운 제목으로 변환하는 매핑
+    indirect_mappings = {
+        # 의무 표현
+        r'(.+?)\s*(에|에게|께)\s*(.+?)\s*(줘야해|줘야 해|드려야 해|드려야해)': r'\2 \3',
+        r'(.+?)\s*(가야해|가야 해)': r'\1',
+        r'(.+?)\s*(와야해|와야 해)': r'\1',
+        r'(.+?)\s*(봐야해|봐야 해)': r'\1',
+        r'(.+?)\s*(해야해|해야 해|해야돼|해야 돼)': r'\1',
+        r'(.+?)\s*(사야해|사야 해)': r'\1 구매',
+        r'(.+?)\s*(먹어야해|먹어야 해)': r'\1',
+        
+        # 계획/예정 표현
+        r'(.+?)\s*(기로 했어|기로했어)': r'\1',
+        r'(.+?)\s*(할 예정|할예정|예정이야|예정이에요)': r'\1',
+        r'(.+?)\s*(하려고 해|하려고해)': r'\1',
+        r'(.+?)\s*(계획이야|계획이에요)': r'\1',
+        
+        # 약속/만남 표현
+        r'(.+?)\s*(만나기로|만날 예정|만날예정)': r'\1 만남',
+        r'(.+?)\s*(참석해야|참여해야)': r'\1',
+        
+        # 반복 표현
+        r'매일\s*(.+?)': r'\1 (매일)',
+        r'매주\s*(.+?)': r'\1 (매주)',
+        r'매월\s*(.+?)': r'\1 (매월)',
+    }
+    
+    cleaned_input = user_input
+    
+    # 간접적 표현 변환
+    for pattern, replacement in indirect_mappings.items():
+        match = re.search(pattern, cleaned_input)
+        if match:
+            try:
+                transformed = re.sub(pattern, replacement, cleaned_input)
+                cleaned_input = transformed
+                break
+            except:
+                continue
     
     # 불필요한 키워드들을 제거하는 패턴
     remove_patterns = [
@@ -205,8 +331,6 @@ def extract_title_from_input(user_input: str) -> str:
         r'\d{1,2}:\d{2}',
     ]
     
-    cleaned_input = user_input
-    
     # 시간 패턴 제거
     for pattern in time_patterns:
         cleaned_input = re.sub(pattern, '', cleaned_input)
@@ -214,8 +338,7 @@ def extract_title_from_input(user_input: str) -> str:
     # 불필요한 키워드 제거
     for pattern in remove_patterns:
         cleaned_input = re.sub(pattern, '', cleaned_input)
-    
-    # 특정 패턴으로 제목 추출
+      # 특정 패턴으로 제목 추출
     title_patterns = [
         r'(.+?)\s*(일정|미팅|회의|만남|약속|수업|세미나)',  # "맥주 일정" -> "맥주"
         r'(.+)',  # 나머지 모든 텍스트
@@ -247,19 +370,25 @@ def validate_and_correct_info(info: dict, current_date: datetime) -> dict:
                     info['start_date'] = (parsed_date + timedelta(days=365)).strftime('%Y-%m-%d')
             except:
                 info['start_date'] = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
-        
-        # 시간 검증
+          # 시간 검증 및 종일 일정 처리
         start_time = info.get('start_time')
         if start_time and not re.match(r'^\d{2}:\d{2}$', start_time):
-            info['start_time'] = '10:00'
+            info['start_time'] = None  # 잘못된 형식이면 종일 일정으로 변경
+            info['all_day'] = True
+        
+        # 시간이 없으면 종일 일정으로 설정
+        if not start_time or start_time == "":
+            info['start_time'] = None
+            info['end_time'] = None
+            info['all_day'] = True
+            print("🕐 시간이 명시되지 않아 종일 일정으로 설정")
         
         # 종료 시간 검증
         end_time = info.get('end_time')
         if end_time and not re.match(r'^\d{2}:\d{2}$', end_time):
             info['end_time'] = None  # 잘못된 형식이면 초기화
-        
-        # 종료 시간 자동 설정
-        if info.get('start_time') and not info.get('end_time'):
+          # 종료 시간 자동 설정 (시간이 있는 경우에만)
+        if info.get('start_time') and not info.get('end_time') and not info.get('all_day', False):
             try:
                 start_dt = datetime.strptime(info['start_time'], '%H:%M')
                 # 커스터마이징 포인트: 기본 일정 길이 변경 가능 (현재 1시간)
@@ -267,10 +396,10 @@ def validate_and_correct_info(info: dict, current_date: datetime) -> dict:
                 info['end_time'] = end_dt.strftime('%H:%M')
                 print(f"🕐 종료 시간 자동 설정: {info['start_time']} → {info['end_time']}")
             except:
-                info['end_time'] = '11:00'
+                info['end_time'] = None
         
-        # 종료 시간이 시작 시간보다 빠른 경우 보정 (다음날로 가정하지 않고 기본 1시간으로 설정)
-        if info.get('start_time') and info.get('end_time'):
+        # 종료 시간이 시작 시간보다 빠른 경우 보정 (시간이 있는 경우에만)
+        if info.get('start_time') and info.get('end_time') and not info.get('all_day', False):
             try:
                 start_dt = datetime.strptime(info['start_time'], '%H:%M')
                 end_dt = datetime.strptime(info['end_time'], '%H:%M')
@@ -303,9 +432,9 @@ def get_default_event_info() -> dict:
     return {
         "title": "새 일정",
         "start_date": tomorrow.strftime('%Y-%m-%d'),
-        "start_time": "10:00",  # 기본 시작 시간
+        "start_time": None,  # 기본값을 None으로 변경 (종일 일정)
         "end_date": tomorrow.strftime('%Y-%m-%d'),
-        "end_time": "11:00",   # 기본 종료 시간
+        "end_time": None,    # 기본값을 None으로 변경 (종일 일정)
         "description": "",
         "location": "",
         "attendees": [],
@@ -314,7 +443,7 @@ def get_default_event_info() -> dict:
         "repeat_count": None,
         "repeat_until": None,
         "reminders": [15],     # 기본 알림: 15분 전
-        "all_day": False,
+        "all_day": True,       # 기본값을 종일 일정으로 변경
         "timezone": "Asia/Seoul",
         "priority": "normal",
         "category": "other"
@@ -347,54 +476,66 @@ class LLMService:
         
     def _create_calendar_workflow(self):
         """AI 캘린더를 위한 LangGraph 워크플로우를 생성합니다."""
-        
         def classify_intent(state: CalendarState) -> CalendarState:
-            """1단계: 의도 분류"""
+            """1단계: 의도 분류 - 간접적 표현 강화"""
             try:
-                # 커스터마이징 포인트: 프롬프트 수정하여 도메인 특화 가능
-                # 예: 의료진을 위한 '진료', '수술' 등의 분류 추가
                 prompt = f"""
 사용자의 입력을 분석하여 의도를 분류해주세요.
 
-예시:
-"내일 오후 3시에 회의 일정 잡아줘" → {{"intent": "calendar_add", "confidence": 0.95, "reason": "새로운 일정 추가 요청"}}
-"오늘 일정 뭐 있어?" → {{"intent": "calendar_search", "confidence": 0.93, "reason": "일정 조회 요청"}}
-"회의 시간을 4시로 바꿔줘" → {{"intent": "calendar_update", "confidence": 0.90, "reason": "기존 일정 수정 요청"}}
-"내일 미팅 취소해줘" → {{"intent": "calendar_delete", "confidence": 0.88, "reason": "일정 삭제 요청"}}
-"안녕하세요" → {{"intent": "general_chat", "confidence": 0.99, "reason": "일반 인사말"}}
+**중요**: 한국어에서는 간접적인 표현이 매우 많이 사용됩니다!
+
+**일정 추가 표현 예시:**
+
+1. **의무/할 일 표현 (가장 일반적)**:
+   - "나 내일 화분에 물 줘야해" → calendar_add
+   - "다음주에 부모님께 안부 전화 드려야 해" → calendar_add
+   - "월요일에 보고서 제출해야 돼" → calendar_add
+   - "이번주에 치과 가야해" → calendar_add
+
+2. **계획/예정 표현**:
+   - "내일 친구랑 영화보기로 했어" → calendar_add
+   - "다음주에 출장 가기로 되어있어" → calendar_add
+   - "토요일에 등산하기로 약속했어" → calendar_add
+   - "오늘 저녁에 헬스장 갈 예정이야" → calendar_add
+
+3. **약속/만남 표현**:
+   - "내일 누구랑 만나기로 했어" → calendar_add
+   - "금요일에 회식 있어" → calendar_add
+   - "다음주에 동창회 참석해야 해" → calendar_add
+
+4. **직접적 명령어 (상대적으로 적음)**:
+   - "내일 오후 3시에 회의 일정 잡아줘" → calendar_add
+   - "다음주 월요일에 미팅 추가해줘" → calendar_add
+
+**일정 조회 표현 예시:**
+- "나 내일 회의 있어?" → calendar_search (의문문)
+- "나 내일 뭐 해야하지?" → calendar_search
+- "오늘 일정 뭐 있어?" → calendar_search
+- "언제 시간 있어?" → calendar_search
 
 사용자 입력: {state['current_input']}
 
 다음 중 하나로 분류해주세요:
-1. calendar_add - 새로운 일정 추가 (키워드: 추가, 만들기, 생성, 등록, 잡아줘, 스케줄)
-2. calendar_update - 기존 일정 수정 (키워드: 수정, 변경, 바꿔, 업데이트, 이동)
-3. calendar_delete - 일정 삭제 (키워드: 삭제, 지워, 취소, 없애, 제거, 모든 삭제, 모두 삭제, 전체 삭제, 다 삭제, 모든 일정 삭제, 전체 일정 삭제)
-4. calendar_search - 일정 조회/검색 (키워드: 검색, 찾아, 조회, 확인, 뭐 있어, 언제)
-5. calendar_copy - 일정 복사 (키워드: 복사, 복제, 같은 일정)
-6. general_chat - 일반 대화 (일정과 무관한 대화)
+1. calendar_add - 새로운 일정 추가 (간접적 표현 포함)
+2. calendar_update - 기존 일정 수정
+3. calendar_delete - 일정 삭제
+4. calendar_search - 일정 조회/검색 (의문문 포함)
+5. calendar_copy - 일정 복사
+6. general_chat - 일반 대화
 
-**중요**: 전체 삭제 관련 표현들은 모두 calendar_delete로 분류해야 합니다:
-- "오늘 일정 전체 삭제해줘" → calendar_delete
-- "내일 모든 일정 지워줘" → calendar_delete  
-- "18일 일정 다 삭제해줘" → calendar_delete
-- "이번주 일정 모두 삭제해줘" → calendar_delete
+**분류 우선순위:**
+1. 의무/계획 표현 ("해야해", "기로 했어") → calendar_add 우선
+2. 의문문 ("있어?", "뭐야?") → calendar_search 우선
+3. 직접적 명령어는 명확한 의도로 분류
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{"intent": "분류결과", "confidence": 0.95, "reason": "분류 이유"}}
-
-Confidence 기준:
-- 0.9-1.0: 매우 명확한 의도 (명확한 키워드 포함)
-- 0.7-0.9: 명확하지만 약간의 모호함 (문맥상 추론 가능)
-- 0.5-0.7: 모호하지만 추론 가능 (여러 해석 가능)
-- 0.3-0.5: 매우 모호함 (추측에 의존)
-- 0.0-0.3: 분류 불가능 (일반 대화로 처리)
 """
                 
                 response = self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,  # 일관된 분류를 위해 낮은 temperature
-                    # response_format={"type": "json_object"}  # gpt-4-turbo 이상에서만 지원
+                    temperature=0.1
                 )
                 
                 response_text = response.choices[0].message.content.strip()
@@ -404,9 +545,8 @@ Confidence 기준:
                 fallback_data = {"intent": "general_chat", "confidence": 0.1, "reason": "파싱 실패"}
                 result = safe_json_parse(response_text, fallback_data)
                 
-                # 커스터마이징 포인트: 신뢰도 임계값 조정 가능
-                # 신뢰도가 낮으면 키워드 기반 보완
-                if result.get('confidence', 0) < 0.5:  # 임계값: 0.5
+                # 신뢰도가 낮으면 개선된 키워드 기반 보완
+                if result.get('confidence', 0) < 0.6:  # 임계값 상향 조정
                     result = keyword_based_classification(state['current_input'])
                 
                 state['intent'] = result.get('intent', 'general_chat')
@@ -414,7 +554,9 @@ Confidence 기준:
                 
             except Exception as e:
                 print(f"의도 분류 중 오류: {str(e)}")
-                state['intent'] = 'general_chat'
+                # 오류 시에도 키워드 기반 분류 시도
+                result = keyword_based_classification(state['current_input'])
+                state['intent'] = result.get('intent', 'general_chat')
                 return state
         
         def extract_information(state: CalendarState) -> CalendarState:
@@ -437,13 +579,48 @@ Confidence 기준:
                 
                 # 수정의 경우 특별 처리
                 if state['intent'] == 'calendar_update':
-                    return self._extract_update_information(state, current_date, rule_text)
+                    return self._extract_update_information(state, current_date, rule_text)                # 기간/범위 기반 일정인지 먼저 판단 (Multi Day Event로 처리)
+                range_patterns = [
+                    r'.*(부터|에서).*까지.*',  # "~부터 ~까지", "~에서 ~까지"
+                    r'.*\d+일간.*',  # "3일간", "5일간"
+                    r'.*\d+박\s*\d+일.*',  # "2박3일", "1박2일"
+                    r'.*(연속|계속).*\d+일.*',  # "연속 3일", "계속 5일"
+                    r'.*주말.*내내.*',  # "주말 내내"
+                    r'.*연휴.*내내.*',  # "연휴 내내"
+                    r'.*휴가.*',  # "휴가"
+                    r'.*여행.*',  # "여행"
+                    r'.*출장.*',  # "출장"
+                    r'.*캠프.*',  # "캠프"
+                    r'.*워크샵.*',  # "워크샵"
+                    r'.*세미나.*',  # "세미나"
+                    r'.*교육.*기간.*',  # "교육 기간"
+                    r'.*연수.*',  # "연수"
+                    r'.*방학.*',  # "방학"
+                    r'.*휴업.*',  # "휴업"
+                    r'.*\d+월\s*\d+일.*\d+월\s*\d+일.*',  # "6월 15일 ~ 6월 20일"
+                    r'.*\d+일.*\d+일.*',  # "15일 ~ 20일"
+                ]
                 
-                # 기간/범위 기반 일정인지 판단
-                if "부터" in state['current_input'] and "까지" in state['current_input']:
+                is_multi_day = any(re.search(pattern, state['current_input']) for pattern in range_patterns)
+                
+                # 추가 키워드 기반 검사
+                multi_day_keywords = [
+                    '휴가', '여행', '출장', '캠프', '워크샵', '세미나', '교육',
+                    '연수', '방학', '휴업', '기간', '동안', '내내'
+                ]
+                  
+                # 기간 표현과 함께 키워드가 있는 경우
+                if not is_multi_day:
+                    input_lower = state['current_input'].lower()
+                    for keyword in multi_day_keywords:
+                        if keyword in state['current_input'] and ('일' in state['current_input'] or '기간' in state['current_input']):
+                            is_multi_day = True
+                            break
+                
+                if is_multi_day or ("부터" in state['current_input'] and "까지" in state['current_input']):
                     return self._extract_range_events(state, current_date, rule_text)
                 
-                # 먼저 여러 일정인지 단일 일정인지 판단
+                # 여러 개별 일정인지 단일 일정인지 판단
                 detection_prompt = f"""
 사용자 입력에서 일정의 개수를 분석해주세요:
 "{state['current_input']}"
@@ -473,15 +650,14 @@ Confidence 기준:
                 detection_response = self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": detection_prompt}],
-                    temperature=0.1
-                )
+                    temperature=0.1                )
                 
                 detection_result = detection_response.choices[0].message.content.strip()
                 is_multiple = "MULTIPLE" in detection_result
                 is_range = "RANGE" in detection_result
                 
                 if is_range:
-                    # 기간/범위 기반 일정 처리
+                    # 반복되는 개별 일정들로 처리 (예: "월,화,수요일에 회의")
                     return self._extract_range_events(state, current_date, rule_text)
                 elif is_multiple:
                     # 다중 일정 처리
@@ -522,7 +698,7 @@ Confidence 기준:
             "all_day": false,
             "timezone": "Asia/Seoul",
             "priority": "normal|high|low",
-            "category": "work|personal|meeting|appointment|other"
+            "category": "other"
         }}
     ]
 }}
@@ -534,12 +710,15 @@ Confidence 기준:
    - "일정 추가" -> "일정" (X), 핵심 내용만 추출
    - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
    - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
-3. 시간이 없으면 null로 설정
-4. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
-   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
-   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00"
-   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00"
-   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산
+3. **시간 처리 규칙 - 매우 중요**:
+   - 시간이 명시되지 않으면 start_time과 end_time을 null로 설정하고 all_day를 true로 설정
+   - 시간이 명시된 경우에만 start_time을 설정하고 all_day를 false로 설정
+   - 예: "내일 달리기 일정 추가해줘" -> start_time: null, end_time: null, all_day: true
+   - 예: "내일 오후 3시에 회의" -> start_time: "15:00", all_day: false
+4. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00", all_day: false
+   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산, all_day: false
    - "~부터 ~까지" 패턴이 있으면 반드시 end_time을 설정하세요
    - 종료 시간이 명시되지 않으면 시작 시간 + 1시간
 5. 반복은 명시적으로 언급된 경우만 설정
@@ -548,13 +727,32 @@ Confidence 기준:
 8. 연결어("그리고", "또", "추가로" 등)를 기준으로 일정을 분리
 """
                 else:
-                    # 단일 일정 처리 (기존 로직)
+                    # 단일 일정 처리 (기존 로직)                    
                     prompt = f"""
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
 현재 시간: {current_date.strftime('%H:%M')}
 
 사용자 입력에서 일정 정보를 추출해주세요:
 "{state['current_input']}"
+
+**한국어 간접적 표현 인식 가이드:**
+
+1. **의무/할 일 표현**:
+   - "화분에 물 줘야해" → title: "화분 물주기"
+   - "부모님께 안부 전화 드려야 해" → title: "부모님 안부 전화"
+   - "치과 가야해" → title: "치과"
+   - "보고서 제출해야 돼" → title: "보고서 제출"
+
+2. **계획/예정 표현**:
+   - "친구랑 영화보기로 했어" → title: "친구와 영화"
+   - "출장 가기로 되어있어" → title: "출장"
+   - "등산하기로 약속했어" → title: "등산"
+   - "헬스장 갈 예정이야" → title: "헬스장 운동"
+
+3. **자연스러운 제목 변환**:
+   - "해야해", "가야해", "드려야 해" 등은 제목에서 제거
+   - "기로 했어", "예정이야" 등도 제목에서 제거
+   - 핵심 활동/장소/목적만 추출
 
 **시간 범위 인식 예시:**
 - "저녁 6시부터 8시까지 영화" → start_time: "18:00", end_time: "20:00"
@@ -568,7 +766,7 @@ Confidence 기준:
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{
-    "title": "일정 제목 (필수)",
+    "title": "자연스러운 일정 제목 (간접 표현을 직접적으로 변환)",
     "start_date": "YYYY-MM-DD (필수)",
     "start_time": "HH:MM",
     "end_date": "YYYY-MM-DD",
@@ -584,7 +782,7 @@ Confidence 기준:
     "all_day": false,
     "timezone": "Asia/Seoul",
     "priority": "normal|high|low",
-    "category": "work|personal|meeting|appointment|other"
+    "category": "other"
 }}
 
 추출 가이드라인:
@@ -593,12 +791,15 @@ Confidence 기준:
    - "일정 추가" -> "일정" (X), 핵심 내용만 추출
    - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
    - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
-2. 시간이 없으면 null로 설정
-3. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
-   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
-   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00"
-   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00"
-   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산
+2. **시간 처리 규칙 - 매우 중요**:
+   - 시간이 명시되지 않으면 start_time과 end_time을 null로 설정하고 all_day를 true로 설정
+   - 시간이 명시된 경우에만 start_time을 설정하고 all_day를 false로 설정
+   - 예: "내일 달리기 일정 추가해줘" -> start_time: null, end_time: null, all_day: true
+   - 예: "내일 오후 3시에 회의" -> start_time: "15:00", all_day: false
+3. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00", all_day: false
+   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산, all_day: false
    - "~부터 ~까지" 패턴이 있으면 반드시 end_time을 설정하세요
    - 종료 시간이 명시되지 않으면 시작 시간 + 1시간
 4. 반복은 명시적으로 언급된 경우만 설정
@@ -678,8 +879,35 @@ Confidence 기준:
                 
                 if action_type == 'calendar_add':
                     is_multiple = extracted_info.get('is_multiple', False)
+                    is_multi_day = extracted_info.get('is_multi_day', False)
                     
-                    if is_multiple:
+                    if is_multi_day:
+                        # Multi Day Event 처리
+                        events = extracted_info.get('events', [])
+                        if events:
+                            event = events[0]  # Multi Day Event는 하나의 이벤트
+                            event_result = {
+                                "success": True,
+                                "event_id": "mock_multi_day_event_id",
+                                "message": f"Multi Day Event가 성공적으로 생성되었습니다. ({event.get('start_date')} ~ {event.get('end_date')})",
+                                "event_data": event,
+                                "event_type": "multi_day"
+                            }
+                            
+                            state['calendar_result'] = {
+                                "success": True,
+                                "is_multi_day": True,
+                                "event_id": event_result["event_id"],
+                                "created_events": [event_result],
+                                "message": event_result["message"],
+                                "event_type": "multi_day"
+                            }
+                        else:
+                            state['calendar_result'] = {
+                                "success": False,
+                                "message": "Multi Day Event 생성에 실패했습니다."
+                            }
+                    elif is_multiple:
                         # 다중 일정 처리
                         events = extracted_info.get('events', [])
                         created_events = []
@@ -857,7 +1085,59 @@ Confidence 기준:
                     if calendar_result.get('success'):
                         if action_type == 'calendar_add':
                             is_multiple = calendar_result.get('is_multiple', False)
-                            if is_multiple:
+                            is_multi_day = calendar_result.get('is_multi_day', False)
+                            
+                            if is_multi_day:
+                                # Multi Day Event 응답 생성
+                                created_events = calendar_result.get('created_events', [])
+                                if created_events:
+                                    event_data = created_events[0].get('event_data', {})
+                                    title = event_data.get('title', '일정')
+                                    start_date = event_data.get('start_date', '')
+                                    end_date = event_data.get('end_date', '')
+                                    
+                                    state['current_output'] = f"✅ Multi Day Event를 성공적으로 생성했습니다! 📅✨\n\n"
+                                    state['current_output'] += f"📋 **'{title}' 일정**\n"
+                                    
+                                    # 날짜 범위 표시
+                                    try:
+                                        start_obj = datetime.strptime(start_date, '%Y-%m-%d')
+                                        end_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                                        
+                                        start_formatted = start_obj.strftime('%Y년 %m월 %d일 (%a)')
+                                        end_formatted = end_obj.strftime('%Y년 %m월 %d일 (%a)')
+                                        
+                                        # 기간 계산
+                                        duration_days = (end_obj - start_obj).days + 1
+                                        
+                                        state['current_output'] += f"📅 기간: {start_formatted} ~ {end_formatted}\n"
+                                        state['current_output'] += f"⏳ 총 {duration_days}일간\n"
+                                        
+                                    except:
+                                        state['current_output'] += f"📅 기간: {start_date} ~ {end_date}\n"
+                                    
+                                    # 시간 정보 표시
+                                    all_day = event_data.get('all_day', True)
+                                    if not all_day:
+                                        start_time = event_data.get('start_time')
+                                        end_time = event_data.get('end_time')
+                                        if start_time:
+                                            if end_time:
+                                                state['current_output'] += f"⏰ 매일 시간: {start_time} - {end_time}\n"
+                                            else:
+                                                state['current_output'] += f"⏰ 매일 시간: {start_time}\n"
+                                    else:
+                                        state['current_output'] += f"🕐 종일 일정\n"
+                                    
+                                    # 위치 정보 표시
+                                    location = event_data.get('location')
+                                    if location:
+                                        state['current_output'] += f"📍 장소: {location}\n"
+                                      # 카테고리는 Chat Service에서 자동 분류됩니다
+                                    
+                                    state['current_output'] += f"\n Multi Day Event가 캘린더에 잘 등록되었어요! 😊"
+                                
+                            elif is_multiple:
                                 # 다중 일정 응답 생성
                                 events_count = calendar_result.get('events_count', 0)
                                 created_events = calendar_result.get('created_events', [])
@@ -1324,7 +1604,7 @@ Confidence 기준:
 - "MULTIPLE": 여러 개의 일정을 삭제
 
 다중 삭제 판단 기준:
-- "그리고", "또", "그 다음에", "추가로", "와", "과", "하고" 등의 연결어로 여러 일정을 언급
+- "그리고", "또", "그 다음에", "추가로" 등의 연결어로 여러 일정을 언급
 - 예: "내일 회의 삭제하고 다음주 월요일 점심약속도 삭제해줘"
 - 예: "팀 미팅 지우고 개인 약속도 취소해줘"
 - 예: "헬스 일정과 요가 일정 삭제해줘" (두 개의 개별 일정)
@@ -1664,7 +1944,7 @@ Confidence 기준:
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
 현재 시간: {current_date.strftime('%H:%M')}
 
-사용자가 기간/범위 기반 일정을 요청했습니다:
+사용자가 기간이 있는 일정을 요청했습니다. 이를 Multi Day Event로 처리해주세요:
 "{user_input}"
 
 상대적 표현 해석 규칙:
@@ -1672,43 +1952,42 @@ Confidence 기준:
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{
-    "title": "일정 제목",    "start_time": "HH:MM (선택사항)",
-    "end_time": "HH:MM (선택사항)", 
+    "title": "일정 제목",
+    "start_date": "YYYY-MM-DD (시작날짜)",
+    "end_date": "YYYY-MM-DD (종료날짜)",
+    "start_time": "HH:MM (선택사항)",
+    "end_time": "HH:MM (선택사항)",
     "description": "상세 설명",
     "location": "장소",
-    "range_type": "date_range|cross_week_range|single_week_range|weekday_list",
-    "range_info": {{
-        "start_date": "시작날짜 YYYY-MM-DD (date_range용)",
-        "end_date": "종료날짜 YYYY-MM-DD (date_range용)",
-        "start_weekday": "시작요일 (weekday_range, cross_week_range, single_week_range용: 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토)",
-        "end_weekday": "종료요일 (weekday_range, cross_week_range, single_week_range용: 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토)",
-        "start_week": "시작주 (cross_week_range용: 'this_week', 'next_week')",
-        "end_week": "종료주 (cross_week_range용: 'this_week', 'next_week')", 
-        "target_week": "대상주 (single_week_range용: 'this_week', 'next_week')",
-        "weekdays": [1, 2, 3] "요일 리스트 (weekday_list용: 0=일, 1=월, 2=화, 3=수, 4=목, 5=금, 6=토)",
-        "base_date": "기준날짜 YYYY-MM-DD (요일 계산 기준)",
-        "repeat_count": 10 "반복 횟수 (선택사항)"
-    }}
+    "all_day": true/false,
+    "timezone": "Asia/Seoul",
+    "priority": "normal|high|low",
+    "category": "other",
+    "is_multi_day": true
 }}
 
-range_type 판단 기준:
-1. "date_range": "6월 15일부터 20일까지", "내일부터 다음주까지"
-2. "cross_week_range": "이번주 화요일부터 다음주 목요일까지", "이번주 금요일부터 다음주 월요일까지"
-3. "single_week_range": "다음주 월요일부터 금요일까지", "이번주 화요일부터 목요일까지" (한 주만)
-4. "weekday_list": "월,화,수요일에", "다음주 월,수,금요일에"
+Multi Day Event 처리 가이드라인:
+1. 기간 표현 인식:
+   - "6월 15일부터 20일까지" → start_date: "2025-06-15", end_date: "2025-06-20"
+   - "내일부터 다음주까지" → 해당 날짜 범위로 변환
+   - "3일간", "5일간" → 시작일 기준으로 해당 일수만큼 계산
+   - "2박3일", "1박2일" → 박수 기준으로 일수 계산 (2박3일 = 3일간)
+   - "주말 내내" → 토요일부터 일요일까지
+   - "연휴 내내" → 연휴 기간 전체
 
-추출 가이드라인:
-1. 제목에서 불필요한 키워드 제거 ("추가", "만들어", "잡아", "해줘" 등)
-2. 날짜 범위는 정확한 YYYY-MM-DD 형식으로 변환
-3. 요일은 숫자로 변환 (일요일=0, 월요일=1, ..., 토요일=6)
-4. 기준날짜는 요일 계산의 기준이 되는 날짜 (예: "다음주"의 경우 다음주 일요일)
-5. 시간이 명시되지 않으면 null로 설정
+    "category": "other",
+   - 종료일은 포함되는 마지막 날짜
+   - "6월 15일부터 20일까지" → 20일도 포함
+   - "3일간" → 시작일 + 2일 (총 3일)
+
+3. 시간 처리:
+   - 시간이 명시되지 않은 경우 all_day: true   - "오전 9시부터 오후 6시까지 3일간" → start_time: "09:00", end_time: "18:00", all_day: false
+   - 매일 같은 시간대 적용
 
 예시:
-- "6월 15일부터 20일까지 휴가" → range_type: "date_range", start_date: "2025-06-15", end_date: "2025-06-20"
-- "이번주 화요일부터 다음주 목요일까지 프로젝트" → range_type: "cross_week_range", start_weekday: 2, end_weekday: 4, start_week: "this_week", end_week: "next_week"
-- "다음주 월요일부터 금요일까지 교육" → range_type: "single_week_range", start_weekday: 1, end_weekday: 5, target_week: "next_week"
-- "다음주 월,화,수요일에 미팅" → range_type: "weekday_list", weekdays: [1, 2, 3], base_date: "다음주 일요일 날짜"
+- "6월 15일부터 20일까지 휴가" → start_date: "2025-06-15", end_date: "2025-06-20", all_day: true, category: "other"
+- "다음주 월요일부터 금요일까지 오전 9시부터 오후 6시까지 교육" → start_date: "다음주월요일", end_date: "다음주금요일", start_time: "09:00", end_time: "18:00", all_day: false
+- "3일간 워크샵" → start_date: 시작일, end_date: 시작일+2일, all_day: true
 """
             
             response = self.client.chat.completions.create(
@@ -1723,35 +2002,46 @@ range_type 판단 기준:
             # 기본값 설정
             default_range_info = {
                 "title": extract_title_from_input(user_input),
+                "start_date": current_date.strftime('%Y-%m-%d'),
+                "end_date": (current_date + timedelta(days=1)).strftime('%Y-%m-%d'),
                 "start_time": None,
                 "end_time": None,
                 "description": "",
                 "location": "",
-                "range_type": "date_range",
-                "range_info": {
-                    "start_date": current_date.strftime('%Y-%m-%d'),
-                    "end_date": (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
-                }
+                "all_day": True,
+                "timezone": "Asia/Seoul",
+                "priority": "normal",
+                "category": "other",
+                "is_multi_day": True
             }
             
             # 안전한 JSON 파싱
             range_data = safe_json_parse(response_text, default_range_info)
             
-            # 기간 정보를 개별 일정들로 변환
-            events = self._convert_range_to_events(range_data, current_date)
+            # Multi Day Event 검증 및 보정
+            validated_event = validate_and_correct_info(range_data, current_date)
+            validated_event["is_multi_day"] = True
             
-            # 각 이벤트 검증 및 보정
-            validated_events = []
-            for event in events:
-                validated_event = validate_and_correct_info(event, current_date)
-                validated_events.append(validated_event)
+            # 종료일이 시작일보다 이전인 경우 보정
+            try:
+                start_date = datetime.strptime(validated_event["start_date"], '%Y-%m-%d')
+                end_date = datetime.strptime(validated_event["end_date"], '%Y-%m-%d')
+                
+                if end_date < start_date:
+                    validated_event["end_date"] = validated_event["start_date"]
+                elif end_date == start_date:
+                    # 하루짜리면 Multi Day가 아님
+                    validated_event["is_multi_day"] = False
+                    
+            except:
+                validated_event["end_date"] = validated_event["start_date"]
+                validated_event["is_multi_day"] = False
             
             extracted_info = {
-                "events": validated_events, 
-                "is_multiple": True,
-                "is_range": True,
-                "range_type": range_data.get("range_type"),
-                "original_range_data": range_data
+                "events": [validated_event],
+                "is_multiple": False,
+                "is_multi_day": True,
+                "event_type": "multi_day"
             }
             
             state['extracted_info'] = extracted_info
@@ -1761,7 +2051,8 @@ range_type 판단 기준:
             print(f"기간 정보 추출 중 오류: {str(e)}")
             default_info = get_default_event_info()
             default_info["title"] = extract_title_from_input(user_input)
-            state['extracted_info'] = {"events": [default_info], "is_multiple": False, "is_range": False}
+            default_info["is_multi_day"] = False
+            state['extracted_info'] = {"events": [default_info], "is_multiple": False, "is_multi_day": False}
             return state
     
     def _convert_range_to_events(self, range_data: Dict[str, Any], current_date: datetime) -> List[Dict[str, Any]]:

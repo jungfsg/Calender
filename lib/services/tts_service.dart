@@ -1,50 +1,74 @@
-// lib/services/tts_service.dart 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
-// import '../config.dart'; // API 키를 보관하는 설정 파일 - 임시 비활성화
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:io';
 
 class TtsService {
+  static TtsService? _instance;
+  static TtsService get instance {
+    _instance ??= TtsService._internal();
+    return _instance!;
+  }
+
+  TtsService._internal();
+
   final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isEnabled = true;
 
-  // --- 삭제: 싱글톤 패턴 및 TTS On/Off 관련 코드 전체 제거 ---
-  // 이 서비스는 이제 외부에서 인스턴스화하여 사용하며, '활성화' 상태를 갖지 않습니다.
-  
-  // 이모티콘, 특수기호 등 텍스트가 아닌 문자를 제거하기 위한 정규 표현식
   final RegExp _nonTextRegex = RegExp(
-    r'(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])');
+    r'(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])',
+  );
 
-  // 텍스트가 아닌 문자를 공백으로 대체하는 함수
   String _removeNonTextCharacters(String text) {
     return text.replaceAll(_nonTextRegex, ' ').trim();
   }
 
-  // OpenAI TTS API를 호출하여 텍스트를 음성으로 변환하고 재생하는 핵심 함수
-  Future<void> speak(String text) async {
+  void setEnabled(bool enabled) {
+    _isEnabled = enabled;
+    if (!enabled) {
+      stop();
+    }
+  }
 
-    // 이제 speak 함수는 호출되면 항상 실행을 시도합니다.
+  bool get isEnabled => _isEnabled;
+
+  Future<void> speak(String text) async {
+    if (!_isEnabled) {
+      print("TTS: 비활성화 상태로 음성 출력을 건너뜁니다.");
+      return;
+    }
+
     if (text.trim().isEmpty) {
       print("TTS: 입력 텍스트가 비어있어 음성 출력을 건너뜁니다.");
       return;
     }
-    
-    // 이모티콘 및 특수문자 제거
+
     final cleanText = _removeNonTextCharacters(text);
 
     if (cleanText.trim().isEmpty) {
       print("TTS: 이모티콘 제거 후 텍스트가 비어있어 음성 출력을 건너뜁니다.");
       return;
     }
-    
-    // 이전에 재생 중인 소리가 있다면 중지
+
     await stop();
 
     print('🔊 TTS.speak() 호출됨 - 재생할 텍스트: "$cleanText"');
 
     try {
-      // 임시로 API 키를 하드코딩 (실제 사용 시에는 환경변수나 보안 저장소 사용 권장)
-      const String openAIKey = 'YOUR_OPENAI_API_KEY_HERE'; // 실제 키로 교체 필요
-      
+      // .env 파일에서 API 키 읽어오기
+      final String? openAIKey = dotenv.env['OPENAI_API_KEY'];
+
+      // API 키가 비어있는지 확인
+      if (openAIKey == null || openAIKey.isEmpty) {
+        print('❌ OpenAI API 키가 설정되지 않았습니다. .env 파일을 확인해주세요.');
+        return;
+      }
+
+      // 디버그 로그 추가로 API 키 상태 확인
+      print('🔑 API 키 길이: ${openAIKey.length}');
+      print('🔑 API 키 시작: ${openAIKey.substring(0, 10)}...');
+
       final response = await http.post(
         Uri.parse('https://api.openai.com/v1/audio/speech'),
         headers: {
@@ -54,23 +78,36 @@ class TtsService {
         body: jsonEncode({
           "model": "tts-1",
           "input": cleanText,
-          "voice": "nova" // 선호하는 목소리 (alloy, echo, fable, onyx, nova, shimmer)
+          "voice": "nova",
         }),
       );
 
       if (response.statusCode == 200) {
+        print('🔊 TTS API 응답 성공, 오디오 재생 시작');
         await _audioPlayer.play(BytesSource(response.bodyBytes));
+        print('🔊 TTS 오디오 재생 완료');
       } else {
-        print('Error from OpenAI TTS API: ${response.statusCode}');
-        print('Response body: ${response.body}');
+        print('❌ OpenAI TTS API 오류: ${response.statusCode}');
+        print('응답 내용: ${response.body}');
       }
     } catch (e) {
-      print('An error occurred during TTS processing: $e');
+      print('❌ TTS 처리 중 오류 발생: $e');
+      print('❌ 오류 타입: ${e.runtimeType}');
+      if (e is FormatException) {
+        print('❌ FormatException 세부사항: ${e.message}');
+      }
     }
   }
 
-  // 음성 재생 중지 함수
   Future<void> stop() async {
-    await _audioPlayer.stop();
+    try {
+      await _audioPlayer.stop();
+    } catch (e) {
+      print('TTS 중지 중 오류: $e');
+    }
+  }
+
+  void dispose() {
+    _audioPlayer.dispose();
   }
 }

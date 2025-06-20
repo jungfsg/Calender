@@ -319,13 +319,43 @@ class GoogleCalendarService {
                 DateTime eventDate;
                 String eventTime = '';
 
+                // 🆕 멀티데이 이벤트 처리 개선
+                DateTime? eventStartDate;
+                DateTime? eventEndDate;
+                bool isMultiDay = false;
+
                 // 날짜/시간 처리
                 if (googleEvent.start?.dateTime != null) {
                   eventDate = googleEvent.start!.dateTime!.toLocal();
                   eventTime = DateFormat('HH:mm').format(eventDate);
+                  eventStartDate = eventDate;
+
+                  if (googleEvent.end?.dateTime != null) {
+                    eventEndDate = googleEvent.end!.dateTime!.toLocal();
+                    // 시작일과 종료일이 다른 날이면 멀티데이 이벤트
+                    if (eventStartDate.year != eventEndDate.year ||
+                        eventStartDate.month != eventEndDate.month ||
+                        eventStartDate.day != eventEndDate.day) {
+                      isMultiDay = true;
+                    }
+                  }
                 } else if (googleEvent.start?.date != null) {
                   eventDate = googleEvent.start!.date!;
                   eventTime = '종일';
+                  eventStartDate = eventDate;
+
+                  if (googleEvent.end?.date != null) {
+                    // Google Calendar 종일 이벤트의 종료일은 실제 종료일 + 1일이므로 하루 빼야 함
+                    eventEndDate = googleEvent.end!.date!.subtract(
+                      const Duration(days: 1),
+                    );
+                    // 시작일과 종료일이 다른 날이면 멀티데이 이벤트
+                    if (eventStartDate.year != eventEndDate.year ||
+                        eventStartDate.month != eventEndDate.month ||
+                        eventStartDate.day != eventEndDate.day) {
+                      isMultiDay = true;
+                    }
+                  }
                 } else {
                   continue;
                 }
@@ -348,15 +378,47 @@ class GoogleCalendarService {
                     '🎨 캘린더 색상: "${googleEvent.summary}" -> ${calendarNames[calendarId]} -> $eventColor',
                   );
                 }
-                final appEvent = Event(
-                  title: googleEvent.summary!,
-                  time: eventTime,
-                  date: eventDate,
-                  description: googleEvent.description ?? '',
-                  colorId: finalColorId,
-                  color: eventColor,
-                  source: 'google', // Google Calendar에서 가져온 이벤트로 표시
-                  googleEventId: googleEvent.id, // Google Calendar 이벤트 ID 저장
+
+                // 🆕 멀티데이 이벤트일 경우 Event.multiDay 생성자 사용
+                Event appEvent;
+                if (isMultiDay &&
+                    eventStartDate != null &&
+                    eventEndDate != null) {
+                  appEvent = Event.multiDay(
+                    title: googleEvent.summary!,
+                    startDate: eventStartDate,
+                    endDate: eventEndDate,
+                    description: googleEvent.description ?? '',
+                    colorId: finalColorId,
+                    color: eventColor,
+                    uniqueId: googleEvent.id, // Google Event ID를 uniqueId로 사용
+                  );
+
+                  // 멀티데이 이벤트 디버깅 로그
+                  print('📅 멀티데이 이벤트 생성: ${googleEvent.summary}');
+                  print('   시작일: ${eventStartDate.toString().split(' ')[0]}');
+                  print('   종료일: ${eventEndDate.toString().split(' ')[0]}');
+                  print(
+                    '   기간: ${eventEndDate.difference(eventStartDate).inDays + 1}일',
+                  );
+                } else {
+                  // 단일 날짜 이벤트
+                  appEvent = Event(
+                    title: googleEvent.summary!,
+                    time: eventTime,
+                    date: eventDate,
+                    description: googleEvent.description ?? '',
+                    colorId: finalColorId,
+                    color: eventColor,
+                    source: 'google', // Google Calendar에서 가져온 이벤트로 표시
+                    googleEventId: googleEvent.id, // Google Calendar 이벤트 ID 저장
+                  );
+                }
+
+                // source 설정 (멀티데이 이벤트도 Google 소스로 설정)
+                appEvent = appEvent.copyWith(
+                  source: 'google',
+                  googleEventId: googleEvent.id,
                 );
 
                 appEvents.add(appEvent);
@@ -496,12 +558,14 @@ class GoogleCalendarService {
     try {
       DateTime startDateTime;
       DateTime endDateTime;
-      
+
       // 🆕 멀티데이 이벤트 처리 (Google Calendar의 '종일' 이벤트로 등록)
-      if (event.isMultiDay && event.startDate != null && event.endDate != null) {
+      if (event.isMultiDay &&
+          event.startDate != null &&
+          event.endDate != null) {
         print('📅 멀티데이 이벤트를 Google Calendar 종일 이벤트로 등록: ${event.title}');
         print('📅 기간: ${event.startDate} ~ ${event.endDate}');
-        
+
         startDateTime = DateTime(
           event.startDate!.year,
           event.startDate!.month,
@@ -614,15 +678,18 @@ class GoogleCalendarService {
       print('   - 본래 colorId: ${event.colorId}');
       print('   - 최종 설정된 googleEvent.colorId: ${googleEvent.colorId}');
 
-      final createdEvent = await _calendarApi!.events.insert(googleEvent, 'primary');
+      final createdEvent = await _calendarApi!.events.insert(
+        googleEvent,
+        'primary',
+      );
       print('✅ 이벤트가 Google Calendar에 추가되었습니다: ${event.title}');
-      
+
       // Google Calendar에서 할당된 ID를 반환
       if (createdEvent.id != null) {
         print('🔗 Google Event ID: ${createdEvent.id}');
         return createdEvent.id;
       }
-      
+
       return null;
     } catch (e) {
       print('❌ Google Calendar 이벤트 추가 오류: $e');
@@ -631,17 +698,22 @@ class GoogleCalendarService {
   }
 
   // Google Calendar에서 이벤트 업데이트
-  Future<bool> updateEventOnGoogleCalendar(Event originalEvent, Event updatedEvent) async {
+  Future<bool> updateEventOnGoogleCalendar(
+    Event originalEvent,
+    Event updatedEvent,
+  ) async {
     if (!_isInitialized || _calendarApi == null) {
       throw Exception('Google Calendar 서비스가 초기화되지 않았습니다.');
     }
 
     try {
-      print('🔄 Google Calendar 이벤트 업데이트 시작: ${originalEvent.title} -> ${updatedEvent.title}');
+      print(
+        '🔄 Google Calendar 이벤트 업데이트 시작: ${originalEvent.title} -> ${updatedEvent.title}',
+      );
 
       // 1. Google Calendar에서 기존 이벤트 찾기
       String? googleEventId = originalEvent.googleEventId;
-      
+
       if (googleEventId == null) {
         // googleEventId가 없는 경우 제목과 시간으로 검색
         googleEventId = await _findGoogleEventId(originalEvent);
@@ -655,7 +727,7 @@ class GoogleCalendarService {
       // 2. 업데이트할 이벤트 정보 구성
       DateTime startDateTime;
       DateTime endDateTime;
-      
+
       if (updatedEvent.time == '종일') {
         startDateTime = DateTime(
           updatedEvent.date.year,
@@ -676,7 +748,8 @@ class GoogleCalendarService {
             startMinute,
           );
 
-          if (updatedEvent.endTime != null && updatedEvent.endTime!.isNotEmpty) {
+          if (updatedEvent.endTime != null &&
+              updatedEvent.endTime!.isNotEmpty) {
             final endTimeParts = updatedEvent.endTime!.split(':');
             if (endTimeParts.length == 2) {
               final endHour = int.tryParse(endTimeParts[0]) ?? 0;
@@ -705,31 +778,38 @@ class GoogleCalendarService {
       }
 
       // 3. Google Event 객체 구성
-      final googleEvent = calendar.Event()
-        ..summary = updatedEvent.title
-        ..description = updatedEvent.description
-        ..start = (updatedEvent.time == '종일')
-            ? calendar.EventDateTime(date: startDateTime)
-            : calendar.EventDateTime(dateTime: startDateTime.toUtc())
-        ..end = (updatedEvent.time == '종일')
-            ? calendar.EventDateTime(date: endDateTime)
-            : calendar.EventDateTime(dateTime: endDateTime.toUtc());
+      final googleEvent =
+          calendar.Event()
+            ..summary = updatedEvent.title
+            ..description = updatedEvent.description
+            ..start =
+                (updatedEvent.time == '종일')
+                    ? calendar.EventDateTime(date: startDateTime)
+                    : calendar.EventDateTime(dateTime: startDateTime.toUtc())
+            ..end =
+                (updatedEvent.time == '종일')
+                    ? calendar.EventDateTime(date: endDateTime)
+                    : calendar.EventDateTime(dateTime: endDateTime.toUtc());
 
       // 4. 색상 정보 설정
       if (updatedEvent.hasCustomColor()) {
         final colorId = updatedEvent.getColorId();
         if (colorId != null && colorId >= 1 && colorId <= 11) {
           googleEvent.colorId = colorId.toString();
-          print('🎨 Google Calendar 업데이트 시 색상 설정: ${updatedEvent.title} -> colorId: $colorId');
+          print(
+            '🎨 Google Calendar 업데이트 시 색상 설정: ${updatedEvent.title} -> colorId: $colorId',
+          );
         }
       } else if (updatedEvent.colorId != null) {
         googleEvent.colorId = updatedEvent.colorId;
-        print('🎨 Google Calendar 업데이트 시 색상 설정: ${updatedEvent.title} -> colorId: ${updatedEvent.colorId}');
+        print(
+          '🎨 Google Calendar 업데이트 시 색상 설정: ${updatedEvent.title} -> colorId: ${updatedEvent.colorId}',
+        );
       }
 
       // 5. Google Calendar API 호출하여 이벤트 업데이트
       await _calendarApi!.events.update(googleEvent, 'primary', googleEventId);
-      
+
       print('✅ Google Calendar 이벤트 업데이트 성공: ${updatedEvent.title}');
       return true;
     } catch (e) {
@@ -759,7 +839,9 @@ class GoogleCalendarService {
 
       if (events.items != null && events.items!.isNotEmpty) {
         for (var googleEvent in events.items!) {
-          final titleMatches = googleEvent.summary?.trim().toLowerCase() == event.title.trim().toLowerCase();
+          final titleMatches =
+              googleEvent.summary?.trim().toLowerCase() ==
+              event.title.trim().toLowerCase();
 
           if (titleMatches) {
             // 시간 비교
@@ -769,13 +851,17 @@ class GoogleCalendarService {
             } else {
               if (googleEvent.start?.dateTime != null) {
                 final eventDateTime = googleEvent.start!.dateTime!.toLocal();
-                final eventTimeString = DateFormat('HH:mm').format(eventDateTime);
+                final eventTimeString = DateFormat(
+                  'HH:mm',
+                ).format(eventDateTime);
                 timeMatches = eventTimeString == event.time;
               }
             }
 
             if (timeMatches && googleEvent.id != null) {
-              print('🔍 Google Event ID 찾음: ${googleEvent.id} for ${event.title}');
+              print(
+                '🔍 Google Event ID 찾음: ${googleEvent.id} for ${event.title}',
+              );
               return googleEvent.id;
             }
           }

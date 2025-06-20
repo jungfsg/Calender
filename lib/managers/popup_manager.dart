@@ -1,5 +1,3 @@
-import 'package:http/http.dart';
-
 import '../models/event.dart';
 import '../controllers/calendar_controller.dart';
 import '../managers/event_manager.dart';
@@ -40,11 +38,8 @@ class PopupManager {
   /// 이벤트 추가 다이얼로그 표시
   Future<void> showAddEventDialog(BuildContext context) async {
     final TextEditingController titleController = TextEditingController();
-    TimeOfDay selectedStartTime = TimeOfDay.now();
-    TimeOfDay selectedEndTime = TimeOfDay(
-      hour: (selectedStartTime.hour + 1) % 24,
-      minute: selectedStartTime.minute,
-    );
+    TimeOfDay? selectedStartTime; // null로 시작하여 사용자가 반드시 설정하도록 함
+    TimeOfDay? selectedEndTime; // null로 시작하여 사용자가 반드시 설정하도록 함
     int selectedColorId = 1; // 기본 색상: 라벤더
     RecurrenceType selectedRecurrence = RecurrenceType.none; // 기본 반복: 없음
     int recurrenceCount = 1; // 기본 반복 횟수
@@ -102,11 +97,9 @@ class PopupManager {
                               helperText: ' ', // 공간 확보
                             ),
                             // 자동 포커스 추가
-                            autofocus: true,
-                            // 엔터키 입력 시 다음 단계로 이동
+                            autofocus: true, // 엔터키 입력 시 다음 단계로 이동
                             textInputAction: TextInputAction.next,
                           ),
-                          const SizedBox(height: 20),
                           Material(
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(12),
@@ -164,7 +157,35 @@ class PopupManager {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 20), // 시간 선택 안내
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.blue[600],
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '시간을 선택하지 않으면 종일 일정으로 추가됩니다.',
+                                    style: getTextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
@@ -177,7 +198,9 @@ class PopupManager {
                                       final TimeOfDay?
                                       picked = await showTimePicker(
                                         context: context,
-                                        initialTime: selectedStartTime,
+                                        initialTime:
+                                            selectedStartTime ??
+                                            TimeOfDay.now(),
                                         builder: (context, child) {
                                           return Theme(
                                             data: Theme.of(context).copyWith(
@@ -205,12 +228,10 @@ class PopupManager {
                                       if (picked != null) {
                                         setState(() {
                                           selectedStartTime = picked;
-                                          // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
+                                          // 시작 시간이 변경되면 종료 시간을 1시간 후로 자동 설정
                                           selectedEndTime = TimeOfDay(
-                                            hour:
-                                                (selectedStartTime.hour + 1) %
-                                                24,
-                                            minute: selectedStartTime.minute,
+                                            hour: (picked.hour + 1) % 24,
+                                            minute: picked.minute,
                                           );
                                         });
                                       }
@@ -228,7 +249,7 @@ class PopupManager {
                                             '시작',
                                             style: getTextStyle(
                                               color: Colors.grey,
-                                              fontSize: 12,
+                                              fontSize: 10,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
@@ -240,10 +261,15 @@ class PopupManager {
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                                                selectedStartTime != null
+                                                    ? '${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}'
+                                                    : '--:--',
                                                 style: getTextStyle(
                                                   fontSize: 16,
-                                                  color: Colors.black87,
+                                                  color:
+                                                      selectedStartTime != null
+                                                          ? Colors.black87
+                                                          : Colors.grey,
                                                 ),
                                               ),
                                             ],
@@ -265,7 +291,8 @@ class PopupManager {
                                       final TimeOfDay?
                                       picked = await showTimePicker(
                                         context: context,
-                                        initialTime: selectedEndTime,
+                                        initialTime:
+                                            selectedEndTime ?? TimeOfDay.now(),
                                         builder: (context, child) {
                                           return Theme(
                                             data: Theme.of(context).copyWith(
@@ -309,7 +336,7 @@ class PopupManager {
                                             '종료',
                                             style: getTextStyle(
                                               color: Colors.grey,
-                                              fontSize: 12,
+                                              fontSize: 10,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
@@ -321,10 +348,15 @@ class PopupManager {
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                                                selectedEndTime != null
+                                                    ? '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}'
+                                                    : '--:--',
                                                 style: getTextStyle(
                                                   fontSize: 16,
-                                                  color: Colors.black87,
+                                                  color:
+                                                      selectedEndTime != null
+                                                          ? Colors.black87
+                                                          : Colors.grey,
                                                 ),
                                               ),
                                             ],
@@ -414,9 +446,9 @@ class PopupManager {
                                       '반복 횟수:',
                                       style: getTextStyle(fontSize: 14),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 8),
                                     Container(
-                                      width: 150, // 80에서 100으로 증가
+                                      width: 120, // 150에서 120으로 줄임
                                       height: 40,
                                       decoration: BoxDecoration(
                                         border: Border.all(
@@ -430,7 +462,7 @@ class PopupManager {
                                             icon: const Icon(
                                               Icons.remove,
                                               size: 14,
-                                            ), // 16에서 14로 감소
+                                            ),
                                             onPressed: () {
                                               setState(() {
                                                 if (recurrenceCount > 1) {
@@ -440,8 +472,8 @@ class PopupManager {
                                             },
                                             padding: EdgeInsets.zero,
                                             constraints: const BoxConstraints(
-                                              minWidth: 20, // 24에서 20으로 감소
-                                              minHeight: 20, // 24에서 20으로 감소
+                                              minWidth: 20,
+                                              minHeight: 20,
                                             ),
                                           ),
                                           Expanded(
@@ -458,7 +490,7 @@ class PopupManager {
                                             icon: const Icon(
                                               Icons.add,
                                               size: 14,
-                                            ), // 16에서 14로 감소
+                                            ),
                                             onPressed: () {
                                               setState(() {
                                                 if (recurrenceCount < 50) {
@@ -469,21 +501,24 @@ class PopupManager {
                                             },
                                             padding: EdgeInsets.zero,
                                             constraints: const BoxConstraints(
-                                              minWidth: 20, // 24에서 20으로 감소
-                                              minHeight: 20, // 24에서 20으로 감소
+                                              minWidth: 20,
+                                              minHeight: 20,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _getRecurrenceDescription(
-                                        selectedRecurrence,
-                                      ),
-                                      style: getTextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _getRecurrenceDescription(
+                                          selectedRecurrence,
+                                        ),
+                                        style: getTextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -525,38 +560,104 @@ class PopupManager {
                                     return;
                                   }
 
-                                  // 개선: 시간 유효성 검사
-                                  if (selectedStartTime.hour >
-                                          selectedEndTime.hour ||
-                                      (selectedStartTime.hour ==
-                                              selectedEndTime.hour &&
-                                          selectedStartTime.minute >=
-                                              selectedEndTime.minute)) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          '종료 시간은 시작 시간보다 늦어야 합니다.',
-                                        ),
-                                        backgroundColor: Colors.orange,
-                                      ),
-                                    );
-                                    return;
-                                  }
+                                  // 시간이 선택되지 않은 경우 종일 일정으로 처리
+                                  bool isAllDayEvent =
+                                      selectedStartTime == null ||
+                                      selectedEndTime == null;
+                                  String startTimeStr;
+                                  String? endTimeStr;
 
-                                  // 기존 코드...
-                                  final event = Event(
-                                    title:
-                                        titleController.text
-                                            .trim(), // 개선: 공백 제거
-                                    time:
-                                        '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                    endTime:
-                                        '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                    date: _controller.selectedDay,
-                                    source: 'local',
-                                    recurrence: selectedRecurrence,
-                                    recurrenceCount: recurrenceCount,
-                                  );
+                                  if (isAllDayEvent) {
+                                    // 종일 일정의 경우
+                                    startTimeStr = '종일';
+                                    endTimeStr = null;
+                                  } else {
+                                    // 시간이 선택된 경우 유효성 검사
+                                    final startTotalMinutes =
+                                        selectedStartTime!.hour * 60 +
+                                        selectedStartTime!.minute;
+                                    final endTotalMinutes =
+                                        selectedEndTime!.hour * 60 +
+                                        selectedEndTime!.minute;
+
+                                    // 시작 시간과 종료 시간이 같은 경우에만 오류
+                                    if (startTotalMinutes == endTotalMinutes) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            '종료 시간은 시작 시간보다 늦어야 합니다.',
+                                          ),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // 시간 변환
+                                    startTimeStr =
+                                        '${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}';
+                                    endTimeStr =
+                                        '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}';
+                                  } // 이벤트 생성
+                                  final Event event;
+
+                                  if (isAllDayEvent) {
+                                    // 종일 일정 생성
+                                    event = Event(
+                                      title: titleController.text.trim(),
+                                      time: startTimeStr,
+                                      endTime: endTimeStr,
+                                      date: _controller.selectedDay,
+                                      source: 'local',
+                                      recurrence: selectedRecurrence,
+                                      recurrenceCount: recurrenceCount,
+                                      colorId: selectedColorId.toString(),
+                                    );
+                                  } else {
+                                    // 시간 기반 일정의 경우 - 날짜 넘어가는지 확인
+                                    final startTotalMinutes =
+                                        selectedStartTime!.hour * 60 +
+                                        selectedStartTime!.minute;
+                                    final endTotalMinutes =
+                                        selectedEndTime!.hour * 60 +
+                                        selectedEndTime!.minute;
+
+                                    if (startTotalMinutes > endTotalMinutes) {
+                                      // 날짜가 넘어가는 경우 - 멀티데이 이벤트로 처리
+                                      final today = _controller.selectedDay;
+                                      final tomorrow = today.add(
+                                        const Duration(days: 1),
+                                      );
+
+                                      event = Event(
+                                        title: titleController.text.trim(),
+                                        time: startTimeStr,
+                                        endTime: endTimeStr,
+                                        date: today,
+                                        isMultiDay: true,
+                                        startDate: today,
+                                        endDate: tomorrow,
+                                        source: 'local',
+                                        recurrence: selectedRecurrence,
+                                        recurrenceCount: recurrenceCount,
+                                        colorId: selectedColorId.toString(),
+                                      );
+                                    } else {
+                                      // 일반적인 경우 - 기존과 동일한 방식
+                                      event = Event(
+                                        title: titleController.text.trim(),
+                                        time: startTimeStr,
+                                        endTime: endTimeStr,
+                                        date: _controller.selectedDay,
+                                        source: 'local',
+                                        recurrence: selectedRecurrence,
+                                        recurrenceCount: recurrenceCount,
+                                        colorId: selectedColorId.toString(),
+                                      );
+                                    }
+                                  }
 
                                   try {
                                     // 반복 옵션이 있는 경우 반복 이벤트들을 생성
@@ -644,24 +745,40 @@ class PopupManager {
   Future<void> showEditEventDialog(BuildContext context, Event event) async {
     final TextEditingController titleController = TextEditingController(
       text: event.title,
-    );
-
-    // 시작 시간 파싱
-    final timeParts = event.time.split(':');
-    TimeOfDay selectedStartTime = TimeOfDay(
-      hour: int.parse(timeParts[0]),
-      minute: int.parse(timeParts[1]),
-    );
-
-    // 종료 시간 파싱
-    TimeOfDay selectedEndTime;
-    if (event.endTime != null && event.endTime!.isNotEmpty) {
-      final endTimeParts = event.endTime!.split(':');
-      selectedEndTime = TimeOfDay(
-        hour: int.parse(endTimeParts[0]),
-        minute: int.parse(endTimeParts[1]),
-      );
-    } else {
+    ); // 시작 시간 파싱 - 종일 일정 처리
+    TimeOfDay? selectedStartTime;
+    if (event.time != '종일' && event.time.contains(':')) {
+      try {
+        final timeParts = event.time.split(':');
+        selectedStartTime = TimeOfDay(
+          hour: int.parse(timeParts[0]),
+          minute: int.parse(timeParts[1]),
+        );
+      } catch (e) {
+        // 파싱 실패 시 null로 설정 (종일 일정으로 처리)
+        selectedStartTime = null;
+      }
+    } // 종료 시간 파싱 - 종일 일정 처리
+    TimeOfDay? selectedEndTime;
+    if (event.time == '종일') {
+      // 종일 일정인 경우 종료 시간을 null로 설정
+      selectedEndTime = null;
+    } else if (event.endTime != null &&
+        event.endTime!.isNotEmpty &&
+        event.endTime != '종일' &&
+        event.endTime!.contains(':')) {
+      try {
+        final endTimeParts = event.endTime!.split(':');
+        selectedEndTime = TimeOfDay(
+          hour: int.parse(endTimeParts[0]),
+          minute: int.parse(endTimeParts[1]),
+        );
+      } catch (e) {
+        // 파싱 실패 시 null로 설정
+        selectedEndTime = null;
+      }
+    } else if (selectedStartTime != null) {
+      // 시간 기반 일정이고 종료 시간이 없으면 1시간 후로 설정
       selectedEndTime = TimeOfDay(
         hour: (selectedStartTime.hour + 1) % 24,
         minute: selectedStartTime.minute,
@@ -722,7 +839,6 @@ class PopupManager {
                             autofocus: true,
                             textInputAction: TextInputAction.next,
                           ),
-                          const SizedBox(height: 20),
                           Material(
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(12),
@@ -780,179 +896,259 @@ class PopupManager {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Material(
-                                  color: Colors.grey[100],
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: () async {
-                                      final TimeOfDay?
-                                      picked = await showTimePicker(
-                                        context: context,
-                                        initialTime: selectedStartTime,
-                                        builder: (context, child) {
-                                          return Theme(
-                                            data: Theme.of(context).copyWith(
-                                              timePickerTheme: TimePickerThemeData(
-                                                backgroundColor: Colors.white,
-                                                hourMinuteTextColor:
-                                                    Colors.black,
-                                                dayPeriodTextColor:
-                                                    Colors.black,
-                                                dayPeriodColor:
-                                                    Colors.grey[200],
-                                                dayPeriodShape:
-                                                    RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                    ),
-                                              ),
-                                            ),
-                                            child: child!,
-                                          );
-                                        },
-                                      );
-                                      if (picked != null) {
+                          const SizedBox(height: 20), // 종일 옵션 선택
+                          Material(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                setState(() {
+                                  bool currentValue =
+                                      selectedStartTime == null &&
+                                      selectedEndTime == null;
+                                  if (!currentValue) {
+                                    // 종일 일정으로 설정
+                                    selectedStartTime = null;
+                                    selectedEndTime = null;
+                                  } else {
+                                    // 시간 기반 일정으로 설정 (기본값 설정)
+                                    selectedStartTime = TimeOfDay.now();
+                                    selectedEndTime = TimeOfDay(
+                                      hour: (TimeOfDay.now().hour + 1) % 24,
+                                      minute: TimeOfDay.now().minute,
+                                    );
+                                  }
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12.0,
+                                  horizontal: 16.0,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.event_available),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      '종일 선택',
+                                      style: getTextStyle(fontSize: 12),
+                                    ),
+                                    const Spacer(),
+                                    Switch(
+                                      value:
+                                          selectedStartTime == null &&
+                                          selectedEndTime == null,
+                                      onChanged: (bool value) {
                                         setState(() {
-                                          selectedStartTime = picked;
-                                          // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
-                                          selectedEndTime = TimeOfDay(
-                                            hour:
-                                                (selectedStartTime.hour + 1) %
-                                                24,
-                                            minute: selectedStartTime.minute,
-                                          );
+                                          if (value) {
+                                            // 종일 일정으로 설정
+                                            selectedStartTime = null;
+                                            selectedEndTime = null;
+                                          } else {
+                                            // 시간 기반 일정으로 설정 (기본값 설정)
+                                            selectedStartTime = TimeOfDay.now();
+                                            selectedEndTime = TimeOfDay(
+                                              hour:
+                                                  (TimeOfDay.now().hour + 1) %
+                                                  24,
+                                              minute: TimeOfDay.now().minute,
+                                            );
+                                          }
                                         });
-                                      }
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12.0,
-                                        horizontal: 16.0,
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '시작',
-                                            style: getTextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.access_time,
-                                                size: 18,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                                style: getTextStyle(
-                                                  fontSize: 16,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+                                      },
+                                      activeColor: _getColorByColorId(
+                                        selectedColorId,
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Material(
-                                  color: Colors.grey[100],
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: () async {
-                                      final TimeOfDay?
-                                      picked = await showTimePicker(
-                                        context: context,
-                                        initialTime: selectedEndTime,
-                                        builder: (context, child) {
-                                          return Theme(
-                                            data: Theme.of(context).copyWith(
-                                              timePickerTheme: TimePickerThemeData(
-                                                backgroundColor: Colors.white,
-                                                hourMinuteTextColor:
-                                                    Colors.black,
-                                                dayPeriodTextColor:
-                                                    Colors.black,
-                                                dayPeriodColor:
-                                                    Colors.grey[200],
-                                                dayPeriodShape:
-                                                    RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                    ),
-                                              ),
-                                            ),
-                                            child: child!,
-                                          );
-                                        },
-                                      );
-                                      if (picked != null) {
-                                        setState(() {
-                                          selectedEndTime = picked;
-                                        });
-                                      }
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12.0,
-                                        horizontal: 16.0,
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '종료',
-                                            style: getTextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.access_time,
-                                                size: 18,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                                style: getTextStyle(
-                                                  fontSize: 16,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
+                          const SizedBox(height: 16),
+                          // 시간 선택 UI (종일이 아닌 경우에만 표시)
+                          if (selectedStartTime != null ||
+                              selectedEndTime != null) ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Material(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () async {
+                                        final TimeOfDay?
+                                        picked = await showTimePicker(
+                                          context: context,
+                                          initialTime:
+                                              selectedStartTime ??
+                                              TimeOfDay.now(),
+                                          builder: (context, child) {
+                                            return Theme(
+                                              data: Theme.of(context).copyWith(
+                                                timePickerTheme: TimePickerThemeData(
+                                                  backgroundColor: Colors.white,
+                                                  hourMinuteTextColor:
+                                                      Colors.black,
+                                                  dayPeriodTextColor:
+                                                      Colors.black,
+                                                  dayPeriodColor:
+                                                      Colors.grey[200],
+                                                  dayPeriodShape:
+                                                      RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                      ),
+                                                ),
+                                              ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+                                        if (picked != null) {
+                                          setState(() {
+                                            selectedStartTime = picked;
+                                            // 시작 시간이 변경되면 종료 시간을 1시간 후로 자동 설정
+                                            selectedEndTime = TimeOfDay(
+                                              hour: (picked.hour + 1) % 24,
+                                              minute: picked.minute,
+                                            );
+                                          });
+                                        }
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12.0,
+                                          horizontal: 16.0,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '시작',
+                                              style: getTextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.access_time,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  selectedStartTime != null
+                                                      ? '${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}'
+                                                      : '종일',
+                                                  style: getTextStyle(
+                                                    fontSize: 16,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Material(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () async {
+                                        final TimeOfDay?
+                                        picked = await showTimePicker(
+                                          context: context,
+                                          initialTime:
+                                              selectedEndTime ??
+                                              TimeOfDay.now(),
+                                          builder: (context, child) {
+                                            return Theme(
+                                              data: Theme.of(context).copyWith(
+                                                timePickerTheme: TimePickerThemeData(
+                                                  backgroundColor: Colors.white,
+                                                  hourMinuteTextColor:
+                                                      Colors.black,
+                                                  dayPeriodTextColor:
+                                                      Colors.black,
+                                                  dayPeriodColor:
+                                                      Colors.grey[200],
+                                                  dayPeriodShape:
+                                                      RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                      ),
+                                                ),
+                                              ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+                                        if (picked != null) {
+                                          setState(() {
+                                            selectedEndTime = picked;
+                                          });
+                                        }
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12.0,
+                                          horizontal: 16.0,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '종료',
+                                              style: getTextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.access_time,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  selectedEndTime != null
+                                                      ? '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}'
+                                                      : '종일',
+                                                  style: getTextStyle(
+                                                    fontSize: 16,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 20),
                           // 반복 옵션 섹션: 일정 수정
                           Column(
@@ -1029,9 +1225,9 @@ class PopupManager {
                                       '반복 횟수:',
                                       style: getTextStyle(fontSize: 14),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 8),
                                     Container(
-                                      width: 150,
+                                      width: 120,
                                       height: 40,
                                       decoration: BoxDecoration(
                                         border: Border.all(
@@ -1090,14 +1286,17 @@ class PopupManager {
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _getRecurrenceDescription(
-                                        selectedRecurrence,
-                                      ),
-                                      style: getTextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _getRecurrenceDescription(
+                                          selectedRecurrence,
+                                        ),
+                                        style: getTextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -1139,43 +1338,110 @@ class PopupManager {
                                     return;
                                   }
 
-                                  // 시간 유효성 검사
-                                  if (selectedStartTime.hour >
-                                          selectedEndTime.hour ||
-                                      (selectedStartTime.hour ==
-                                              selectedEndTime.hour &&
-                                          selectedStartTime.minute >=
-                                              selectedEndTime.minute)) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          '종료 시간은 시작 시간보다 늦어야 합니다.',
+                                  // 종일 일정 여부 확인
+                                  bool isAllDayEvent =
+                                      selectedStartTime == null ||
+                                      selectedEndTime == null;
+
+                                  // 시간 기반 일정의 경우에만 시간 유효성 검사
+                                  if (!isAllDayEvent) {
+                                    final startTotalMinutes =
+                                        selectedStartTime!.hour * 60 +
+                                        selectedStartTime!.minute;
+                                    final endTotalMinutes =
+                                        selectedEndTime!.hour * 60 +
+                                        selectedEndTime!.minute;
+
+                                    // 시작 시간과 종료 시간이 같은 경우에만 오류
+                                    if (startTotalMinutes == endTotalMinutes) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            '종료 시간은 시작 시간보다 늦어야 합니다.',
+                                          ),
+                                          backgroundColor: Colors.orange,
                                         ),
-                                        backgroundColor: Colors.orange,
-                                      ),
-                                    );
-                                    return;
+                                      );
+                                      return;
+                                    }
                                   }
 
-                                  final updatedEvent = event.copyWith(
-                                    title: titleController.text.trim(),
-                                    time:
-                                        '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
-                                    endTime:
-                                        '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
-                                    colorId: selectedColorId.toString(),
-                                    recurrence: selectedRecurrence,
-                                    recurrenceCount: recurrenceCount,
-                                  );
+                                  // 시간 변환
+                                  String startTimeStr;
+                                  String? endTimeStr;
+
+                                  if (isAllDayEvent) {
+                                    startTimeStr = '종일';
+                                    endTimeStr = null;
+                                  } else {
+                                    startTimeStr =
+                                        '${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}';
+                                    endTimeStr =
+                                        '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}';
+                                  } // 이벤트 업데이트
+                                  final Event updatedEvent;
+
+                                  if (!isAllDayEvent) {
+                                    // 시간 기반 일정의 경우 다음 날로 넘어가는지 확인
+                                    final startTotalMinutes =
+                                        selectedStartTime!.hour * 60 +
+                                        selectedStartTime!.minute;
+                                    final endTotalMinutes =
+                                        selectedEndTime!.hour * 60 +
+                                        selectedEndTime!.minute;
+
+                                    if (startTotalMinutes > endTotalMinutes) {
+                                      // 날짜가 넘어가는 경우 - 멀티데이 이벤트로 처리
+                                      final today = event.date;
+                                      final tomorrow = today.add(
+                                        const Duration(days: 1),
+                                      );
+
+                                      updatedEvent = event.copyWith(
+                                        title: titleController.text.trim(),
+                                        time: startTimeStr,
+                                        endTime: endTimeStr,
+                                        isMultiDay: true,
+                                        startDate: today,
+                                        endDate: tomorrow,
+                                        colorId: selectedColorId.toString(),
+                                        recurrence: selectedRecurrence,
+                                        recurrenceCount: recurrenceCount,
+                                      );
+                                    } else {
+                                      // 일반적인 시간 기반 이벤트
+                                      updatedEvent = event.copyWith(
+                                        title: titleController.text.trim(),
+                                        time: startTimeStr,
+                                        endTime: endTimeStr,
+                                        colorId: selectedColorId.toString(),
+                                        recurrence: selectedRecurrence,
+                                        recurrenceCount: recurrenceCount,
+                                      );
+                                    }
+                                  } else {
+                                    // 종일 이벤트
+                                    updatedEvent = event.copyWith(
+                                      title: titleController.text.trim(),
+                                      time: startTimeStr,
+                                      endTime: endTimeStr,
+                                      isMultiDay: false,
+                                      startDate: null,
+                                      endDate: null,
+                                      colorId: selectedColorId.toString(),
+                                      recurrence: selectedRecurrence,
+                                      recurrenceCount: recurrenceCount,
+                                    );
+                                  }
 
                                   try {
                                     await _eventManager.updateEvent(
                                       event,
                                       updatedEvent,
-                                      syncWithGoogle: true,
                                     );
                                     Navigator.pop(context);
-
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
@@ -1316,7 +1582,9 @@ class PopupManager {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${event.time}${event.endTime != null ? ' - ${event.endTime}' : ''}',
+                              event.time == '종일'
+                                  ? '종일'
+                                  : '${event.time}${event.endTime != null ? ' - ${event.endTime}' : ''}',
                               style: getTextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,

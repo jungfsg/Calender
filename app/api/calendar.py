@@ -5,6 +5,7 @@ from app.services.llm_service import LLMService
 # from app.services.vector_store import VectorStoreService
 from app.services.event_storage_service import EventStorageService
 from datetime import datetime
+import json
 
 router = APIRouter()
 
@@ -55,6 +56,10 @@ class EventCreateInput(BaseModel):
     location: Optional[str] = None
     attendees: Optional[List[str]] = None
     timezone: Optional[str] = "Asia/Seoul"
+
+class CategoryRequest(BaseModel):
+    title: str
+    categories: Dict[int, str]
 
 @router.post("/ai-chat", response_model=AICalendarResponse)
 async def ai_calendar_chat(
@@ -393,3 +398,107 @@ def _translate_weather_condition(condition):
         'snowy': '눈',
     }
     return translations.get(condition, condition)
+
+@router.post("/categorize")
+async def categorize_event(request: CategoryRequest):
+    """
+    LLM을 사용하여 이벤트 제목을 적절한 카테고리로 분류합니다.
+    """
+    print(f"🎯 백엔드 카테고리 분류 요청 받음")
+    print(f"   제목: '{request.title}'")
+    print(f"   카테고리 옵션: {request.categories}")
+    
+    try:
+        llm_service = LLMService()
+        
+        # 카테고리 분류 프롬프트 구성
+        categories_text = "\n".join([f"{id}: {name}" for id, name in request.categories.items()])
+        
+        prompt = f"""
+다음 일정 제목을 보고 가장 적절한 카테고리를 선택해주세요.
+
+일정 제목: "{request.title}"
+
+사용 가능한 카테고리:
+{categories_text}
+
+응답은 반드시 다음 JSON 형식으로만 답변해주세요:
+{{
+    "category_id": <숫자>,
+    "confidence": <0-1 사이의 신뢰도>,
+    "reason": "<선택 이유>"
+}}
+
+예시:
+{{
+    "category_id": 1,
+    "confidence": 0.9,
+    "reason": "회사에서 진행하는 회의이므로 업무 카테고리에 해당"
+}}
+"""
+
+        print(f"🎯 LLM 프롬프트:")
+        print(prompt)
+        
+        # LLM에게 카테고리 분류 요청
+        print(f"🎯 LLM 서비스 호출 시작...")
+        response = await llm_service.get_completion(prompt)
+        print(f"🎯 LLM 원본 응답: '{response}'")
+        
+        try:
+            # JSON 응답 파싱
+            cleaned_response = response.strip()
+            print(f"🎯 정리된 응답: '{cleaned_response}'")
+            
+            result = json.loads(cleaned_response)
+            print(f"🎯 파싱된 JSON: {result}")
+            
+            # 유효성 검사
+            category_id = result.get("category_id")
+            confidence = result.get("confidence", 0.5)
+            reason = result.get("reason", "")
+            
+            print(f"🎯 추출된 값들:")
+            print(f"   category_id: {category_id}")
+            print(f"   confidence: {confidence}")
+            print(f"   reason: {reason}")
+            
+            if category_id not in request.categories:
+                # 유효하지 않은 카테고리 ID인 경우 기타(8)로 설정
+                print(f"❌ 유효하지 않은 카테고리 ID: {category_id}")
+                category_id = 8
+                confidence = 0.1
+                reason = "유효하지 않은 카테고리로 기타로 분류"
+            
+            final_result = {
+                "category_id": category_id,
+                "confidence": float(confidence),
+                "reason": reason,
+                "category_name": request.categories.get(category_id, "기타")
+            }
+            
+            print(f"✅ 최종 분류 결과: {final_result}")
+            return final_result
+            
+        except json.JSONDecodeError as e:
+            # JSON 파싱 실패 시 기본값 반환
+            print(f"❌ JSON 파싱 실패: {e}")
+            print(f"   원본 응답: '{response}'")
+            return {
+                "category_id": 8,  # 기타
+                "confidence": 0.1,
+                "reason": f"LLM 응답 파싱 실패로 기타 카테고리로 분류: {str(e)}",
+                "category_name": "기타"
+            }
+            
+    except Exception as e:
+        print(f"❌ 카테고리 분류 중 오류 발생: {e}")
+        import traceback
+        print(f"❌ 오류 스택: {traceback.format_exc()}")
+        # 오류 발생 시 기본값 반환
+        return {
+            "category_id": 8,  # 기타
+            "confidence": 0.1,
+            "reason": f"오류 발생으로 기타 카테고리로 분류: {str(e)}",
+            "category_name": "기타"
+        }

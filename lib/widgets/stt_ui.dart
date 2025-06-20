@@ -32,20 +32,14 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
     with TickerProviderStateMixin {
   String _recognizedText = '';
   double _soundLevel = 0.0; // 소리 레벨 추가
-  final SpeechService _speechService = SpeechService();
-  // 런타임에 조절 가능한 민감도 설정
+  final SpeechService _speechService = SpeechService(); // 런타임에 조절 가능한 민감도 설정
   late double _currentSensitivity;
-  // 음소거 상태 추적
-  bool _isMuted = false;
   // 자동 일시정지 상태 추적 (무음 시간 제한에 의한 일시정지)
   bool _isAutoPaused = false; // 파형 애니메이션을 위한 컨트롤러들
   late AnimationController _rotationController;
   late AnimationController _pulseController;
   late AnimationController _particleController;
   late AnimationController _colorChangeController;
-
-  // 전송 버튼 표시 여부
-  bool _showSendButton = false;
 
   // 명령 처리 결과를 저장할 변수 추가
   String _commandResponse = '';
@@ -86,8 +80,6 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
               if (mounted) {
                 setState(() {
                   _recognizedText = text;
-                  // 텍스트가 있을 때만 전송 버튼 표시 (지연 없이 바로 표시)
-                  _showSendButton = text.isNotEmpty;
                 });
               }
             },
@@ -126,7 +118,7 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
       if (mounted) {
         setState(() {
           // 자동 일시정지 상태 감지 - 무음 시간 제한에 의해 자동으로 일시정지된 경우
-          if (!isListening && !_isMuted) {
+          if (!isListening) {
             _isAutoPaused = true;
             print('자동 일시정지 설정됨: $_isAutoPaused'); // 디버깅용
           } else if (isListening) {
@@ -184,32 +176,17 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
   void _close() {
     _speechService.cancelListening();
     widget.onClose?.call();
-  }
-
-  // 음소거 토글 함수
-  void _toggleMute() {
-    setState(() {
-      _isMuted = !_isMuted;
-      if (_isMuted) {
-        _speechService.pauseListening();
-      } else {
-        _speechService.resumeListening();
-      }
-    });
   } // 녹음 다시 시작 함수 추가
 
   void _restartListening() {
+    setState(() {
+      _recognizedText = '';
+      _commandResponse = '';
+      _isProcessing = false;
+      _isAutoPaused = false;
+    });
     // 기존 음성 인식 세션 취소
     _speechService.cancelListening();
-
-    setState(() {
-      _isAutoPaused = false;
-      _recognizedText = ''; // 텍스트 초기화
-      _showSendButton = false; // 전송 버튼도 초기화
-
-      // 명령 응답은 유지 (이전 응답 기록을 보존)
-      // _commandResponse = '';
-    });
 
     // 약간의 지연 후 새 세션 시작
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -220,7 +197,7 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
               setState(() {
                 _recognizedText = text;
                 // 텍스트가 있을 때만 전송 버튼 표시 (지연 없이 바로 표시)
-                _showSendButton = text.isNotEmpty;
+                //_showSendButton = text.isNotEmpty;
               });
             }
           },
@@ -496,8 +473,6 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
   }
 
   Widget _buildActionButtons() {
-    final safeLevel = (_soundLevel * _currentSensitivity).clamp(0.0, 1.0);
-
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -523,12 +498,13 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
             onPressed: _close,
             tooltip: '취소',
           ),
-        ), // 중앙에 상태 표시 또는 다시 시작 버튼 표시
+        ),
+        // 중앙에 상태 표시 또는 다시 시작 버튼 표시
         _isAutoPaused || _recognizedText.isNotEmpty
             ? _buildRestartButton() // 자동 일시정지 상태이거나 음성이 인식되었을 때 다시 시작 버튼 표시
             : AnimatedOpacity(
               duration: const Duration(milliseconds: 300),
-              opacity: _isMuted ? 1.0 : 0.6,
+              opacity: 0.6,
               child: Container(
                 width: 150, // 고정된 너비 추가
                 padding: const EdgeInsets.symmetric(
@@ -547,19 +523,12 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
                   mainAxisAlignment: MainAxisAlignment.center, // 중앙 정렬 추가
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (_isMuted)
-                      Icon(
-                        Icons.mic_off,
-                        color: Colors.red.withOpacity(0.9),
-                        size: 16,
-                      ),
-                    if (_isMuted) const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        _isMuted ? '음소거' : '음성 인식 중...',
+                        '음성 인식 중...',
                         style: getTextStyle(
                           fontSize: 13,
-                          color: _isMuted ? Colors.white : Colors.white70,
+                          color: Colors.white70,
                         ),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
@@ -579,32 +548,12 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                _isMuted
-                    ? Colors.red.shade300
-                    : (_recognizedText.isNotEmpty
-                        ? Colors.blue.shade400
-                        : Colors.red.shade400.withOpacity(
-                          0.8 + (safeLevel * 0.2),
-                        )),
-                _isMuted
-                    ? Colors.red.shade600
-                    : (_recognizedText.isNotEmpty
-                        ? Colors.blue.shade600
-                        : Colors.red.shade600.withOpacity(
-                          0.8 + (safeLevel * 0.2),
-                        )),
-              ],
+              colors: [Colors.blue.shade400, Colors.blue.shade600],
             ),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color:
-                    _isMuted
-                        ? Colors.red.withOpacity(0.4)
-                        : (_recognizedText.isNotEmpty
-                            ? Colors.blue.withOpacity(0.4)
-                            : Colors.red.withOpacity(0.2 + (safeLevel * 0.3))),
+                color: Colors.blue.withOpacity(0.4),
                 blurRadius: 10,
                 spreadRadius: 2,
               ),
@@ -651,56 +600,25 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget>
   }
 
   Widget _buildPrimaryButton() {
-    // 텍스트가 인식되었고 비어있지 않을 때, 타이머가 완료된 후에만 전송 버튼 표시
-    if (_recognizedText.isNotEmpty && _showSendButton) {
-      return IconButton(
-        onPressed: () {
-          if (mounted) {
-            _handleSendCommand();
+    // 항상 전송 버튼 표시
+    return IconButton(
+      onPressed: () {
+        if (mounted) {
+          _handleSendCommand();
 
-            // 명령 처리 후에도 화면 유지
-            setState(() {
-              _showSendButton = false;
-            });
-
-            // 추가 음성 입력을 위해 자동으로 음성 인식 재시작
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted && !_speechService.isListening && !_isMuted) {
-                _restartListening();
-              }
-            });
-          }
-        },
-        tooltip: '명령 전송',
-        icon: const Icon(Icons.send, color: Colors.white, size: 26),
-      );
-    }
-
-    // 텍스트가 인식되었지만 타이머가 완료되지 않았거나, 음소거 상태일 때 마이크 또는 음소거 버튼 표시
-    if (_speechService.isListening || _isMuted) {
-      final safeLevel = (_soundLevel * _currentSensitivity).clamp(0.0, 1.0);
-
-      return IconButton(
-        onPressed: () {
-          if (mounted) {
-            _toggleMute();
-          }
-        },
-        tooltip: _isMuted ? '음소거 해제' : '음소거',
-        icon: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.all(_isMuted ? 0 : (safeLevel * 3.0)),
-          child: Icon(
-            _isMuted ? Icons.mic_off : Icons.mic,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-      );
-    }
-
-    // '시작' 버튼 제거 - 대신 자동으로 녹음이 시작되도록 함
-    // 아무 버튼도 표시되지 않도록 빈 컨테이너 반환
-    return Container();
+          // 명령 처리 후에도 화면 유지
+          setState(() {
+            _recognizedText = '';
+          }); // 추가 음성 입력을 위해 자동으로 음성 인식 재시작
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted && !_speechService.isListening) {
+              _restartListening();
+            }
+          });
+        }
+      },
+      tooltip: '명령 전송',
+      icon: const Icon(Icons.send, color: Colors.white, size: 26),
+    );
   }
 }

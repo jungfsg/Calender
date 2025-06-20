@@ -67,6 +67,9 @@ dependencies:
   flutter_tts: ^4.2.3
   pulsator: ^1.0.0+2
   audioplayers: ^6.4.0
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  flutter_dotenv: ^5.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -90,6 +93,7 @@ flutter:
 
   assets:
     - assets/images/
+    - .env
 
   fonts:
     - family: KoreanFont

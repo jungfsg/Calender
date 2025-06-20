@@ -1,19 +1,194 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:uuid/uuid.dart';
-import 'weather_service.dart';
 import 'event_storage_service.dart';
 import '../models/event.dart';
 import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://a06f-115-91-150-54.ngrok-free.app';
-  final Uuid _uuid = Uuid();
+
+  final String baseUrl = 'https://10a1-220-90-168-2.ngrok-free.app';
+
+  final Uuid _uuid = const Uuid();
+
+  // 카테고리 매핑 (LLM이 반환할 수 있는 카테고리 ID들)
+  static const Map<int, String> _categoryNames = {
+    1: '업무',
+    2: '집안일',
+    3: '기념일',
+    4: '학교',
+    5: '운동',
+    6: '공부',
+    7: '여행',
+    8: '기타',
+    9: '친구',
+    10: '가족',
+    11: '병원',
+  };
+
+  // 🚀 성능 최적화: 카테고리 분류 캐시
+  static final Map<String, int> _categoryCache = {};
+  static const int _maxCacheSize = 100; // 최대 캐시 크기
+
+  // 🚀 성능 최적화: 카테고리 분류 캐시 관리
+  static void _manageCacheSize() {
+    if (_categoryCache.length > _maxCacheSize) {
+      // 캐시 크기가 초과되면 첫 번째 항목들 제거 (LRU 방식)
+      final keysToRemove = _categoryCache.keys.take(
+        _categoryCache.length - _maxCacheSize + 10,
+      );
+      for (var key in keysToRemove) {
+        _categoryCache.remove(key);
+      }
+      print('🗑️ 카테고리 캐시 정리 완료 (현재 크기: ${_categoryCache.length})');
+    }
+  }
+
+  // LLM을 통한 카테고리 분류 함수 (캐싱 최적화)
+  Future<int> _getCategoryFromLLM(String title) async {
+    final cacheKey = title.toLowerCase().trim();
+
+    // 🚀 캐시에서 먼저 확인
+    if (_categoryCache.containsKey(cacheKey)) {
+      final cachedCategory = _categoryCache[cacheKey]!;
+      print(
+        '⚡ 카테고리 캐시 히트: "$title" -> $cachedCategory (${_categoryNames[cachedCategory]})',
+      );
+      return cachedCategory;
+    }
+
+    try {
+      print('🎯 LLM 카테고리 분류 요청: "$title"');
+
+      final requestBody = {'title': title, 'categories': _categoryNames};
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/v1/calendar/categorize'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final categoryId = data['category_id'] as int?;
+
+        print('🎯 LLM 카테고리 분류 결과: $categoryId (${_categoryNames[categoryId]})');
+
+        // 유효한 카테고리 ID인지 확인
+        if (categoryId != null && _categoryNames.containsKey(categoryId)) {
+          // 🚀 캐시에 저장
+          _categoryCache[cacheKey] = categoryId;
+          _manageCacheSize();
+          print('💾 카테고리 캐시 저장: "$title" -> $categoryId');
+          return categoryId;
+        }
+      } else {
+        print('❌ HTTP 오류: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ LLM 카테고리 분류 실패: $e');
+    }
+
+    // 실패 시 폴백 함수 사용
+    print('⚠️ LLM 카테고리 분류 실패 - 폴백 함수 사용');
+    final fallbackCategory = _getFallbackCategoryFromText(title);
+
+    // 🚀 폴백 결과도 캐시에 저장 (빠른 재사용을 위해)
+    _categoryCache[cacheKey] = fallbackCategory;
+    _manageCacheSize();
+
+    print(
+      '🔄 폴백 카테고리 결과: $fallbackCategory (${_categoryNames[fallbackCategory]})',
+    );
+    return fallbackCategory;
+  }
+
+  // 폴백용 간단한 카테고리 분류 함수 (LLM 실패 시 사용)
+  static int _getFallbackCategoryFromText(String text) {
+    final originalText = text;
+    text = text.toLowerCase();
+
+    print('🔍 폴백 카테고리 분류 시작: "$originalText" -> "$text"');
+
+    // 핵심 키워드로만 간단하게 분류
+    if (text.contains('회의') ||
+        text.contains('업무') ||
+        text.contains('미팅') ||
+        text.contains('회사')) {
+      print('✅ 폴백: 업무 카테고리(1) 매칭');
+      return 1;
+    }
+    if (text.contains('청소') ||
+        text.contains('빨래') ||
+        text.contains('요리') ||
+        text.contains('집안일')) {
+      print('✅ 폴백: 집안일 카테고리(2) 매칭');
+      return 2;
+    }
+    if (text.contains('생일') ||
+        text.contains('기념일') ||
+        text.contains('결혼') ||
+        text.contains('축하')) {
+      print('✅ 폴백: 기념일 카테고리(3) 매칭');
+      return 3;
+    }
+    if (text.contains('수업') ||
+        text.contains('강의') ||
+        text.contains('시험') ||
+        text.contains('학교')) {
+      print('✅ 폴백: 학교 카테고리(4) 매칭');
+      return 4;
+    }
+    if (text.contains('운동') ||
+        text.contains('헬스') ||
+        text.contains('피트니스') ||
+        text.contains('요가')) {
+      print('✅ 폴백: 운동 카테고리(5) 매칭');
+      return 5;
+    }
+    if (text.contains('공부') ||
+        text.contains('학습') ||
+        text.contains('스터디') ||
+        text.contains('독서')) {
+      print('✅ 폴백: 공부 카테고리(6) 매칭');
+      return 6;
+    }
+    if (text.contains('여행') ||
+        text.contains('휴가') ||
+        text.contains('관광') ||
+        text.contains('호텔')) {
+      print('✅ 폴백: 여행 카테고리(7) 매칭');
+      return 7;
+    }
+    if (text.contains('친구') ||
+        text.contains('만남') ||
+        text.contains('약속') ||
+        text.contains('술자리')) {
+      print('✅ 폴백: 친구 카테고리(9) 매칭');
+      return 9;
+    }
+    if (text.contains('가족') ||
+        text.contains('부모') ||
+        text.contains('엄마') ||
+        text.contains('아빠')) {
+      print('✅ 폴백: 가족 카테고리(10) 매칭');
+      return 10;
+    }
+    if (text.contains('병원') ||
+        text.contains('의원') ||
+        text.contains('검진') ||
+        text.contains('진료')) {
+      print('✅ 폴백: 병원 카테고리(11) 매칭');
+      return 11;
+    }
+
+    print('⚠️ 폴백: 매칭되는 키워드 없음 - 기타 카테고리(8) 사용');
+    return 8; // 기타
+  }
 
   // 날씨 관련 키워드 목록// LLM 서버에 메시지를 보내고 응답을 받는 메서드
   Future<types.TextMessage> sendMessage(
@@ -57,9 +232,8 @@ class ChatService {
         print(data);
         print('🔍 응답 키들: ${data.keys.toList()}');
 
-        final botMessage = data['response'] as String;
-
-        // 일정 추가/수정/삭제 관련 응답인지 확인하고 로컬 캘린더에 저장
+        final botMessage =
+            data['response'] as String; // 일정 추가/수정/삭제 관련 응답인지 확인하고 로컬 캘린더에 저장
         final calendarUpdated = await _handleCalendarResponse(
           data,
           onCalendarUpdate: onCalendarUpdate,
@@ -69,12 +243,32 @@ class ChatService {
         // 일정 조회인 경우 로컬에서 직접 조회해서 응답 생성
         final intent = data['intent'] as String?;
         final extractedInfo = data['extracted_info'] as Map<String, dynamic>?;
+        final calendarResult = data['calendar_result'] as Map<String, dynamic>?;
 
         String finalMessage = botMessage;
+
+        // 삭제 의도인 경우 실제 삭제 결과에 따른 메시지 처리
+        if (intent == 'calendar_delete' &&
+            calendarResult != null &&
+            calendarResult['success'] == true &&
+            extractedInfo != null) {
+          print('🔄 일정 삭제 인텐트 감지 - 실제 삭제 결과 확인');
+
+          if (!calendarUpdated) {
+            // 실제로는 삭제되지 않았으면 적절한 메시지로 대체
+            print('❌ 실제 삭제 실패 - 메시지 수정');
+            finalMessage =
+                '😔 죄송합니다. 요청하신 일정을 찾을 수 없어 삭제할 수 없습니다.\n\n삭제하려는 일정의 제목이나 날짜를 다시 확인해 주세요.';
+          } else {
+            print('✅ 실제 삭제 성공 - 백엔드 응답 사용');
+          }
+        } // 일정 조회인 경우 캘린더 업데이트 플래그를 별도로 관리
+        bool isQueryOperation = false;
 
         if ((intent == 'calendar_query' || intent == 'calendar_search') &&
             extractedInfo != null) {
           print('🔄 일정 조회 인텐트 감지 - 로컬에서 직접 조회');
+          isQueryOperation = true; // 조회 작업임을 표시
 
           final queryDate = extractedInfo['start_date'] as String?;
           final queryDateEnd = extractedInfo['end_date'] as String?;
@@ -105,7 +299,7 @@ class ChatService {
                 final dayOfWeek =
                     ['일', '월', '화', '수', '목', '금', '토'][startDate.weekday % 7];
                 finalMessage =
-                    '📅 ${startDate.month}월 ${startDate.day}일 (${dayOfWeek})에는 등록된 일정이 없습니다.';
+                    '📅 ${startDate.month}월 ${startDate.day}일 ($dayOfWeek)에는 등록된 일정이 없습니다.';
                 print('📭 해당 날짜에 일정 없음 - 빈 일정 메시지로 응답');
               }
             } catch (e) {
@@ -115,8 +309,8 @@ class ChatService {
           }
         }
 
-        // 캘린더가 업데이트되었으면 콜백 호출
-        if (calendarUpdated && onCalendarUpdate != null) {
+        // 캘린더가 업데이트되었고 조회 작업이 아닌 경우에만 콜백 호출
+        if (calendarUpdated && !isQueryOperation && onCalendarUpdate != null) {
           onCalendarUpdate();
         }
 
@@ -151,23 +345,97 @@ class ChatService {
 
       print('Intent: $intent');
       print('ExtractedInfo: $extractedInfo');
-      print('CalendarResult: $calendarResult');
-
-      // 일정 추가가 성공한 경우
+      print('CalendarResult: $calendarResult'); // 일정 추가가 성공한 경우
       if (intent == 'calendar_add' &&
           calendarResult != null &&
           calendarResult['success'] == true &&
           extractedInfo != null) {
         print('일정 추가 조건 만족! 이벤트 생성 시작...');
 
-        // 다중 일정 처리 확인
+        // Multi Day Event 처리 확인
+        final isMultiDay = extractedInfo['is_multi_day'] as bool? ?? false;
         final isMultiple = extractedInfo['is_multiple'] as bool? ?? false;
 
-        if (isMultiple) {
+        if (isMultiDay) {
+          // Multi Day Event 처리
+          print('📅 Multi Day Event 처리 시작...');
+          final events = extractedInfo['events'] as List<dynamic>? ?? [];
+
+          if (events.isNotEmpty) {
+            final eventData = events[0] as Map<String, dynamic>;
+            final title = eventData['title'] as String? ?? '새 일정';
+            final startDate = eventData['start_date'] as String?;
+            final endDate = eventData['end_date'] as String?;
+            final startTime = eventData['start_time'] as String?;
+            final endTime = eventData['end_time'] as String?;
+            final description = eventData['description'] as String? ?? '';
+
+            print('Multi Day Event 데이터:');
+            print('  Title: $title');
+            print('  StartDate: $startDate');
+            print('  EndDate: $endDate');
+            print('  StartTime: $startTime');
+            print('  EndTime: $endTime');
+            print('  Description: $description');
+
+            if (startDate != null && endDate != null) {
+              try {
+                final parsedStartDate = DateTime.parse(startDate);
+                final parsedEndDate = DateTime.parse(
+                  endDate,
+                ); // 🚀 성능 최적화: 폴백 우선 사용 후 LLM 카테고리 분류
+                int categoryColorId = _getFallbackCategoryFromText(title);
+                String colorId = categoryColorId.toString();
+                print(
+                  '🎨 Multi Day Event 폴백 카테고리 사용: $colorId (${_categoryNames[categoryColorId]}, 제목: $title)',
+                );
+
+                // 백그라운드에서 LLM 카테고리 분류 실행 (UI 블로킹 방지)
+                _getCategoryFromLLM(title)
+                    .then((llmCategoryId) {
+                      if (llmCategoryId != categoryColorId) {
+                        print(
+                          '💡 LLM 카테고리 분류 완료 (다음에 적용): $llmCategoryId (${_categoryNames[llmCategoryId]})',
+                        );
+                      }
+                    })
+                    .catchError((e) {
+                      print('❌ 백그라운드 LLM 카테고리 분류 실패: $e');
+                    });
+
+                // Multi Day Event 객체 생성
+                final event = Event.multiDay(
+                  title: title,
+                  startDate: parsedStartDate,
+                  endDate: parsedEndDate,
+                  description: description,
+                  colorId: colorId,
+                );
+
+                print('생성된 Multi Day Event 객체: ${event.toJson()}');
+
+                // EventManager가 전달되었다면 이벤트 매니저를 통해 추가
+                if (eventManager != null) {
+                  print(
+                    '🔄 ChatService: EventManager의 addEvent로 Multi Day Event 추가 중',
+                  );
+                  await eventManager.addEvent(event, syncWithGoogle: true);
+                  print('✅ AI 채팅으로 추가된 Multi Day Event가 저장되었습니다: $title');
+                } else {
+                  print('⚠️ EventManager가 없어 Multi Day Event를 추가할 수 없습니다');
+                }
+
+                return true;
+              } catch (e) {
+                print('❌ Multi Day Event 추가 오류: $e');
+                return false;
+              }
+            }
+          }
+        } else if (isMultiple) {
           // 다중 일정 처리
           print('📋 다중 일정 처리 시작...');
           final events = extractedInfo['events'] as List<dynamic>? ?? [];
-          bool allSuccessful = true;
           int addedCount = 0;
 
           for (int i = 0; i < events.length; i++) {
@@ -184,7 +452,10 @@ class ChatService {
               try {
                 // 날짜 파싱
                 final eventDate = DateTime.parse(startDate);
-                final eventTime = startTime ?? '10:00';
+                final eventTime =
+                    (startTime == null || startTime.isEmpty)
+                        ? '종일'
+                        : startTime; // 시간이 없으면 '종일'로 처리
 
                 // 중복 체크
                 final existingEvents = await EventStorageService.getEvents(
@@ -205,124 +476,25 @@ class ChatService {
                     '🚫 다중 일정 ${i + 1}: 중복된 일정이므로 추가하지 않음: $title ($eventTime)',
                   );
                   continue; // 다음 일정으로 건너뛰기
-                }
+                } // 🚀 성능 최적화: 폴백 우선 사용 후 LLM 카테고리 분류
+                int categoryColorId = _getFallbackCategoryFromText(title);
+                String colorId = categoryColorId.toString();
+                print(
+                  '🎨 다중 일정 폴백 카테고리 사용: $colorId (${_categoryNames[categoryColorId]}, 제목: $title)',
+                );
 
-                // 카테고리 분류를 위한 키워드 맵
-                final Map<int, List<String>> categoryKeywords = {
-                  1: [
-                    // 업무
-                    '회의', '미팅', '업무', '일', '직장', '사무실', '프로젝트', '발표', '보고서',
-                    '출장', '야근', '회사', '상사', '동료', '고객', '클라이언트', '계약', '협상',
-                    '세미나', '워크샵', '교육', '승진', '면접', '인사', '급여', '평가', '기획',
-                    '마케팅', '영업', '개발', '디자인', '분석', '데이터', '팀빌딩', '컨퍼런스',
-                  ],
-                  2: [
-                    // 집안일
-                    '청소', '빨래', '설거지', '요리', '장보기', '쓰레기', '정리', '대청소',
-                    '화분', '식물', '반려동물', '수리', '정비', '전기', '수도', '가스',
-                    '인테리어', '이사', '택배', '우편', '공과금', '관리비', '보험', '은행',
-                    '계산서', '가계부', '마트', '시장', '생필품', '세제', '휴지', '음식재료',
-                  ],
-                  3: [
-                    // 기념일
-                    '생일', '결혼', '기념일', '축하', '파티', '결혼식', '돌잔치', '졸업식',
-                    '입학식', '발표회', '시상식', '개업', '창립', '승진', '퇴직', '송별',
-                    '환영회', '신년회', '송년회', '크리스마스', '밸런타인', '화이트데이',
-                    '어버이날', '어린이날', '스승의날', '추석', '설날', '현충일', '광복절',
-                    '개천절', '한글날', '성년의날', '입대', '전역', '이벤트', '콘서트',
-                  ],
-                  4: [
-                    // 학교
-                    '수업', '강의', '시험', '중간고사', '기말고사', '과제', '숙제', '발표',
-                    '토론', '세미나', '실험', '실습', '견학', '현장학습', '체험', '방학',
-                    '개학', '졸업', '입학', '전학', '휴학', '복학', '장학금', '등록금',
-                    '교과서', '참고서', '문제집', '필기', '복습', '예습', '스터디', '그룹',
-                    '동아리', '학생회', '축제', '체육대회', '소풍', '수학여행', '캠프',
-                  ],
-                  5: [
-                    // 운동
-                    '헬스', '피트니스', '체육관', '요가', '필라테스', '수영', '달리기', '조깅',
-                    '마라톤', '사이클링', '등산', '하이킹', '축구', '농구', '야구', '배구',
-                    '테니스', '배드민턴', '탁구', '골프', '볼링', '당구', '태권도', '검도',
-                    '주짓수', '복싱', '댄스', '에어로빅', '스피닝', '크로스핏', '스쿼시',
-                    '클라이밍', '스키', '스노보드', '서핑', '다이빙', '트레이닝', '스트레칭',
-                  ],
-                  6: [
-                    // 공부
-                    '공부', '학습', '독서', '시험', '자격증', '토익', '토플', '한능검',
-                    '컴활', '워드', '엑셀', '파워포인트', '코딩', '프로그래밍', '언어',
-                    '영어', '중국어', '일본어', '독일어', '프랑스어', '스페인어', '회화',
-                    '문법', '단어', '어휘', '리딩', '리스닝', '스피킹', '라이팅', '온라인',
-                    '강의', '인강', '과외', '학원', '독서실', '도서관', '스터디카페', '복습',
-                  ],
-                  7: [
-                    // 여행
-                    '여행', '휴가', '여행사', '항공', '비행기', '공항', '호텔', '숙박',
-                    '펜션', '리조트', '모텔', '게스트하우스', '에어비앤비', '캠핑', '글램핑',
-                    '국내여행', '해외여행', '배낭여행', '패키지', '자유여행', '크루즈',
-                    '관광', '명소', '박물관', '미술관', '테마파크', '놀이공원', '해변',
-                    '바다', '산', '온천', '스파', '맛집', '카페', '쇼핑', '면세점',
-                    '기념품', '사진', '셀카', '인스타', 'SNS', '맛보기', '체험', '액티비티',
-                  ],
-                  8: [
-                    // 기타
-                    '기타', '개인', '취미', '여가', '휴식', '쉬는날', '자유시간', '독서',
-                    '영화', '드라마', '예능', '유튜브', '넷플릭스', '게임', '음악', '노래',
-                    '악기', '피아노', '기타', '바이올린', '드럼', '그림', '미술', '사진',
-                    '요리', '베이킹', '원예', '정원', 'DIY', '만들기', '수집', '컬렉션',
-                    '봉사', '자원봉사', '기부', '종교', '명상', '힐링', '산책', '드라이브',
-                  ],
-                  9: [
-                    // 친구
-                    '친구', '모임', '만남', '약속', '데이트', '소개팅', '미팅', '파티',
-                    '술자리', '회식', '뒤풀이', '카페', '맛집', '식사', '점심', '저녁',
-                    '치킨', '피자', '족발', '보쌈', '삼겹살', '고기', '술', '맥주', '소주',
-                    '와인', '칵테일', '노래방', 'KTV', '볼링', '당구', '게임', 'PC방',
-                    '영화', '공연', '콘서트', '뮤지컬', '연극', '전시회', '쇼핑', '놀이공원',
-                    '동창회', '동문회', '반모임', '동아리', '클럽', '커뮤니티', '번개',
-                  ],
-                  10: [
-                    // 가족
-                    '가족', '부모님', '아버지', '어머니', '아빠', '엄마', '형', '누나',
-                    '언니', '오빠', '동생', '남동생', '여동생', '할아버지', '할머니',
-                    '외할아버지', '외할머니', '삼촌', '고모', '이모', '시댁', '친정',
-                    '시아버지', '시어머니', '장인', '장모', '처남', '처제', '시누이',
-                    '형수', '올케', '조카', '손자', '손녀', '사위', '며느리', '제사',
-                    '차례', '성묘', '이사', '집들이', '돌잔치', '백일', '결혼식', '장례식',
-                  ],
-                  11: [
-                    // 병원
-                    '병원', '의원', '클리닉', '치과', '안과', '피부과', '이비인후과',
-                    '정형외과', '산부인과', '소아과', '내과', '외과', '신경과', '정신과',
-                    '응급실', '응급', '119', '검진', '건강검진', '종합검진', '인간독',
-                    '예방접종', '백신', '주사', '수술', '입원', '외래', '진료', '치료',
-                    '처방', '약국', '처방전', '의약품', '약', '물리치료', '재활', '엑스레이',
-                    'CT', 'MRI', '초음파', '혈액검사', '소변검사', '심전도', '내시경',
-                  ],
-                };
-
-                // 카테고리 자동 분류 함수
-                int? getColorIdFromText(String text) {
-                  text = text.toLowerCase();
-
-                  for (int colorId in categoryKeywords.keys) {
-                    List<String> keywords = categoryKeywords[colorId]!;
-                    for (String keyword in keywords) {
-                      if (text.contains(keyword.toLowerCase())) {
-                        return colorId;
+                // 백그라운드에서 LLM 카테고리 분류 실행 (UI 블로킹 방지)
+                _getCategoryFromLLM(title)
+                    .then((llmCategoryId) {
+                      if (llmCategoryId != categoryColorId) {
+                        print(
+                          '💡 LLM 카테고리 분류 완료 (다음에 적용): $llmCategoryId (${_categoryNames[llmCategoryId]})',
+                        );
                       }
-                    }
-                  }
-
-                  return null; // 매칭되는 카테고리가 없으면 null 반환
-                }
-
-                // 제목으로부터 colorId 결정
-                int? categoryColorId = getColorIdFromText(title);
-                String colorId =
-                    categoryColorId?.toString() ??
-                    (1 + Random().nextInt(11)).toString();
-                print('🎨 카테고리 분류 결과: $colorId (제목: $title)');
+                    })
+                    .catchError((e) {
+                      print('❌ 백그라운드 LLM 카테고리 분류 실패: $e');
+                    });
 
                 // Event 객체 생성
                 final event = Event(
@@ -350,16 +522,14 @@ class ChatService {
                   await EventStorageService.addEvent(eventDate, event);
                   print('✅ AI 채팅으로 추가된 일정이 로컬 캘린더에만 저장되었습니다: $title');
                 }
-
                 addedCount++;
               } catch (e) {
                 print('❌ 다중 일정 ${i + 1} 추가 오류: $e');
-                allSuccessful = false;
               }
             }
           }
 
-          print('📊 다중 일정 처리 완료: ${addedCount}/${events.length}개 추가');
+          print('📊 다중 일정 처리 완료: $addedCount/${events.length}개 추가');
           return addedCount > 0; // 하나라도 추가되었으면 true
         } else {
           // 단일 일정 처리 (기존 로직)
@@ -379,7 +549,10 @@ class ChatService {
             try {
               // 날짜 파싱
               final eventDate = DateTime.parse(startDate);
-              final eventTime = startTime ?? '10:00';
+              final eventTime =
+                  (startTime == null || startTime.isEmpty)
+                      ? '종일'
+                      : startTime; // 시간이 없으면 '종일'로 처리
 
               print('파싱된 날짜: $eventDate');
               print('파싱된 시간: $eventTime');
@@ -400,124 +573,25 @@ class ChatService {
               if (isDuplicate) {
                 print('🚫 AI 채팅: 중복된 일정이므로 추가하지 않음: $title ($eventTime)');
                 return false; // 중복이므로 추가하지 않음
-              }
+              } // 🚀 성능 최적화: 폴백 우선 사용 후 LLM 카테고리 분류
+              int categoryColorId = _getFallbackCategoryFromText(title);
+              String colorId = categoryColorId.toString();
+              print(
+                '🎨 단일 일정 폴백 카테고리 사용: $colorId (${_categoryNames[categoryColorId]}, 제목: $title)',
+              );
 
-              // 카테고리 분류를 위한 키워드 맵
-              final Map<int, List<String>> categoryKeywords = {
-                1: [
-                  // 업무
-                  '회의', '미팅', '업무', '일', '직장', '사무실', '프로젝트', '발표', '보고서',
-                  '출장', '야근', '회사', '상사', '동료', '고객', '클라이언트', '계약', '협상',
-                  '세미나', '워크샵', '교육', '승진', '면접', '인사', '급여', '평가', '기획',
-                  '마케팅', '영업', '개발', '디자인', '분석', '데이터', '팀빌딩', '컨퍼런스',
-                ],
-                2: [
-                  // 집안일
-                  '집안일', '청소', '빨래', '설거지', '요리', '장보기', '쓰레기', '정리', '대청소',
-                  '화분', '식물', '반려동물', '수리', '정비', '전기', '수도', '가스',
-                  '인테리어', '이사', '택배', '우편', '공과금', '관리비', '보험', '은행',
-                  '계산서', '가계부', '마트', '시장', '생필품', '세제', '휴지', '음식재료',
-                ],
-                3: [
-                  // 기념일
-                  '생일', '결혼', '기념일', '축하', '파티', '결혼식', '돌잔치', '졸업식',
-                  '입학식', '발표회', '시상식', '개업', '창립', '승진', '퇴직', '송별',
-                  '환영회', '신년회', '송년회', '크리스마스', '밸런타인', '화이트데이',
-                  '어버이날', '어린이날', '스승의날', '추석', '설날', '현충일', '광복절',
-                  '개천절', '한글날', '성년의날', '입대', '전역', '이벤트', '콘서트',
-                ],
-                4: [
-                  // 학교
-                  '학교', '수업', '강의', '시험', '중간고사', '기말고사', '과제', '숙제', '발표',
-                  '토론', '세미나', '실험', '실습', '견학', '현장학습', '체험', '방학',
-                  '개학', '졸업', '입학', '전학', '휴학', '복학', '장학금', '등록금',
-                  '교과서', '참고서', '문제집', '필기', '복습', '예습', '스터디', '그룹',
-                  '동아리', '학생회', '축제', '체육대회', '소풍', '수학여행', '캠프',
-                ],
-                5: [
-                  // 운동
-                  '운동', '헬스', '피트니스', '체육관', '요가', '필라테스', '수영', '달리기', '조깅',
-                  '마라톤', '사이클링', '등산', '하이킹', '축구', '농구', '야구', '배구',
-                  '테니스', '배드민턴', '탁구', '골프', '볼링', '당구', '태권도', '검도',
-                  '주짓수', '복싱', '댄스', '에어로빅', '스피닝', '크로스핏', '스쿼시',
-                  '클라이밍', '스키', '스노보드', '서핑', '다이빙', '트레이닝', '스트레칭',
-                ],
-                6: [
-                  // 공부
-                  '공부', '학습', '독서', '시험', '자격증', '토익', '토플', '한능검',
-                  '컴활', '워드', '엑셀', '파워포인트', '코딩', '프로그래밍', '언어',
-                  '영어', '중국어', '일본어', '독일어', '프랑스어', '스페인어', '회화',
-                  '문법', '단어', '어휘', '리딩', '리스닝', '스피킹', '라이팅', '온라인',
-                  '강의', '인강', '과외', '학원', '독서실', '도서관', '스터디카페', '복습',
-                ],
-                7: [
-                  // 여행
-                  '여행', '휴가', '여행사', '항공', '비행기', '공항', '호텔', '숙박',
-                  '펜션', '리조트', '모텔', '게스트하우스', '에어비앤비', '캠핑', '글램핑',
-                  '국내여행', '해외여행', '배낭여행', '패키지', '자유여행', '크루즈',
-                  '관광', '명소', '박물관', '미술관', '테마파크', '놀이공원', '해변',
-                  '바다', '산', '온천', '스파', '맛집', '카페', '쇼핑', '면세점',
-                  '기념품', '사진', '셀카', '인스타', 'SNS', '맛보기', '체험', '액티비티',
-                ],
-                8: [
-                  // 기타
-                  '기타', '개인', '취미', '여가', '휴식', '쉬는날', '자유시간', '독서',
-                  '영화', '드라마', '예능', '유튜브', '넷플릭스', '게임', '음악', '노래',
-                  '악기', '피아노', '기타', '바이올린', '드럼', '그림', '미술', '사진',
-                  '요리', '베이킹', '원예', '정원', 'DIY', '만들기', '수집', '컬렉션',
-                  '봉사', '자원봉사', '기부', '종교', '명상', '힐링', '산책', '드라이브',
-                ],
-                9: [
-                  // 친구
-                  '친구', '모임', '만남', '약속', '데이트', '소개팅', '미팅', '파티',
-                  '술자리', '회식', '뒤풀이', '카페', '맛집', '식사', '점심', '저녁',
-                  '치킨', '피자', '족발', '보쌈', '삼겹살', '고기', '술', '맥주', '소주',
-                  '와인', '칵테일', '노래방', 'KTV', '볼링', '당구', '게임', 'PC방',
-                  '영화', '공연', '콘서트', '뮤지컬', '연극', '전시회', '쇼핑', '놀이공원',
-                  '동창회', '동문회', '반모임', '동아리', '클럽', '커뮤니티', '번개',
-                ],
-                10: [
-                  // 가족
-                  '가족', '부모님', '아버지', '어머니', '아빠', '엄마', '형', '누나',
-                  '언니', '오빠', '동생', '남동생', '여동생', '할아버지', '할머니',
-                  '외할아버지', '외할머니', '삼촌', '고모', '이모', '시댁', '친정',
-                  '시아버지', '시어머니', '장인', '장모', '처남', '처제', '시누이',
-                  '형수', '올케', '조카', '손자', '손녀', '사위', '며느리', '제사',
-                  '차례', '성묘', '이사', '집들이', '돌잔치', '백일', '결혼식', '장례식',
-                ],
-                11: [
-                  // 병원
-                  '병원', '의원', '클리닉', '치과', '안과', '피부과', '이비인후과',
-                  '정형외과', '산부인과', '소아과', '내과', '외과', '신경과', '정신과',
-                  '응급실', '응급', '119', '검진', '건강검진', '종합검진', '인간독',
-                  '예방접종', '백신', '주사', '수술', '입원', '외래', '진료', '치료',
-                  '처방', '약국', '처방전', '의약품', '약', '물리치료', '재활', '엑스레이',
-                  'CT', 'MRI', '초음파', '혈액검사', '소변검사', '심전도', '내시경',
-                ],
-              };
-
-              // 카테고리 자동 분류 함수
-              int? getColorIdFromText(String text) {
-                text = text.toLowerCase();
-
-                for (int colorId in categoryKeywords.keys) {
-                  List<String> keywords = categoryKeywords[colorId]!;
-                  for (String keyword in keywords) {
-                    if (text.contains(keyword.toLowerCase())) {
-                      return colorId;
+              // 백그라운드에서 LLM 카테고리 분류 실행 (UI 블로킹 방지)
+              _getCategoryFromLLM(title)
+                  .then((llmCategoryId) {
+                    if (llmCategoryId != categoryColorId) {
+                      print(
+                        '💡 LLM 카테고리 분류 완료 (다음에 적용): $llmCategoryId (${_categoryNames[llmCategoryId]})',
+                      );
                     }
-                  }
-                }
-
-                return null; // 매칭되는 카테고리가 없으면 null 반환
-              }
-
-              // 제목으로부터 colorId 결정
-              int? categoryColorId = getColorIdFromText(title);
-              String colorId =
-                  categoryColorId?.toString() ??
-                  (1 + Random().nextInt(11)).toString();
-              print('🎨 카테고리 분류 결과: $colorId (제목: $title)');
+                  })
+                  .catchError((e) {
+                    print('❌ 백그라운드 LLM 카테고리 분류 실패: $e');
+                  });
 
               // Event 객체 생성
               final event = Event(
@@ -841,8 +915,7 @@ class ChatService {
             print('❌ 수정할 일정의 날짜 정보가 없습니다');
           }
         }
-      }
-      // 일정 조회가 성공한 경우 (calendar_query 또는 calendar_search)
+      } // 일정 조회가 성공한 경우 (calendar_query 또는 calendar_search)
       else if ((intent == 'calendar_query' || intent == 'calendar_search') &&
           extractedInfo != null) {
         print('📅 일정 조회 조건 만족! 일정 조회 시작...');
@@ -893,12 +966,12 @@ class ChatService {
               );
               print('📝 포맷팅된 일정 브리핑: $formattedSchedule');
 
-              // 채팅에 일정 정보 추가 - 직접 메시지 생성해서 표시
-              return true; // 캘린더 조회 완료
+              // 일정 조회는 캘린더를 수정하지 않으므로 false 반환
+              return false; // 캘린더 조회 완료 (수정 없음)
             } else {
               print('📭 해당 기간에 일정이 없습니다.');
-              // 일정이 없어도 응답 생성
-              return true; // 빈 일정도 응답으로 처리
+              // 일정이 없어도 응답 생성하지만 캘린더 수정은 없음
+              return false; // 빈 일정도 조회 작업이므로 수정 없음
             }
           } catch (e) {
             print('❌ 일정 조회 중 날짜 파싱 오류: $e');
@@ -1057,6 +1130,8 @@ class ChatService {
                 print('   검색한 제목: "$title"');
                 print('   검색한 날짜: $eventDate');
                 print('   검색한 시간: $startTime');
+                print('   기존 이벤트 개수: ${existingEvents.length}개');
+                return false; // 삭제할 이벤트가 없음을 명시적으로 반환
               }
             } catch (e) {
               print('❌ 일정 삭제 중 날짜 파싱 오류: $e');
@@ -1205,7 +1280,6 @@ class ChatService {
                 }
               }
             }
-
             if (eventToDelete != null) {
               if (eventManager != null) {
                 await eventManager.removeEventAndRefresh(
@@ -1222,6 +1296,7 @@ class ChatService {
               print('✅ 개별 삭제 ${i + 1} 완료: ${eventToDelete.title}');
             } else {
               print('❌ 개별 삭제 ${i + 1} 실패: 일정을 찾을 수 없음 ($title)');
+              // 일정을 찾을 수 없는 경우에도 로그만 출력하고 계속 진행
             }
           } catch (e) {
             print('❌ 개별 삭제 ${i + 1} 처리 중 오류: $e');
@@ -1627,7 +1702,7 @@ class ChatService {
       0,
       (sum, events) => sum + events.length,
     );
-    buffer.writeln('\n📊 총 ${totalEvents}개의 일정이 있습니다.');
+    buffer.writeln('\n📊 총 $totalEvents개의 일정이 있습니다.');
 
     return buffer.toString();
   }
@@ -1729,7 +1804,6 @@ class ChatService {
               final newEndTime = changes['end_time'] as String?;
               final newDate = changes['start_date'] as String?;
               final newDescription = changes['description'] as String?;
-              final newLocation = changes['location'] as String?;
 
               // 새로운 날짜 파싱
               DateTime updatedDate = eventToUpdate.date;
@@ -1891,7 +1965,7 @@ class ChatService {
         }
       }
 
-      print('🎯 다중 수정 완료: 총 ${updates.length}개 중 ${successCount}개 성공');
+      print('🎯 다중 수정 완료: 총 ${updates.length}개 중 $successCount개 성공');
 
       // 캘린더 업데이트 콜백 호출
       if (onCalendarUpdate != null) {

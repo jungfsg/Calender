@@ -191,6 +191,9 @@ class EventPopup extends StatelessWidget {
                             event
                                     .isMultiDay // 🆕 멀티데이 이벤트 처리
                                 ? '며칠 일정'
+                                : event.time ==
+                                    '종일' // 종일 이벤트 우선 체크
+                                ? '종일'
                                 : event
                                     .hasEndTime() // 종료시간이 따로 있는 경우를 따지는 조건문
                                 ? '${event.time}\n-${event.endTime}'
@@ -226,22 +229,10 @@ class EventPopup extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            // 수정 버튼
-                            if (onEditEvent != null)
+                            // 수정 버튼 (멀티데이 이벤트가 아닌 경우만 표시)
+                            if (onEditEvent != null && !event.isMultiDay)
                               GestureDetector(
-                                onTap: () {
-                                  if (event.isMultiDay) {
-                                    // 멀티데이 이벤트 수정 알림
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('며칠 일정은 삭제 후 다시 생성해주세요.'),
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  } else {
-                                    onEditEvent!(event);
-                                  }
-                                },
+                                onTap: () => onEditEvent!(event),
                                 child: Container(
                                   width: 24,
                                   height: 24,
@@ -272,7 +263,11 @@ class EventPopup extends StatelessWidget {
                                             style: getTextStyle(fontSize: 14),
                                           ),
                                           content: Text(
-                                            '${event.hasEndTime() ? '${event.time}-${event.endTime}' : event.time} ${event.title} 일정을 삭제하시겠습니까?',
+                                            '${event.time == '종일'
+                                                ? '종일'
+                                                : event.hasEndTime()
+                                                ? '${event.time}-${event.endTime}'
+                                                : event.time} ${event.title} 일정을 삭제하시겠습니까?',
                                             style: getTextStyle(fontSize: 12),
                                           ),
                                           actions: [
@@ -312,7 +307,7 @@ class EventPopup extends StatelessWidget {
                                 }
                               },
 
-                              child: Container(
+                              child: SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: const Icon(
