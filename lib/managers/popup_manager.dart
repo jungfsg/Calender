@@ -446,9 +446,9 @@ class PopupManager {
                                       '반복 횟수:',
                                       style: getTextStyle(fontSize: 14),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 8),
                                     Container(
-                                      width: 150, // 80에서 100으로 증가
+                                      width: 120, // 150에서 120으로 줄임
                                       height: 40,
                                       decoration: BoxDecoration(
                                         border: Border.all(
@@ -462,7 +462,7 @@ class PopupManager {
                                             icon: const Icon(
                                               Icons.remove,
                                               size: 14,
-                                            ), // 16에서 14로 감소
+                                            ),
                                             onPressed: () {
                                               setState(() {
                                                 if (recurrenceCount > 1) {
@@ -472,8 +472,8 @@ class PopupManager {
                                             },
                                             padding: EdgeInsets.zero,
                                             constraints: const BoxConstraints(
-                                              minWidth: 20, // 24에서 20으로 감소
-                                              minHeight: 20, // 24에서 20으로 감소
+                                              minWidth: 20,
+                                              minHeight: 20,
                                             ),
                                           ),
                                           Expanded(
@@ -490,7 +490,7 @@ class PopupManager {
                                             icon: const Icon(
                                               Icons.add,
                                               size: 14,
-                                            ), // 16에서 14로 감소
+                                            ),
                                             onPressed: () {
                                               setState(() {
                                                 if (recurrenceCount < 50) {
@@ -501,21 +501,24 @@ class PopupManager {
                                             },
                                             padding: EdgeInsets.zero,
                                             constraints: const BoxConstraints(
-                                              minWidth: 20, // 24에서 20으로 감소
-                                              minHeight: 20, // 24에서 20으로 감소
+                                              minWidth: 20,
+                                              minHeight: 20,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _getRecurrenceDescription(
-                                        selectedRecurrence,
-                                      ),
-                                      style: getTextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _getRecurrenceDescription(
+                                          selectedRecurrence,
+                                        ),
+                                        style: getTextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -1222,9 +1225,9 @@ class PopupManager {
                                       '반복 횟수:',
                                       style: getTextStyle(fontSize: 14),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 8),
                                     Container(
-                                      width: 150,
+                                      width: 120,
                                       height: 40,
                                       decoration: BoxDecoration(
                                         border: Border.all(
@@ -1283,14 +1286,17 @@ class PopupManager {
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _getRecurrenceDescription(
-                                        selectedRecurrence,
-                                      ),
-                                      style: getTextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _getRecurrenceDescription(
+                                          selectedRecurrence,
+                                        ),
+                                        style: getTextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
