@@ -99,26 +99,112 @@ def safe_json_parse(response_text: str, fallback_data: dict) -> dict:
         return fallback_data
 
 def keyword_based_classification(user_input: str) -> dict:
-    """키워드 기반 의도 분류 폴백"""
+    """키워드 기반 의도 분류 폴백 - 간접적 표현 강화"""
     user_input_lower = user_input.lower()
     
-    # 커스터마이징 포인트: 키워드 추가/수정 가능
-    # 예: '예약'을 추가하거나 특정 도메인 용어 추가
+    # 간접적인 일정 추가 표현들 대폭 추가
     intent_keywords = {
-        'calendar_add': ['추가', '만들', '생성', '등록', '잡아', '스케줄', '예약', '설정'],
-        'calendar_update': ['수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정', '이름 바꿔', '시간 바꿔', '날짜 바꿔'],
-        'calendar_delete': ['삭제', '지워', '취소', '없애', '빼', '제거', '다 삭제', '모두 삭제', '전체 삭제', '다 지워', '모두 지워', '전부 삭제'],
-        'calendar_search': ['검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인'],
+        'calendar_add': [
+            # 기존 직접적 표현
+            '추가', '만들', '생성', '등록', '잡아', '스케줄', '예약', '설정',
+            
+            # 의무/할 일 표현 (가장 많이 사용됨)
+            '해야해', '해야 해', '드려야 해', '줘야해', '줘야 해', 
+            '가야해', '가야 해', '와야해', '와야 해', '봐야해', '봐야 해',
+            '먹어야해', '먹어야 해', '사야해', '사야 해',
+            
+            # 계획/예정 표현
+            '기로 했어', '기로했어', '할 예정', '할예정', '예정이야', '예정이에요',
+            '하려고 해', '하려고해', '계획이야', '계획이에요',
+            
+            # 약속/만남 표현
+            '약속', '만나기로', '만나기로 했어', '만날 예정', '만날예정',
+            '참석', '참석해야', '참여', '참여해야',
+            
+            # 반복/습관 표현
+            '매일', '매주', '매월', '마다', '때마다',
+            '하루에', '일주일에', '한 달에',
+            
+            # 기간 표현
+            '부터', '까지', '동안', '간',
+            '박', '일간', '시간', '분간'
+        ],
+        
+        'calendar_update': [
+            '수정', '변경', '바꿔', '업데이트', '이동', '옮겨', '고쳐', '편집', '조정', 
+            '이름 바꿔', '시간 바꿔', '날짜 바꿔', '미뤄', '당겨'
+        ],
+        
+        'calendar_delete': [
+            '삭제', '지워', '취소', '없애', '빼', '제거', 
+            '다 삭제', '모두 삭제', '전체 삭제', '다 지워', '모두 지워', '전부 삭제'
+        ],
+        
+        'calendar_search': [
+            '검색', '찾아', '조회', '확인', '뭐 있', '언제', '일정 보', '스케줄 확인',
+            # STT에서 물음표 없이 들어오는 의문문 패턴들
+            '뭐 있어', '뭐있어', '무슨 일', '언제', 
+            '있어', '있나', '뭐야', '언제야',  # 물음표 없는 의문문
+            '일정 뭐', '오늘 뭐', '내일 뭐', '이번주 뭐',
+            '시간 있어', '시간있어', '바쁘', '바빠',
+            # 확인 요청 표현들
+            '확인해', '알려줘', '보여줘', '말해줘',
+        ],
+        
         'calendar_copy': ['복사', '복제', '같은 일정', '동일한']
     }
     
-    for intent, keywords in intent_keywords.items():
-        if any(keyword in user_input_lower for keyword in keywords):
+    # 문맥상 의문문인지 판단하는 패턴들 (STT용)
+    import re
+    question_patterns = [
+        r'.*뭐\s*(있어|있나|야)',           # "뭐 있어", "뭐야" 등
+        r'.*(언제|몇시|며칠).*',           # 시간 질문
+        r'.*시간\s*있어.*',               # "시간 있어"
+        r'.*(바쁘|바빠).*',               # "바쁘지", "바빠"
+        r'.*일정.*뭐.*',                  # "일정 뭐 있어"
+        r'.*(오늘|내일|이번주|다음주)\s*뭐.*', # "오늘 뭐 해"
+    ]
+    
+    # 의문문 패턴 매칭 시 search로 우선 분류
+    for pattern in question_patterns:
+        if re.search(pattern, user_input_lower):
             return {
-                "intent": intent,
-                "confidence": 0.7,
-                "reason": f"키워드 기반 분류: {[k for k in keywords if k in user_input_lower]}"
+                "intent": "calendar_search",
+                "confidence": 0.85,
+                "reason": f"의문문 패턴 감지: {pattern}"
             }
+    
+    # 가중치 기반 점수 계산 (간접적 표현에 더 높은 가중치)
+    scores = {}
+    for intent, keywords in intent_keywords.items():
+        score = 0
+        matched_keywords = []
+        
+        for keyword in keywords:
+            if keyword in user_input_lower:
+                # 간접적 표현에 더 높은 가중치 부여
+                if any(pattern in keyword for pattern in ['해야', '줘야', '가야', '기로', '예정', '약속']):
+                    score += 2.0  # 간접적 표현에 높은 가중치
+                else:
+                    score += 1.0  # 직접적 표현에 기본 가중치
+                matched_keywords.append(keyword)
+        
+        if score > 0:
+            scores[intent] = {
+                'score': score,
+                'keywords': matched_keywords
+            }
+    
+    if scores:
+        # 가장 높은 점수의 의도 선택
+        best_intent = max(scores.keys(), key=lambda x: scores[x]['score'])
+        confidence = min(0.9, 0.5 + scores[best_intent]['score'] * 0.1)
+        
+        return {
+            "intent": best_intent,
+            "confidence": confidence,
+            "reason": f"키워드 기반 분류 (간접표현): {scores[best_intent]['keywords']}"
+        }
     
     return {
         "intent": "general_chat",
@@ -183,8 +269,48 @@ def extract_search_keyword_from_input(user_input: str) -> str:
     return user_input.strip()  # 원본 입력 반환
 
 def extract_title_from_input(user_input: str) -> str:
-    """사용자 입력에서 제목 추출"""
+    """사용자 입력에서 제목 추출 - 간접적 표현 강화"""
     import re
+    
+    # 간접적 표현을 자연스러운 제목으로 변환하는 매핑
+    indirect_mappings = {
+        # 의무 표현
+        r'(.+?)\s*(에|에게|께)\s*(.+?)\s*(줘야해|줘야 해|드려야 해|드려야해)': r'\2 \3',
+        r'(.+?)\s*(가야해|가야 해)': r'\1',
+        r'(.+?)\s*(와야해|와야 해)': r'\1',
+        r'(.+?)\s*(봐야해|봐야 해)': r'\1',
+        r'(.+?)\s*(해야해|해야 해|해야돼|해야 돼)': r'\1',
+        r'(.+?)\s*(사야해|사야 해)': r'\1 구매',
+        r'(.+?)\s*(먹어야해|먹어야 해)': r'\1',
+        
+        # 계획/예정 표현
+        r'(.+?)\s*(기로 했어|기로했어)': r'\1',
+        r'(.+?)\s*(할 예정|할예정|예정이야|예정이에요)': r'\1',
+        r'(.+?)\s*(하려고 해|하려고해)': r'\1',
+        r'(.+?)\s*(계획이야|계획이에요)': r'\1',
+        
+        # 약속/만남 표현
+        r'(.+?)\s*(만나기로|만날 예정|만날예정)': r'\1 만남',
+        r'(.+?)\s*(참석해야|참여해야)': r'\1',
+        
+        # 반복 표현
+        r'매일\s*(.+?)': r'\1 (매일)',
+        r'매주\s*(.+?)': r'\1 (매주)',
+        r'매월\s*(.+?)': r'\1 (매월)',
+    }
+    
+    cleaned_input = user_input
+    
+    # 간접적 표현 변환
+    for pattern, replacement in indirect_mappings.items():
+        match = re.search(pattern, cleaned_input)
+        if match:
+            try:
+                transformed = re.sub(pattern, replacement, cleaned_input)
+                cleaned_input = transformed
+                break
+            except:
+                continue
     
     # 불필요한 키워드들을 제거하는 패턴
     remove_patterns = [
@@ -205,8 +331,6 @@ def extract_title_from_input(user_input: str) -> str:
         r'\d{1,2}:\d{2}',
     ]
     
-    cleaned_input = user_input
-    
     # 시간 패턴 제거
     for pattern in time_patterns:
         cleaned_input = re.sub(pattern, '', cleaned_input)
@@ -214,8 +338,7 @@ def extract_title_from_input(user_input: str) -> str:
     # 불필요한 키워드 제거
     for pattern in remove_patterns:
         cleaned_input = re.sub(pattern, '', cleaned_input)
-    
-    # 특정 패턴으로 제목 추출
+      # 특정 패턴으로 제목 추출
     title_patterns = [
         r'(.+?)\s*(일정|미팅|회의|만남|약속|수업|세미나)',  # "맥주 일정" -> "맥주"
         r'(.+)',  # 나머지 모든 텍스트
@@ -353,54 +476,66 @@ class LLMService:
         
     def _create_calendar_workflow(self):
         """AI 캘린더를 위한 LangGraph 워크플로우를 생성합니다."""
-        
         def classify_intent(state: CalendarState) -> CalendarState:
-            """1단계: 의도 분류"""
+            """1단계: 의도 분류 - 간접적 표현 강화"""
             try:
-                # 커스터마이징 포인트: 프롬프트 수정하여 도메인 특화 가능
-                # 예: 의료진을 위한 '진료', '수술' 등의 분류 추가
                 prompt = f"""
 사용자의 입력을 분석하여 의도를 분류해주세요.
 
-예시:
-"내일 오후 3시에 회의 일정 잡아줘" → {{"intent": "calendar_add", "confidence": 0.95, "reason": "새로운 일정 추가 요청"}}
-"오늘 일정 뭐 있어?" → {{"intent": "calendar_search", "confidence": 0.93, "reason": "일정 조회 요청"}}
-"회의 시간을 4시로 바꿔줘" → {{"intent": "calendar_update", "confidence": 0.90, "reason": "기존 일정 수정 요청"}}
-"내일 미팅 취소해줘" → {{"intent": "calendar_delete", "confidence": 0.88, "reason": "일정 삭제 요청"}}
-"안녕하세요" → {{"intent": "general_chat", "confidence": 0.99, "reason": "일반 인사말"}}
+**중요**: 한국어에서는 간접적인 표현이 매우 많이 사용됩니다!
+
+**일정 추가 표현 예시:**
+
+1. **의무/할 일 표현 (가장 일반적)**:
+   - "나 내일 화분에 물 줘야해" → calendar_add
+   - "다음주에 부모님께 안부 전화 드려야 해" → calendar_add
+   - "월요일에 보고서 제출해야 돼" → calendar_add
+   - "이번주에 치과 가야해" → calendar_add
+
+2. **계획/예정 표현**:
+   - "내일 친구랑 영화보기로 했어" → calendar_add
+   - "다음주에 출장 가기로 되어있어" → calendar_add
+   - "토요일에 등산하기로 약속했어" → calendar_add
+   - "오늘 저녁에 헬스장 갈 예정이야" → calendar_add
+
+3. **약속/만남 표현**:
+   - "내일 누구랑 만나기로 했어" → calendar_add
+   - "금요일에 회식 있어" → calendar_add
+   - "다음주에 동창회 참석해야 해" → calendar_add
+
+4. **직접적 명령어 (상대적으로 적음)**:
+   - "내일 오후 3시에 회의 일정 잡아줘" → calendar_add
+   - "다음주 월요일에 미팅 추가해줘" → calendar_add
+
+**일정 조회 표현 예시:**
+- "나 내일 회의 있어?" → calendar_search (의문문)
+- "나 내일 뭐 해야하지?" → calendar_search
+- "오늘 일정 뭐 있어?" → calendar_search
+- "언제 시간 있어?" → calendar_search
 
 사용자 입력: {state['current_input']}
 
 다음 중 하나로 분류해주세요:
-1. calendar_add - 새로운 일정 추가 (키워드: 추가, 만들기, 생성, 등록, 잡아줘, 스케줄)
-2. calendar_update - 기존 일정 수정 (키워드: 수정, 변경, 바꿔, 업데이트, 이동)
-3. calendar_delete - 일정 삭제 (키워드: 삭제, 지워, 취소, 없애, 제거, 모든 삭제, 모두 삭제, 전체 삭제, 다 삭제, 모든 일정 삭제, 전체 일정 삭제)
-4. calendar_search - 일정 조회/검색 (키워드: 검색, 찾아, 조회, 확인, 뭐 있어, 언제)
-5. calendar_copy - 일정 복사 (키워드: 복사, 복제, 같은 일정)
-6. general_chat - 일반 대화 (일정과 무관한 대화)
+1. calendar_add - 새로운 일정 추가 (간접적 표현 포함)
+2. calendar_update - 기존 일정 수정
+3. calendar_delete - 일정 삭제
+4. calendar_search - 일정 조회/검색 (의문문 포함)
+5. calendar_copy - 일정 복사
+6. general_chat - 일반 대화
 
-**중요**: 전체 삭제 관련 표현들은 모두 calendar_delete로 분류해야 합니다:
-- "오늘 일정 전체 삭제해줘" → calendar_delete
-- "내일 모든 일정 지워줘" → calendar_delete  
-- "18일 일정 다 삭제해줘" → calendar_delete
-- "이번주 일정 모두 삭제해줘" → calendar_delete
+**분류 우선순위:**
+1. 의무/계획 표현 ("해야해", "기로 했어") → calendar_add 우선
+2. 의문문 ("있어?", "뭐야?") → calendar_search 우선
+3. 직접적 명령어는 명확한 의도로 분류
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{"intent": "분류결과", "confidence": 0.95, "reason": "분류 이유"}}
-
-Confidence 기준:
-- 0.9-1.0: 매우 명확한 의도 (명확한 키워드 포함)
-- 0.7-0.9: 명확하지만 약간의 모호함 (문맥상 추론 가능)
-- 0.5-0.7: 모호하지만 추론 가능 (여러 해석 가능)
-- 0.3-0.5: 매우 모호함 (추측에 의존)
-- 0.0-0.3: 분류 불가능 (일반 대화로 처리)
 """
                 
                 response = self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,  # 일관된 분류를 위해 낮은 temperature
-                    # response_format={"type": "json_object"}  # gpt-4-turbo 이상에서만 지원
+                    temperature=0.1
                 )
                 
                 response_text = response.choices[0].message.content.strip()
@@ -410,9 +545,8 @@ Confidence 기준:
                 fallback_data = {"intent": "general_chat", "confidence": 0.1, "reason": "파싱 실패"}
                 result = safe_json_parse(response_text, fallback_data)
                 
-                # 커스터마이징 포인트: 신뢰도 임계값 조정 가능
-                # 신뢰도가 낮으면 키워드 기반 보완
-                if result.get('confidence', 0) < 0.5:  # 임계값: 0.5
+                # 신뢰도가 낮으면 개선된 키워드 기반 보완
+                if result.get('confidence', 0) < 0.6:  # 임계값 상향 조정
                     result = keyword_based_classification(state['current_input'])
                 
                 state['intent'] = result.get('intent', 'general_chat')
@@ -420,7 +554,9 @@ Confidence 기준:
                 
             except Exception as e:
                 print(f"의도 분류 중 오류: {str(e)}")
-                state['intent'] = 'general_chat'
+                # 오류 시에도 키워드 기반 분류 시도
+                result = keyword_based_classification(state['current_input'])
+                state['intent'] = result.get('intent', 'general_chat')
                 return state
         
         def extract_information(state: CalendarState) -> CalendarState:
@@ -472,7 +608,8 @@ Confidence 기준:
                     '휴가', '여행', '출장', '캠프', '워크샵', '세미나', '교육',
                     '연수', '방학', '휴업', '기간', '동안', '내내'
                 ]
-                  # 기간 표현과 함께 키워드가 있는 경우
+                  
+                # 기간 표현과 함께 키워드가 있는 경우
                 if not is_multi_day:
                     input_lower = state['current_input'].lower()
                     for keyword in multi_day_keywords:
@@ -590,13 +727,32 @@ Confidence 기준:
 8. 연결어("그리고", "또", "추가로" 등)를 기준으로 일정을 분리
 """
                 else:
-                    # 단일 일정 처리 (기존 로직)
+                    # 단일 일정 처리 (기존 로직)                    
                     prompt = f"""
 현재 날짜: {current_date.strftime('%Y년 %m월 %d일 %A')}
 현재 시간: {current_date.strftime('%H:%M')}
 
 사용자 입력에서 일정 정보를 추출해주세요:
 "{state['current_input']}"
+
+**한국어 간접적 표현 인식 가이드:**
+
+1. **의무/할 일 표현**:
+   - "화분에 물 줘야해" → title: "화분 물주기"
+   - "부모님께 안부 전화 드려야 해" → title: "부모님 안부 전화"
+   - "치과 가야해" → title: "치과"
+   - "보고서 제출해야 돼" → title: "보고서 제출"
+
+2. **계획/예정 표현**:
+   - "친구랑 영화보기로 했어" → title: "친구와 영화"
+   - "출장 가기로 되어있어" → title: "출장"
+   - "등산하기로 약속했어" → title: "등산"
+   - "헬스장 갈 예정이야" → title: "헬스장 운동"
+
+3. **자연스러운 제목 변환**:
+   - "해야해", "가야해", "드려야 해" 등은 제목에서 제거
+   - "기로 했어", "예정이야" 등도 제목에서 제거
+   - 핵심 활동/장소/목적만 추출
 
 **시간 범위 인식 예시:**
 - "저녁 6시부터 8시까지 영화" → start_time: "18:00", end_time: "20:00"
@@ -610,7 +766,7 @@ Confidence 기준:
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{
-    "title": "일정 제목 (필수)",
+    "title": "자연스러운 일정 제목 (간접 표현을 직접적으로 변환)",
     "start_date": "YYYY-MM-DD (필수)",
     "start_time": "HH:MM",
     "end_date": "YYYY-MM-DD",
