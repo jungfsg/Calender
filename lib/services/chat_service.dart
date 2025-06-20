@@ -10,8 +10,10 @@ import '../managers/event_manager.dart';
 
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
-  final String baseUrl = 'https://db03-210-113-31-95.ngrok-free.app';
-  final Uuid _uuid = Uuid();
+
+  final String baseUrl = 'https://10a1-220-90-168-2.ngrok-free.app';
+
+  final Uuid _uuid = const Uuid();
 
   // 카테고리 매핑 (LLM이 반환할 수 있는 카테고리 ID들)
   static const Map<int, String> _categoryNames = {
@@ -450,7 +452,10 @@ class ChatService {
               try {
                 // 날짜 파싱
                 final eventDate = DateTime.parse(startDate);
-                final eventTime = startTime ?? '종일'; // 시간이 없으면 종일 일정으로 처리
+                final eventTime =
+                    (startTime == null || startTime.isEmpty)
+                        ? '종일'
+                        : startTime; // 시간이 없으면 '종일'로 처리
 
                 // 중복 체크
                 final existingEvents = await EventStorageService.getEvents(
@@ -544,7 +549,10 @@ class ChatService {
             try {
               // 날짜 파싱
               final eventDate = DateTime.parse(startDate);
-              final eventTime = startTime ?? '종일'; // 시간이 없으면 종일 일정으로 처리
+              final eventTime =
+                  (startTime == null || startTime.isEmpty)
+                      ? '종일'
+                      : startTime; // 시간이 없으면 '종일'로 처리
 
               print('파싱된 날짜: $eventDate');
               print('파싱된 시간: $eventTime');
@@ -1796,7 +1804,6 @@ class ChatService {
               final newEndTime = changes['end_time'] as String?;
               final newDate = changes['start_date'] as String?;
               final newDescription = changes['description'] as String?;
-              final newLocation = changes['location'] as String?;
 
               // 새로운 날짜 파싱
               DateTime updatedDate = eventToUpdate.date;

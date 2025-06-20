@@ -247,19 +247,25 @@ def validate_and_correct_info(info: dict, current_date: datetime) -> dict:
                     info['start_date'] = (parsed_date + timedelta(days=365)).strftime('%Y-%m-%d')
             except:
                 info['start_date'] = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
-        
-        # 시간 검증
+          # 시간 검증 및 종일 일정 처리
         start_time = info.get('start_time')
         if start_time and not re.match(r'^\d{2}:\d{2}$', start_time):
-            info['start_time'] = '10:00'
+            info['start_time'] = None  # 잘못된 형식이면 종일 일정으로 변경
+            info['all_day'] = True
+        
+        # 시간이 없으면 종일 일정으로 설정
+        if not start_time or start_time == "":
+            info['start_time'] = None
+            info['end_time'] = None
+            info['all_day'] = True
+            print("🕐 시간이 명시되지 않아 종일 일정으로 설정")
         
         # 종료 시간 검증
         end_time = info.get('end_time')
         if end_time and not re.match(r'^\d{2}:\d{2}$', end_time):
             info['end_time'] = None  # 잘못된 형식이면 초기화
-        
-        # 종료 시간 자동 설정
-        if info.get('start_time') and not info.get('end_time'):
+          # 종료 시간 자동 설정 (시간이 있는 경우에만)
+        if info.get('start_time') and not info.get('end_time') and not info.get('all_day', False):
             try:
                 start_dt = datetime.strptime(info['start_time'], '%H:%M')
                 # 커스터마이징 포인트: 기본 일정 길이 변경 가능 (현재 1시간)
@@ -267,10 +273,10 @@ def validate_and_correct_info(info: dict, current_date: datetime) -> dict:
                 info['end_time'] = end_dt.strftime('%H:%M')
                 print(f"🕐 종료 시간 자동 설정: {info['start_time']} → {info['end_time']}")
             except:
-                info['end_time'] = '11:00'
+                info['end_time'] = None
         
-        # 종료 시간이 시작 시간보다 빠른 경우 보정 (다음날로 가정하지 않고 기본 1시간으로 설정)
-        if info.get('start_time') and info.get('end_time'):
+        # 종료 시간이 시작 시간보다 빠른 경우 보정 (시간이 있는 경우에만)
+        if info.get('start_time') and info.get('end_time') and not info.get('all_day', False):
             try:
                 start_dt = datetime.strptime(info['start_time'], '%H:%M')
                 end_dt = datetime.strptime(info['end_time'], '%H:%M')
@@ -303,9 +309,9 @@ def get_default_event_info() -> dict:
     return {
         "title": "새 일정",
         "start_date": tomorrow.strftime('%Y-%m-%d'),
-        "start_time": "10:00",  # 기본 시작 시간
+        "start_time": None,  # 기본값을 None으로 변경 (종일 일정)
         "end_date": tomorrow.strftime('%Y-%m-%d'),
-        "end_time": "11:00",   # 기본 종료 시간
+        "end_time": None,    # 기본값을 None으로 변경 (종일 일정)
         "description": "",
         "location": "",
         "attendees": [],
@@ -314,7 +320,7 @@ def get_default_event_info() -> dict:
         "repeat_count": None,
         "repeat_until": None,
         "reminders": [15],     # 기본 알림: 15분 전
-        "all_day": False,
+        "all_day": True,       # 기본값을 종일 일정으로 변경
         "timezone": "Asia/Seoul",
         "priority": "normal",
         "category": "other"
@@ -567,12 +573,15 @@ Confidence 기준:
    - "일정 추가" -> "일정" (X), 핵심 내용만 추출
    - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
    - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
-3. 시간이 없으면 null로 설정
-4. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
-   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
-   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00"
-   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00"
-   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산
+3. **시간 처리 규칙 - 매우 중요**:
+   - 시간이 명시되지 않으면 start_time과 end_time을 null로 설정하고 all_day를 true로 설정
+   - 시간이 명시된 경우에만 start_time을 설정하고 all_day를 false로 설정
+   - 예: "내일 달리기 일정 추가해줘" -> start_time: null, end_time: null, all_day: true
+   - 예: "내일 오후 3시에 회의" -> start_time: "15:00", all_day: false
+4. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00", all_day: false
+   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산, all_day: false
    - "~부터 ~까지" 패턴이 있으면 반드시 end_time을 설정하세요
    - 종료 시간이 명시되지 않으면 시작 시간 + 1시간
 5. 반복은 명시적으로 언급된 경우만 설정
@@ -626,12 +635,15 @@ Confidence 기준:
    - "일정 추가" -> "일정" (X), 핵심 내용만 추출
    - 예: "내일 5시에 맥주 일정 추가해줘" -> title: "맥주"
    - 예: "오후 2시에 회의 잡아줘" -> title: "회의"
-2. 시간이 없으면 null로 설정
-3. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:
-   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00"
-   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00"
-   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00"
-   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산
+2. **시간 처리 규칙 - 매우 중요**:
+   - 시간이 명시되지 않으면 start_time과 end_time을 null로 설정하고 all_day를 true로 설정
+   - 시간이 명시된 경우에만 start_time을 설정하고 all_day를 false로 설정
+   - 예: "내일 달리기 일정 추가해줘" -> start_time: null, end_time: null, all_day: true
+   - 예: "내일 오후 3시에 회의" -> start_time: "15:00", all_day: false
+3. **시간 범위 처리 매우 중요 - 반드시 정확히 추출해야 함**:   - "6시부터 8시까지", "오후 2시에서 4시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "저녁 6시부터 8시까지" → start_time: "18:00", end_time: "20:00", all_day: false
+   - "오전 10시부터 12시까지" → start_time: "10:00", end_time: "12:00", all_day: false
+   - "2시간", "3시간 동안" → 지속 시간만큼 종료 시간 계산, all_day: false
    - "~부터 ~까지" 패턴이 있으면 반드시 end_time을 설정하세요
    - 종료 시간이 명시되지 않으면 시작 시간 + 1시간
 4. 반복은 명시적으로 언급된 경우만 설정
