@@ -17,7 +17,7 @@ import '../services/weather_service.dart';
 import '../services/stt_command_service.dart';
 import '../screens/chat_screen.dart';
 import '../services/tts_service.dart'; // --- ★★★ 추가: TtsService 임포트 ★★★ ---
-import '../utils/theme_manager.dart'; //☑️ 테마 관련 추가
+import '../managers/theme_manager.dart'; //☑️ 테마 관련 추가
 
 class CalendarWidget extends StatefulWidget {
   final CalendarController controller;

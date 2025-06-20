@@ -4,7 +4,7 @@ import '../models/event.dart';
 import 'weather_icon.dart';
 import '../utils/font_utils.dart';
 import '../services/weather_service.dart';
-import '../utils/theme_manager.dart'; //☑️ 다크 테마 적용
+import '../managers/theme_manager.dart'; //☑️ 다크 테마 적용
 
 class WeatherCalendarCell extends StatelessWidget {
   final DateTime day;

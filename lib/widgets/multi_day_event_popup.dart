@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/event.dart';
 import '../utils/font_utils.dart';
 import 'color_picker_dialog.dart';
-import '../utils/theme_manager.dart'; // ☑️ 다크모드 적용
+import '../managers/theme_manager.dart'; // ☑️ 다크모드 적용
 
 class MultiDayEventPopup extends StatefulWidget {
   final Event? editingEvent; // 수정 중인 이벤트 (null이면 새로 생성)

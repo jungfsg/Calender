@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/event.dart';
 import '../utils/font_utils.dart';
 import '../managers/popup_manager.dart';
-import '../utils/theme_manager.dart'; // ☑️ 테마 관련 추가
+import '../managers/theme_manager.dart'; // ☑️ 테마 관련 추가
 
 class EventPopup extends StatefulWidget { // ☑️ 테마 관련 수정(위젯 클래스 수정)
   final DateTime selectedDay;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/font_utils.dart';
-import '../utils/theme_manager.dart'; // ☑️ 다크모드 적용
+import '../managers/theme_manager.dart'; // ☑️ 다크모드 적용
 
 /// Google Calendar 표준 색상 선택 다이얼로그
 class ColorPickerDialog extends StatefulWidget {

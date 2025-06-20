@@ -5,7 +5,7 @@ import '../widgets/color_picker_dialog.dart';
 import '../enums/recurrence_type.dart';
 import 'package:flutter/material.dart';
 import '../utils/font_utils.dart';
-import '../utils/theme_manager.dart'; // ☑️ 다크모드 적용
+import 'theme_manager.dart'; // ☑️ 다크모드 적용
 // Todo: 동일 디자인의 팝업창의 중복된 코드 제거 및 통일 -> 하나의 팝업창 수정으로 해당하는 팝업에 동일 적용_HE_250620
 
 /// 팝업 관련 로직을 처리하는 매니저 클래스
@@ -245,26 +245,29 @@ class PopupManager {
                                         builder: (context, child) {
                                           return Theme(
                                             data: Theme.of(context).copyWith(
+                                              // ☑️ 브리핑 설정과 동일한 완전한 테마 적용
                                               timePickerTheme: TimePickerThemeData(
-                                                // backgroundColor: Colors.white,
-                                                // hourMinuteTextColor:
-                                                //     Colors.black,
-                                                // dayPeriodTextColor:
-                                                //     Colors.black,
-                                                // dayPeriodColor:
-                                                //     Colors.grey[200],
-                                                // dayPeriodShape:
-                                                //     RoundedRectangleBorder(
-                                                //       borderRadius:
-                                                //           BorderRadius.circular(
-                                                //             8,
-                                                //           ),
-                                                //     ),
-                                                // ☑️ 팝업창 테마 통일_250619_변경
-                                                backgroundColor: ThemeManager.getPopupBackgroundColor(),
-                                                hourMinuteTextColor: ThemeManager.getTextColor(),
-                                                dayPeriodTextColor: ThemeManager.getTextColor(),
-                                                dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
+                                                backgroundColor: ThemeManager.getDatePickerBackgroundColor(), // DatePicker 배경 활용
+                                                hourMinuteTextColor: ThemeManager.getDatePickerTextColor(), // DatePicker 텍스트 활용
+                                                hourMinuteColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(), // 기존 TimePicker 색상 활용
+                                                dayPeriodTextColor: ThemeManager.getDatePickerTextColor(), // AM/PM 텍스트
+                                                dayPeriodColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(), // AM/PM 배경
+                                                dialHandColor: ThemeManager.getDatePickerSelectedColor(), // 시계 바늘 (선택 색상)
+                                                dialBackgroundColor: ThemeManager.getDatePickerSurfaceColor(), // 시계 다이얼 배경
+                                                dialTextColor: ThemeManager.getDatePickerTextColor(), // 시계 숫자
+                                                entryModeIconColor: ThemeManager.getDatePickerTextColor(), // 입력 모드 아이콘
+                                                helpTextStyle: TextStyle(
+                                                  color: ThemeManager.getDatePickerTextColor(),
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              // 추가 색상 보정 (기존 색상 활용)
+                                              colorScheme: Theme.of(context).colorScheme.copyWith(
+                                                surface: ThemeManager.getDatePickerSurfaceColor(), // DatePicker 표면색 활용
+                                                onSurface: ThemeManager.getDatePickerTextColor(), // 표면 위 텍스트
+                                                primary: ThemeManager.getDatePickerSelectedColor(), // 주요 색상
+                                                onPrimary: Colors.white, // 주요 색상 위 텍스트
+                                                secondary: ThemeManager.getDatePickerSelectedColor(), // 보조 색상
                                               ),
                                             ),
                                             child: child!,
@@ -351,26 +354,28 @@ class PopupManager {
                                         builder: (context, child) {
                                           return Theme(
                                             data: Theme.of(context).copyWith(
+                                              // ☑️ 브리핑 설정과 동일한 완전한 테마 적용
                                               timePickerTheme: TimePickerThemeData(
-                                                // backgroundColor: Colors.white,
-                                                // hourMinuteTextColor:
-                                                //     Colors.black,
-                                                // dayPeriodTextColor:
-                                                //     Colors.black,
-                                                // dayPeriodColor:
-                                                //     Colors.grey[200],
-                                                // dayPeriodShape:
-                                                //     RoundedRectangleBorder(
-                                                //       borderRadius:
-                                                //           BorderRadius.circular(
-                                                //             8,
-                                                //           ),
-                                                //     ),
-                                                // ☑️ 팝업창 테마 통일_250619_변경
-                                                backgroundColor: ThemeManager.getPopupBackgroundColor(),
-                                                hourMinuteTextColor: ThemeManager.getTextColor(),
-                                                dayPeriodTextColor: ThemeManager.getTextColor(),
-                                                dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
+                                                backgroundColor: ThemeManager.getDatePickerBackgroundColor(),
+                                                hourMinuteTextColor: ThemeManager.getDatePickerTextColor(),
+                                                hourMinuteColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(),
+                                                dayPeriodTextColor: ThemeManager.getDatePickerTextColor(),
+                                                dayPeriodColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(),
+                                                dialHandColor: ThemeManager.getDatePickerSelectedColor(),
+                                                dialBackgroundColor: ThemeManager.getDatePickerSurfaceColor(),
+                                                dialTextColor: ThemeManager.getDatePickerTextColor(),
+                                                entryModeIconColor: ThemeManager.getDatePickerTextColor(),
+                                                helpTextStyle: TextStyle(
+                                                  color: ThemeManager.getDatePickerTextColor(),
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              colorScheme: Theme.of(context).colorScheme.copyWith(
+                                                surface: ThemeManager.getDatePickerSurfaceColor(),
+                                                onSurface: ThemeManager.getDatePickerTextColor(),
+                                                primary: ThemeManager.getDatePickerSelectedColor(),
+                                                onPrimary: Colors.white,
+                                                secondary: ThemeManager.getDatePickerSelectedColor(),
                                               ),
                                             ),
                                             child: child!,
@@ -1149,25 +1154,28 @@ class PopupManager {
                                           builder: (context, child) {
                                             return Theme(
                                               data: Theme.of(context).copyWith(
+                                                // ☑️ 브리핑 설정과 동일한 완전한 테마 적용
                                                 timePickerTheme: TimePickerThemeData(
-                                                  // backgroundColor: Colors.white,
-                                                  // hourMinuteTextColor:
-                                                  //     Colors.black,
-                                                  // dayPeriodTextColor:
-                                                  //     Colors.black,
-                                                  // dayPeriodColor:
-                                                  //     Colors.grey[200],
-                                                  // dayPeriodShape:
-                                                  //     RoundedRectangleBorder(
-                                                  //       borderRadius:
-                                                  //           BorderRadius.circular(
-                                                  //             8,
-                                                  //           ),
-                                                  //     ),
-                                                  backgroundColor: ThemeManager.getPopupBackgroundColor(),
-                                                  hourMinuteTextColor: ThemeManager.getTextColor(),
-                                                  dayPeriodTextColor: ThemeManager.getTextColor(),
-                                                  dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
+                                                  backgroundColor: ThemeManager.getDatePickerBackgroundColor(),
+                                                  hourMinuteTextColor: ThemeManager.getDatePickerTextColor(),
+                                                  hourMinuteColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(),
+                                                  dayPeriodTextColor: ThemeManager.getDatePickerTextColor(),
+                                                  dayPeriodColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(),
+                                                  dialHandColor: ThemeManager.getDatePickerSelectedColor(),
+                                                  dialBackgroundColor: ThemeManager.getDatePickerSurfaceColor(),
+                                                  dialTextColor: ThemeManager.getDatePickerTextColor(),
+                                                  entryModeIconColor: ThemeManager.getDatePickerTextColor(),
+                                                  helpTextStyle: TextStyle(
+                                                    color: ThemeManager.getDatePickerTextColor(),
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                colorScheme: Theme.of(context).colorScheme.copyWith(
+                                                  surface: ThemeManager.getDatePickerSurfaceColor(),
+                                                  onSurface: ThemeManager.getDatePickerTextColor(),
+                                                  primary: ThemeManager.getDatePickerSelectedColor(),
+                                                  onPrimary: Colors.white,
+                                                  secondary: ThemeManager.getDatePickerSelectedColor(),
                                                 ),
                                               ),
                                               child: child!,
@@ -1253,26 +1261,28 @@ class PopupManager {
                                           builder: (context, child) {
                                             return Theme(
                                               data: Theme.of(context).copyWith(
+                                                // ☑️ 브리핑 설정과 동일한 완전한 테마 적용
                                                 timePickerTheme: TimePickerThemeData(
-                                                  // backgroundColor: Colors.white,
-                                                  // hourMinuteTextColor:
-                                                  //     Colors.black,
-                                                  // dayPeriodTextColor:
-                                                  //     Colors.black,
-                                                  // dayPeriodColor:
-                                                  //     Colors.grey[200],
-                                                  // dayPeriodShape:
-                                                  //     RoundedRectangleBorder(
-                                                  //       borderRadius:
-                                                  //           BorderRadius.circular(
-                                                  //             8,
-                                                  //           ),
-                                                  //     ),
-                                                  // ☑️ 팝업창 테마 통일_250619_변경
-                                                  backgroundColor: ThemeManager.getPopupBackgroundColor(),
-                                                  hourMinuteTextColor: ThemeManager.getTextColor(),
-                                                  dayPeriodTextColor: ThemeManager.getTextColor(),
-                                                  dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
+                                                  backgroundColor: ThemeManager.getDatePickerBackgroundColor(),
+                                                  hourMinuteTextColor: ThemeManager.getDatePickerTextColor(),
+                                                  hourMinuteColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(),
+                                                  dayPeriodTextColor: ThemeManager.getDatePickerTextColor(),
+                                                  dayPeriodColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(),
+                                                  dialHandColor: ThemeManager.getDatePickerSelectedColor(),
+                                                  dialBackgroundColor: ThemeManager.getDatePickerSurfaceColor(),
+                                                  dialTextColor: ThemeManager.getDatePickerTextColor(),
+                                                  entryModeIconColor: ThemeManager.getDatePickerTextColor(),
+                                                  helpTextStyle: TextStyle(
+                                                    color: ThemeManager.getDatePickerTextColor(),
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                colorScheme: Theme.of(context).colorScheme.copyWith(
+                                                  surface: ThemeManager.getDatePickerSurfaceColor(),
+                                                  onSurface: ThemeManager.getDatePickerTextColor(),
+                                                  primary: ThemeManager.getDatePickerSelectedColor(),
+                                                  onPrimary: Colors.white,
+                                                  secondary: ThemeManager.getDatePickerSelectedColor(),
                                                 ),
                                               ),
                                               child: child!,

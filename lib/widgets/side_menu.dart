@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import '../utils/font_utils.dart';
 import '../models/event.dart';
-import '../utils/theme_manager.dart'; //☑️ 테마 관련 추가
+import '../managers/theme_manager.dart'; //☑️ 테마 관련 추가
 
 // class CalendarSideMenu extends StatelessWidget {
 //☑️ 테마 관련 수정(위젯 클래스 수정)

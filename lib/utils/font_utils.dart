@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-// ☑️ 테마 관려 
-import 'theme_manager.dart';
+import '../managers/theme_manager.dart'; // ☑️ _HE_테마 관리자 추가
 
 // 단일 폰트를 사용하는 간단한 스타일 함수
 TextStyle getTextStyle({required double fontSize, Color? color, String? text, bool? useThemeColor, //☑️새로운 옵션

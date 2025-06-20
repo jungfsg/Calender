@@ -3,7 +3,7 @@ import '../models/weather_info.dart';
 import '../services/weather_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/font_utils.dart';
-import '../utils/theme_manager.dart'; // ☑️ _HE_250620_추가
+import '../managers/theme_manager.dart'; // ☑️ _HE_250620_추가
 
 class WeatherSummaryPopup extends StatelessWidget {
   final List<WeatherInfo> weatherList;

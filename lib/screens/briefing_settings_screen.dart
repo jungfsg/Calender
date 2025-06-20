@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/daily_briefing_service.dart';
 import '../utils/font_utils.dart';
 import '../services/notification_service.dart';
-import '../utils/theme_manager.dart'; // ☑️ _HE_250621_테마 관리자 추가
+import '../managers/theme_manager.dart'; // ☑️ _HE_250621_테마 관리자 추가
 
 class BriefingSettingsScreen extends StatefulWidget {
   const BriefingSettingsScreen({super.key});

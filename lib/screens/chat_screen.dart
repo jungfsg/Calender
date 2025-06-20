@@ -11,7 +11,7 @@ import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
 import '../services/tts_service.dart';
-import '../utils/theme_manager.dart'; //☑️ 테마 관련 추가
+import '../managers/theme_manager.dart'; //☑️ 테마 관련 추가
 
 
 class ChatScreen extends StatefulWidget {

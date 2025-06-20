@@ -9,7 +9,7 @@ import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/briefing_settings_screen.dart';
 //☑️ 테마 관리
-import 'utils/theme_manager.dart';
+import 'managers/theme_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
