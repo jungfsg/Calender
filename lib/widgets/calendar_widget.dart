@@ -560,7 +560,10 @@ class _CalendarWidgetState extends State<CalendarWidget> {
         _showVoiceInput();
         break;
       case 2:
-        _navigateToChatScreen();
+        // 채팅 화면으로 이동하기 전에 애니메이션 시간을 줌
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _navigateToChatScreen();
+        });
         break;
     }
   }
@@ -568,33 +571,40 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   void _navigateToChatScreen() async {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ChatScreen(
-          ttsService: widget.ttsService, // ttsService 매개변수 추가
-          onCalendarUpdate: () {
-            // 🚀 성능 최적화: 필요한 경우에만 새로고침
-            print('📱 ChatScreen: 캘린더 업데이트 요청 (최적화됨)');
-            widget.eventManager.loadEventsForDay(
-              widget.controller.selectedDay,
-              forceRefresh: true,
-            );
-            setState(() {});
-          },
-          eventManager: widget.eventManager,
-        ),
+        builder:
+            (context) => ChatScreen(
+              ttsService: widget.ttsService, // ttsService 매개변수 추가
+              onCalendarUpdate: () {
+                // 🚀 성능 최적화: 필요한 경우에만 새로고침
+                print('📱 ChatScreen: 캘린더 업데이트 요청 (최적화됨)');
+                widget.eventManager.loadEventsForDay(
+                  widget.controller.selectedDay,
+                  forceRefresh: true,
+                );
+                setState(() {});
+              },
+              eventManager: widget.eventManager,
+            ),
       ),
     );
 
     // 채팅 화면에서 돌아왔을 때 네비게이션 바 상태 리셋
     if (result != null && result['refreshNavigation'] == true) {
-      setState(() {
-        _selectedIndex = 0;
-      });
-
       // 음성 인식 UI 표시가 요청된 경우
       if (result['showVoiceInput'] == true) {
-        // 약간의 딜레이 후 음성 인식 UI 표시 (화면 전환 완료 후)
-        Future.delayed(const Duration(milliseconds: 100), () {
+        // 먼저 가운데 버튼(마이크)으로 상태 설정
+        setState(() {
+          _selectedIndex = 1;
+        });
+
+        // 애니메이션 시간을 늘려서 자연스럽게 음성 인식 UI 표시
+        Future.delayed(const Duration(milliseconds: 500), () {
           _showVoiceInput();
+        });
+      } else {
+        // 음성 입력이 요청되지 않은 경우에만 달력 버튼으로 리셋
+        setState(() {
+          _selectedIndex = 0;
         });
       }
     }
@@ -616,22 +626,29 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   }
 
   void _showVoiceInput() {
-    VoiceCommandService.instance.showVoiceInput(
-      context: context,
-      eventManager: widget.eventManager,
-      // --- ★★★ 추가: ttsService 인스턴스 전달 ★★★ ---
-      ttsService: widget.ttsService,
-      onCommandProcessed: _handleVoiceCommandResponse,
-      onCalendarUpdate: () async {
-        print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음 (최적화됨)');
-        // 🚀 성능 최적화: 불필요한 중복 새로고침 제거
-        await widget.eventManager.loadEventsForDay(
-          widget.controller.selectedDay,
-          forceRefresh: true,
-        );
-        setState(() {});
-      },
-    );
+    VoiceCommandService.instance
+        .showVoiceInput(
+          context: context,
+          eventManager: widget.eventManager,
+          // --- ★★★ 추가: ttsService 인스턴스 전달 ★★★ ---
+          ttsService: widget.ttsService,
+          onCommandProcessed: _handleVoiceCommandResponse,
+          onCalendarUpdate: () async {
+            print('🔄 CalendarWidget: 캘린더 업데이트 콜백 받음 (최적화됨)');
+            // 🚀 성능 최적화: 불필요한 중복 새로고침 제거
+            await widget.eventManager.loadEventsForDay(
+              widget.controller.selectedDay,
+              forceRefresh: true,
+            );
+            setState(() {});
+          },
+        )
+        .then((_) {
+          // STT 팝업이 닫힌 후 네비게이션 바 상태를 달력 버튼(0)으로 리셋
+          setState(() {
+            _selectedIndex = 0;
+          });
+        });
   }
 
   void _handleVoiceCommandResponse(String response, String command) {

@@ -65,7 +65,7 @@ class VoiceCommandService {
     EventManager? eventManager,
     required TtsService ttsService, // --- ★★★ 추가: TtsService 인스턴스 수신 ★★★ ---
   }) async {
-    showModalBottomSheet(
+    return showModalBottomSheet(
       context: context,
       isDismissible: true,
       enableDrag: true,

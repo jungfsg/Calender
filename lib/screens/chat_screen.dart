@@ -18,8 +18,8 @@ class ChatScreen extends StatefulWidget {
   final TtsService ttsService; // TTS 서비스 매개변수 복원
 
   const ChatScreen({
-    super.key, 
-    this.onCalendarUpdate, 
+    super.key,
+    this.onCalendarUpdate,
     this.eventManager,
     required this.ttsService, // TTS 서비스 필수 매개변수로 복원
   });
@@ -132,6 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.insert(0, message);
     });
   }
+
   Future<void> _handleSendPressed(types.PartialText message) async {
     if (!mounted) return;
 
@@ -261,7 +262,8 @@ class _ChatScreenState extends State<ChatScreen> {
             setState(() {
               _isLoading = false;
             });
-            const noTextMessage = '이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.';
+            const noTextMessage =
+                '이미지에서 텍스트를 인식할 수 없습니다. 더 선명한 이미지로 다시 시도해주세요.';
             _addSystemMessage(noTextMessage);
             // 인식 실패 메시지 TTS 재생 추가
             TtsService.instance.speak(noTextMessage);
@@ -355,6 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
       TtsService.instance.speak(errorMessage);
     }
   }
+
   Widget _buildCustomInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -411,11 +414,26 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onItemTapped(int index) {
     if (index == 0) {
-      Navigator.of(context).pop({'refreshNavigation': true});
+      // 달력 버튼으로 애니메이션 표시 후 화면 닫기
+      setState(() {
+        _selectedIndex = 0;
+      });
+
+      Future.delayed(const Duration(milliseconds: 500), () {
+        Navigator.of(context).pop({'refreshNavigation': true});
+      });
     } else if (index == 1) {
-      Navigator.of(
-        context,
-      ).pop({'refreshNavigation': true, 'showVoiceInput': true});
+      // 먼저 네비게이션 바 상태를 가운데 버튼으로 변경 (물방울 애니메이션 표시)
+      setState(() {
+        _selectedIndex = 1;
+      });
+
+      // 애니메이션이 완료될 시간을 좀 더 길게 주고 화면을 닫음
+      Future.delayed(const Duration(milliseconds: 500), () {
+        Navigator.of(
+          context,
+        ).pop({'refreshNavigation': true, 'showVoiceInput': true});
+      });
     } else {
       setState(() {
         _selectedIndex = index;
@@ -478,6 +496,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -553,7 +572,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     color: Colors.grey[600],
                     text: '날짜 구분선',
                   ),
-               ),
+                ),
                 l10n: const ChatL10nKo(),
               ),
             ),
