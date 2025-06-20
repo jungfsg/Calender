@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/font_utils.dart';
+import '../utils/theme_manager.dart'; // ☑️ 다크모드 적용
 
 /// Google Calendar 표준 색상 선택 다이얼로그
 class ColorPickerDialog extends StatefulWidget {
@@ -43,9 +44,23 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      // ☑️ 테마 적용_색상 선택 다이얼로그_250619
+      backgroundColor: ThemeManager.getColorPickerBackgroundColor(),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: ThemeManager.getEventPopupBorderColor(),
+          width: 1,
+        ),
+      ), // ☑️ 테마 적용(여기까지)
+
       title: Text(
         '색상 선택',
-        style: getTextStyle(fontSize: 18, color: Colors.black, text: '색상 선택'),
+        style: getTextStyle(
+          fontSize: 18,
+          color: ThemeManager.getColorPickerTextColor(), // ☑️ 변경
+          text: '색상 선택',
+        ),
       ),
       content: SizedBox(
         width: double.maxFinite,
@@ -73,37 +88,77 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
                 decoration: BoxDecoration(
                   color: colorData['color'],
                   shape: BoxShape.circle,
-                  border:
-                      isSelected
-                          ? Border.all(color: Colors.black, width: 3)
-                          : Border.all(color: Colors.grey.shade300, width: 1),
-                  boxShadow:
-                      isSelected
-                          ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                          : null,
+                  // border: // ☑️ _HE_색상 선택 팝업 수정_250620
+                  //     isSelected
+                  //         ? Border.all(
+                  //           color: ThemeManager.getColorPickerTextColor(), // ☑️ 변경
+                  //           width: 3,
+                  //         )
+                  //         : Border.all(
+                  //           color: ThemeManager.getEventPopupBorderColor(), // ☑️ 변경
+                  //           width: 1,
+                  //         ),
+                  // boxShadow:
+                  //     isSelected
+                  //         ? [
+                  //           BoxShadow(
+                  //             // color: Colors.black.withOpacity(0.3), 
+                  //             color: ThemeManager.getColorPickerTextColor(), // ☑️ 변경
+                  //             blurRadius: 6,
+                  //             offset: const Offset(0, 2),
+                  //           ),
+                  //         ]
+                  //         : null,
+                  border: isSelected
+                      ? Border.all(
+                          color: ThemeManager.getColorPickerTextColor(),
+                          width: 4, // ☑️ 3 → 4로 증가 (더 명확한 선택 표시)
+                        )
+                      : Border.all(
+                          color: ThemeManager.getEventPopupBorderColor(),
+                          width: 1,
+                        ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: ThemeManager.getColorPickerTextColor().withOpacity(0.4), // ☑️ 투명도 추가
+                            blurRadius: 8, // ☑️ 6 → 8로 증가 (더 명확한 그림자)
+                            offset: const Offset(0, 3), // ☑️ (0,2) → (0,3)으로 증가
+                            spreadRadius: 1, // ☑️ 그림자 확산 추가
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isSelected)
-                        Icon(Icons.check, color: Colors.white, size: 20),
-                      Text(
-                        colorData['text'],
-                        style: getTextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                          text: colorData['text'],
-                        ),
+                  // ☑️ 체크 아이콘 완전 제거! 텍스트만 표시_HE_250620
+                  // child: Column(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: [
+                  //     if (isSelected)
+                  //       Icon(Icons.check, color: Colors.white, size: 20),
+                  //     Text(
+                  //       colorData['text'],
+                  //       style: getTextStyle(
+                  //         fontSize: 12,
+                  //         color: Colors.white,
+                  //         text: colorData['text'],
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                  child: 
+                    // ☑️ 체크 아이콘 완전 제거! 텍스트만 표시
+                    Text(
+                      colorData['text'],
+                      style: getTextStyle(
+                        fontSize: 11, // ☑️ 12 → 11로 감소 (더 안전한 크기)
+                        color: Colors.white,
+                        text: colorData['text'],
                       ),
-                    ],
-                  ),
+                      textAlign: TextAlign.center, // ☑️ 중앙 정렬 명시
+                      overflow: TextOverflow.ellipsis, // ☑️ 오버플로우 방지
+                      maxLines: 1, // ☑️ 한 줄로 제한
+                    ),
                 ),
               ),
             );
@@ -117,7 +172,11 @@ class _ColorPickerDialogState extends State<ColorPickerDialog> {
             '취소',
             style: getTextStyle(
               fontSize: 14,
-              color: Colors.grey[700],
+              // color: Colors.grey[700],
+               color: ThemeManager.getTextColor( // ☑️ 변경
+                lightColor: Colors.grey[700]!,
+                darkColor: Colors.grey[400]!,
+              ), 
               text: '취소',
             ),
           ),

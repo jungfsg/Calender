@@ -5,6 +5,8 @@ import '../widgets/color_picker_dialog.dart';
 import '../enums/recurrence_type.dart';
 import 'package:flutter/material.dart';
 import '../utils/font_utils.dart';
+import '../utils/theme_manager.dart'; // ☑️ 다크모드 적용
+// Todo: 동일 디자인의 팝업창의 중복된 코드 제거 및 통일 -> 하나의 팝업창 수정으로 해당하는 팝업에 동일 적용_HE_250620
 
 /// 팝업 관련 로직을 처리하는 매니저 클래스
 class PopupManager {
@@ -54,15 +56,23 @@ class PopupManager {
                     borderRadius: BorderRadius.circular(16.0),
                   ),
                   elevation: 0,
+                  backgroundColor: ThemeManager.getEventPopupBackgroundColor(), // ☑️ 추가
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(16), // ☑️ _HE_250619_20 → 16으로 감소
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      // color: Colors.white,
+                      color: ThemeManager.getEventPopupBackgroundColor(), // ☑️ 변경
+                      
                       borderRadius: BorderRadius.circular(16.0),
+                      border: Border.all( // ☑️ border 추가
+                        color: ThemeManager.getEventPopupBorderColor(),
+                        width: 1,
+                      ),
                     ),
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.8,
-                      maxWidth: MediaQuery.of(context).size.width * 0.9,
+                      maxHeight: MediaQuery.of(context).size.height * 0.85, // ☑️ _HE_250619_0.8 → 0.85로 증가
+                      maxWidth: MediaQuery.of(context).size.width * 0.92, // ☑️ _HE_250619_0.9 → 0.92로 증가
+                      minWidth: 320, // ☑️ _HE_250619_최소 너비 설정정
                     ),
                     child: SingleChildScrollView(
                       child: Column(
@@ -73,124 +83,155 @@ class PopupManager {
                             children: [
                               Text(
                                 '새 일정 추가',
-                                style: getTextStyle(fontSize: 20),
+                                style: getTextStyle(
+                                  fontSize: 20,
+                                  color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close),
+                                icon: Icon(
+                                  Icons.close,
+                                  color: ThemeManager.getEventPopupCloseButtonColor(),
+                                ),
                                 onPressed: () => Navigator.pop(context),
                               ),
                             ],
                           ),
                           const SizedBox(height: 16),
+                          // 
                           TextField(
                             controller: titleController,
                             decoration: InputDecoration(
                               hintText: '일정 제목',
+                              hintStyle: TextStyle( // ☑️ 팝업창 테마 통일_250619_추가가
+                                color: ThemeManager.getPopupSecondaryTextColor(),
+                              ), 
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              fillColor: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_변경
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
                               ),
-                              prefixIcon: const Icon(Icons.event_note),
-                              // 에러 메시지 표시를 위한 헬퍼 텍스트 추가
-                              helperText: ' ', // 공간 확보
+                              prefixIcon: Icon( // ☑️ 팝업창 테마 통일_250619_추가
+                                Icons.event_note,
+                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                              ),
                             ),
-                            // 자동 포커스 추가
-                            autofocus: true, // 엔터키 입력 시 다음 단계로 이동
+                            style: getTextStyle( // ☑️ 팝업창 테마 통일_250619_추가
+                              fontSize: 14,
+                              color: ThemeManager.getTextColor(),
+                            ),
+                            autofocus: true,
+                            // 엔터키 입력 시 다음 단계로 이동
                             textInputAction: TextInputAction.next,
                           ),
+                          const SizedBox(height: 16), // ☑️ 간격 추가 - 일정 제목과 색상 선택 사이
                           Material(
-                            color: Colors.grey[100],
+                            color: ThemeManager.getPopupSecondaryBackgroundColor(),
                             borderRadius: BorderRadius.circular(12),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () {
                                 showDialog(
                                   context: context,
-                                  builder:
-                                      (context) => ColorPickerDialog(
-                                        initialColorId: selectedColorId,
-                                        onColorSelected: (colorId) {
-                                          setState(() {
-                                            selectedColorId = colorId;
-                                          });
-                                        },
-                                      ),
+                                  builder: (context) => ColorPickerDialog(
+                                    initialColorId: selectedColorId,
+                                    onColorSelected: (colorId) {
+                                      setState(() {
+                                        selectedColorId = colorId;
+                                      });
+                                    },
+                                  ),
                                 );
                               },
-                              child: Padding(
+                              
+                              child: Container( // ☑️ _HE_250619_Padding → Container로 변경
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12.0,
-                                  horizontal: 16.0,
+                                  horizontal: 14.0, // ☑️ _HE_250619_16.0 → 14.0으로 감소
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.color_lens),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      '색상 선택',
-                                      style: getTextStyle(fontSize: 12),
+                                    Icon( 
+                                      Icons.color_lens,
+                                      color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                      size: 20, // ☑️ 크기 명시
                                     ),
-                                    const Spacer(),
-                                    Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: _getColorByColorId(
-                                          selectedColorId,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        '색상 선택',
+                                        style: getTextStyle(
+                                          fontSize: 12,
+                                          color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
                                         ),
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 22, // ☑️ _HE_250619_24 → 22로 감소
+                                      height: 22, // ☑️ _HE_250619_24 → 22로 감소
+                                      decoration: BoxDecoration(
+                                        color: _getColorByColorId(selectedColorId),
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: Colors.grey,
+                                          // color: Colors.grey,
+                                          color: ThemeManager.getPopupBorderColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                           width: 1,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    const Icon(
+                                    const SizedBox(width: 6), // ☑️ _HE_250619_8에서 6으로 감소 
+                                    Icon(
                                       Icons.arrow_forward_ios,
-                                      size: 16,
+                                      size: 14, // ☑️ _HE_250619_16 → 14로 감소
+                                      color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20), // 시간 선택 안내
+                          const SizedBox(height: 14), // ☑️ 간격 줄임 - 20 → 14
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            // padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(8), // ☑️ 패딩 줄임 - 12 → 8
                             decoration: BoxDecoration(
-                              color: Colors.blue[50],
+                              // color: Colors.blue[50],
+                              color: ThemeManager.getInfoBoxBackgroundColor(), // ☑️ 다크모드 적용
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue[200]!),
+                              // border: Border.all(color: Colors.blue[200]!),
+                              border: Border.all(color: ThemeManager.getInfoBoxBorderColor()), // ☑️ 다크모드 적용
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   Icons.info_outline,
-                                  color: Colors.blue[600],
-                                  size: 20,
+                                  // color: Colors.blue[600],
+                                  color: ThemeManager.getInfoBoxIconColor(), // ☑️ 다크모드 적용
+                                  size: 20, 
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6), // ☑️ 간격 줄임 - 8 → 6
                                 Expanded(
                                   child: Text(
                                     '시간을 선택하지 않으면 종일 일정으로 추가됩니다.',
                                     style: getTextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blue[700],
+                                      // fontSize: 12,
+                                      fontSize: 10, // ☑️ 폰트 크기 줄임 - 12 → 10
+                                      // color: Colors.blue[700],
+                                      color: ThemeManager.getInfoBoxTextColor(), // ☑️ 다크모드 적용
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14), // ☑️ 간격 줄임 - 16 → 14              
                           Row(
                             children: [
                               Expanded(
                                 child: Material(
-                                  color: Colors.grey[100],
+                                  // color: Colors.grey[100],
+                                  color: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                   borderRadius: BorderRadius.circular(12),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(12),
@@ -205,20 +246,25 @@ class PopupManager {
                                           return Theme(
                                             data: Theme.of(context).copyWith(
                                               timePickerTheme: TimePickerThemeData(
-                                                backgroundColor: Colors.white,
-                                                hourMinuteTextColor:
-                                                    Colors.black,
-                                                dayPeriodTextColor:
-                                                    Colors.black,
-                                                dayPeriodColor:
-                                                    Colors.grey[200],
-                                                dayPeriodShape:
-                                                    RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                    ),
+                                                // backgroundColor: Colors.white,
+                                                // hourMinuteTextColor:
+                                                //     Colors.black,
+                                                // dayPeriodTextColor:
+                                                //     Colors.black,
+                                                // dayPeriodColor:
+                                                //     Colors.grey[200],
+                                                // dayPeriodShape:
+                                                //     RoundedRectangleBorder(
+                                                //       borderRadius:
+                                                //           BorderRadius.circular(
+                                                //             8,
+                                                //           ),
+                                                //     ),
+                                                // ☑️ 팝업창 테마 통일_250619_변경
+                                                backgroundColor: ThemeManager.getPopupBackgroundColor(),
+                                                hourMinuteTextColor: ThemeManager.getTextColor(),
+                                                dayPeriodTextColor: ThemeManager.getTextColor(),
+                                                dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
                                               ),
                                             ),
                                             child: child!,
@@ -236,40 +282,48 @@ class PopupManager {
                                         });
                                       }
                                     },
-                                    child: Padding(
+                                    // child: Padding(
+                                    child: Container(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12.0,
-                                        horizontal: 16.0,
+                                        horizontal: 12.0, // ☑️ _HE_250619_16.0 → 12.0으로 감소
                                       ),
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             '시작',
                                             style: getTextStyle(
-                                              color: Colors.grey,
+                                              // color: Colors.grey,
+                                              color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                               fontSize: 10,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
-                                              const Icon(
+                                              Icon( // ☑️ 팝업창 테마 통일_250619_const 제거
                                                 Icons.access_time,
-                                                size: 18,
+                                                size: 16, // ☑️ _HE_250619_18 → 16으로 감소
+                                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가  
                                               ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                selectedStartTime != null
-                                                    ? '${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}'
-                                                    : '--:--',
-                                                style: getTextStyle(
-                                                  fontSize: 16,
-                                                  color:
-                                                      selectedStartTime != null
-                                                          ? Colors.black87
-                                                          : Colors.grey,
+                                              const SizedBox(width: 6), // ☑️ _HE_250619_8에서 6으로 감소
+                                              // Text(
+                                              //   '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                                              //   style: getTextStyle(
+                                              //     fontSize: 16,
+                                              //     // color: Colors.black87,
+                                              //     color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
+                                              Flexible( // ☑️ Text를 Flexible로 감싸기
+                                                child: Text(
+                                                  selectedStartTime != null
+                                                      ? '${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}'
+                                                      : '--:--',
+                                                  style: getTextStyle(
+                                                    fontSize: 16,
+                                                    color: ThemeManager.getTextColor(),
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis, // ☑️ 오버플로우 처리
                                                 ),
                                               ),
                                             ],
@@ -280,10 +334,11 @@ class PopupManager {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 12), // ☑️ _HE_250619_16에서 12로 감소
                               Expanded(
                                 child: Material(
-                                  color: Colors.grey[100],
+                                  // color: Colors.grey[100],
+                                  color: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                   borderRadius: BorderRadius.circular(12),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(12),
@@ -297,20 +352,25 @@ class PopupManager {
                                           return Theme(
                                             data: Theme.of(context).copyWith(
                                               timePickerTheme: TimePickerThemeData(
-                                                backgroundColor: Colors.white,
-                                                hourMinuteTextColor:
-                                                    Colors.black,
-                                                dayPeriodTextColor:
-                                                    Colors.black,
-                                                dayPeriodColor:
-                                                    Colors.grey[200],
-                                                dayPeriodShape:
-                                                    RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                    ),
+                                                // backgroundColor: Colors.white,
+                                                // hourMinuteTextColor:
+                                                //     Colors.black,
+                                                // dayPeriodTextColor:
+                                                //     Colors.black,
+                                                // dayPeriodColor:
+                                                //     Colors.grey[200],
+                                                // dayPeriodShape:
+                                                //     RoundedRectangleBorder(
+                                                //       borderRadius:
+                                                //           BorderRadius.circular(
+                                                //             8,
+                                                //           ),
+                                                //     ),
+                                                // ☑️ 팝업창 테마 통일_250619_변경
+                                                backgroundColor: ThemeManager.getPopupBackgroundColor(),
+                                                hourMinuteTextColor: ThemeManager.getTextColor(),
+                                                dayPeriodTextColor: ThemeManager.getTextColor(),
+                                                dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
                                               ),
                                             ),
                                             child: child!,
@@ -323,40 +383,48 @@ class PopupManager {
                                         });
                                       }
                                     },
-                                    child: Padding(
+                                    // child: Padding(
+                                    child: Container( // ☑️ _HE_250619_Padding → Container로 변경
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12.0,
-                                        horizontal: 16.0,
+                                        horizontal: 12.0, // ☑️ _HE_250619_16.0 → 12.0으로 감소
                                       ),
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             '종료',
                                             style: getTextStyle(
-                                              color: Colors.grey,
+                                              // color: Colors.grey,
+                                              color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                               fontSize: 10,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
-                                              const Icon(
+                                              Icon( // ☑️ 팝업창 테마 통일_250619_const 제거
                                                 Icons.access_time,
-                                                size: 18,
+                                                size: 16, // ☑️ _HE_250619_18 → 16으로 감소
+                                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
                                               ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                selectedEndTime != null
-                                                    ? '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}'
-                                                    : '--:--',
-                                                style: getTextStyle(
-                                                  fontSize: 16,
-                                                  color:
-                                                      selectedEndTime != null
-                                                          ? Colors.black87
-                                                          : Colors.grey,
+                                              const SizedBox(width: 6), // ☑️ _HE_250619_8에서 6으로 감소
+                                              // Text(
+                                              //   '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                                              //   style: getTextStyle(
+                                              //     fontSize: 16,
+                                              //     // color: Colors.black87,
+                                              //     color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
+                                              Flexible( // ☑️ Text를 Flexible로 감싸기
+                                                child: Text(
+                                                  selectedEndTime != null
+                                                      ? '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}'
+                                                      : '--:--',
+                                                  style: getTextStyle(
+                                                    fontSize: 16,
+                                                    color: ThemeManager.getTextColor(),
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis, // ☑️ 오버플로우 처리
                                                 ),
                                               ),
                                             ],
@@ -374,7 +442,8 @@ class PopupManager {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('반복 설정', style: getTextStyle(fontSize: 16)),
+                              // Text('반복 설정', style: getTextStyle(fontSize: 16)),
+                              Text('반복 설정', style: getTextStyle(fontSize: 16, color: ThemeManager.getTextColor())), // ☑️ 팝업창 테마 통일_250619_추가
                               const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8.0,
@@ -389,7 +458,10 @@ class PopupManager {
                                           style: getTextStyle(
                                             fontSize:
                                                 12, // 매일, 매주 등 설정 버튼의 텍스트 크기
-                                            color: Colors.black87,
+                                            // color: Colors.black87,
+                                            color: isSelected // ☑️ 팝업창 테마 통일_250619_변경
+                                              ? Colors.white 
+                                              : ThemeManager.getTextColor(), 
                                           ),
                                         ),
                                         selected: isSelected,
@@ -410,7 +482,8 @@ class PopupManager {
                                             }
                                           });
                                         },
-                                        backgroundColor: Colors.grey[100],
+                                        // backgroundColor: Colors.grey[100],
+                                        backgroundColor: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                         selectedColor: _getColorByColorId(
                                           selectedColorId,
                                         ),
@@ -429,7 +502,8 @@ class PopupManager {
                                                     ? _getColorByColorId(
                                                       selectedColorId,
                                                     )
-                                                    : Colors.grey[300]!,
+                                                    // : Colors.grey[300]!,
+                                                    : ThemeManager.getPopupBorderColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                             width: 1,
                                           ),
                                         ),
@@ -440,85 +514,107 @@ class PopupManager {
                               if (selectedRecurrence !=
                                   RecurrenceType.none) ...[
                                 const SizedBox(height: 12),
-                                Row(
+                                Row( 
                                   children: [
+                                   
+                                    // ☑️ 1. '반복 횟수' 텍스트 - 왼쪽 정렬
                                     Text(
-                                      '반복 횟수:',
-                                      style: getTextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(width: 8),
+                                        '반복 횟수',
+                                        style: getTextStyle(
+                                          fontSize: 14,
+                                          color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                        ),
+                                      ),
+                                   
+                                    // ☑️ 2. 유연한 공간 확보
+                                    const Spacer(), // ☑️ _HE_250620_Spacer 추가
+
+                                    // ☑️ 3. 카운터 컨테이너 - 오른쪽 배치
                                     Container(
-                                      width: 120, // 150에서 120으로 줄임
-                                      height: 40,
+                                      width: 90, // ☑️ 140에서 90으로 감소
+                                      height: 34, // ☑️ 40에서 34으로 감소
                                       decoration: BoxDecoration(
+                                        color: ThemeManager.getPopupSecondaryBackgroundColor(),
                                         border: Border.all(
-                                          color: Colors.grey[300]!,
+                                          color: ThemeManager.getPopupBorderColor(),
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
                                         children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.remove,
-                                              size: 14,
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                if (recurrenceCount > 1) {
-                                                  recurrenceCount--;
-                                                }
-                                              });
-                                            },
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(
-                                              minWidth: 20,
-                                              minHeight: 20,
-                                            ),
-                                          ),
                                           Expanded(
-                                            child: Text(
-                                              '$recurrenceCount',
-                                              textAlign: TextAlign.center,
-                                              style: getTextStyle(
-                                                fontSize: 14,
-                                                color: Colors.black87,
+                                            flex: 1,
+                                            child: InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  if (recurrenceCount > 1) {
+                                                    recurrenceCount--;
+                                                  }
+                                                });
+                                              },
+                                              child: Container(
+                                                height: double.infinity,
+                                                alignment: Alignment.center, // ☑️ _HE_250620_alignment 추가
+                                                child: Icon(
+                                                  Icons.remove,
+                                                  size: 14,
+                                                  color: ThemeManager.getPopupSecondaryTextColor(),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add,
-                                              size: 14,
+                                          
+                                          Expanded(
+                                            flex: 2,
+                                            child: Container(
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                '$recurrenceCount',
+                                                style: getTextStyle(
+                                                  fontSize: 14,
+                                                  color: ThemeManager.getTextColor(),
+                                                ),
+                                              ),
                                             ),
-                                            onPressed: () {
-                                              setState(() {
-                                                if (recurrenceCount < 50) {
-                                                  // 최대 50회로 제한
-                                                  recurrenceCount++;
-                                                }
-                                              });
-                                            },
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(
-                                              minWidth: 20,
-                                              minHeight: 20,
+                                          ),
+                                          Expanded(
+                                            flex: 1,
+                                            child: InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  if (recurrenceCount < 50) {
+                                                    recurrenceCount++;
+                                                  }
+                                                });
+                                              },
+                                              child: Container(
+                                                height: double.infinity,
+                                                alignment: Alignment.center, // ☑️ _HE_250620_alignment 추가
+                                                child: Icon(
+                                                  Icons.add,
+                                                  size: 14,
+                                                  color: ThemeManager.getPopupSecondaryTextColor(),
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
+
+                                    // ☑️ 4. 설명 텍스트 - 오른쪽 정렬
+                                    const SizedBox(width: 8), // ☑️ _HE_250620_12에서 8로 감소
+                                    // Flexible( // ☑️ 설명 텍스트를 Flexible로 감싸기
+                                      // child: Text(
+                                      // Text(
+                                    Expanded( // ☑️ 일정 수정과 동일하게 Expanded 추가
                                       child: Text(
-                                        _getRecurrenceDescription(
-                                          selectedRecurrence,
-                                        ),
+                                        _getRecurrenceDescription(selectedRecurrence),
                                         style: getTextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey[600],
+                                          color: ThemeManager.getPopupSecondaryTextColor(),
                                         ),
-                                        overflow: TextOverflow.ellipsis,
+                                        overflow: TextOverflow.ellipsis, // ☑️ 오버플로우 처리
                                       ),
                                     ),
                                   ],
@@ -526,6 +622,9 @@ class PopupManager {
                               ],
                             ],
                           ),
+                      
+                            
+      
                           const SizedBox(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -540,10 +639,18 @@ class PopupManager {
                                     horizontal: 16,
                                     vertical: 12,
                                   ),
+                                  foregroundColor: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                  side: BorderSide( // ☑️ 팝업창 테마 통일_250619_추가  
+                                    color: ThemeManager.getPopupBorderColor(),
+                                  ),
                                 ),
                                 child: Text(
                                   '취소',
-                                  style: getTextStyle(fontSize: 12),
+                                  // style: getTextStyle(fontSize: 12),
+                                  style: getTextStyle(
+                                    color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -607,7 +714,12 @@ class PopupManager {
                                     // 종일 일정 생성
                                     event = Event(
                                       title: titleController.text.trim(),
-                                      time: startTimeStr,
+                                      // _HE_250620_병합전 기존 코드 
+                                      // time:
+                                      //   '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                                      // endTime:
+                                      //   '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                                      time: startTimeStr, // _HE_250620_병합 후 코드
                                       endTime: endTimeStr,
                                       date: _controller.selectedDay,
                                       source: 'local',
@@ -690,45 +802,45 @@ class PopupManager {
                                       );
                                       Navigator.pop(context);
 
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '새 일정이 추가되었습니다: ${titleController.text.trim()}',
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              '새 일정이 추가되었습니다: ${titleController.text.trim()}',
+                                            ),
+                                            backgroundColor: Colors.green,
                                           ),
-                                          backgroundColor: Colors.green,
+                                        );
+                                      }
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('일정 추가 실패: $e'),
+                                          backgroundColor: Colors.red,
                                         ),
                                       );
                                     }
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('일정 추가 실패: $e'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _getColorByColorId(
-                                    selectedColorId,
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _getColorByColorId(
+                                      selectedColorId,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                  child: Text(
+                                    '추가',
+                                    style: getTextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                ),
-                                child: Text(
-                                  '추가',
-                                  style: getTextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
                               ),
                             ],
                           ),
@@ -740,6 +852,9 @@ class PopupManager {
           ),
     );
   }
+        
+  
+
 
   /// 이벤트 수정 다이얼로그 표시
   Future<void> showEditEventDialog(BuildContext context, Event event) async {
@@ -788,6 +903,7 @@ class PopupManager {
     RecurrenceType selectedRecurrence = event.recurrence; // 현재 반복 타입
     int recurrenceCount = event.recurrenceCount; // 현재 반복 횟수
 
+    //☑️ 테마 적용_이벤트 팝업_250619
     return showDialog<void>(
       context: context,
       builder:
@@ -798,15 +914,22 @@ class PopupManager {
                     borderRadius: BorderRadius.circular(16.0),
                   ),
                   elevation: 0,
+                  backgroundColor: ThemeManager.getEventPopupBackgroundColor(), // ☑️ 추가
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(16), // ☑️ _HE_250620_20 → 16으로 감소
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      // color: Colors.white,
+                      color: ThemeManager.getEventPopupBackgroundColor(), // ☑️ 추가
                       borderRadius: BorderRadius.circular(16.0),
+                      border: Border.all( // ☑️ border 추가
+                        color: ThemeManager.getEventPopupBorderColor(),
+                        width: 1,
+                      ),
                     ),
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.8,
-                      maxWidth: MediaQuery.of(context).size.width * 0.9,
+                      maxHeight: MediaQuery.of(context).size.height * 0.85, // ☑️ _HE_250620_0.8 → 0.85로 증가
+                      maxWidth: MediaQuery.of(context).size.width * 0.92, // ☑️ _HE_250620_0.9 → 0.92로 증가
+                      minWidth: 320, // ☑️ _HE_250620_최소 너비 설정정
                     ),
                     child: SingleChildScrollView(
                       child: Column(
@@ -815,32 +938,59 @@ class PopupManager {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('일정 수정', style: getTextStyle(fontSize: 20)),
+                              Text(
+                                '일정 수정',
+                                style: getTextStyle(
+                                  fontSize: 20,
+                                  // color: ThemeManager.getEventPopupTextColor())), // ☑️ 변경
+                                  color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
+                                ),
+                              ),
                               IconButton(
-                                icon: const Icon(Icons.close),
+                                icon: Icon(
+                                  Icons.close,
+                                  color: ThemeManager.getEventPopupCloseButtonColor(), // ☑️ 변경
+                                ),
                                 onPressed: () => Navigator.pop(context),
                               ),
                             ],
                           ),
                           const SizedBox(height: 16),
+
+                          // ☑️ TextField에 style 추가
                           TextField(
                             controller: titleController,
                             decoration: InputDecoration(
                               hintText: '일정 제목',
+                              hintStyle: TextStyle( // ☑️ 팝업창 테마 통일_250619_추가
+                                color: ThemeManager.getPopupSecondaryTextColor(),
+                              ),
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              // fillColor: Colors.grey[100],
+                              // fillColor: ThemeManager.getCardColor(), // ☑️ 변경
+                              fillColor: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                              
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
                               ),
-                              prefixIcon: const Icon(Icons.event_note),
-                              helperText: ' ',
+                              prefixIcon: Icon( 
+                                Icons.event_note,
+                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                              ),
+                              // helperText: ' ',
                             ),
+                            style: getTextStyle( // ☑️ 팝업창 테마 통일_250619_추가
+                              fontSize: 14,
+                              color: ThemeManager.getTextColor(),
+                            ),
+
                             autofocus: true,
                             textInputAction: TextInputAction.next,
                           ),
+                          const SizedBox(height: 16), // ☑️ 간격 추가 - 일정 제목과 색상 선택 사이
                           Material(
-                            color: Colors.grey[100],
+                            color: ThemeManager.getPopupSecondaryBackgroundColor(),
                             borderRadius: BorderRadius.circular(12),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
@@ -858,47 +1008,57 @@ class PopupManager {
                                       ),
                                 );
                               },
-                              child: Padding(
+                              child: Container( // ☑️ _HE_250620_Padding → Container로 변경
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12.0,
-                                  horizontal: 16.0,
+                                  horizontal: 14.0, // ☑️ _HE_250620_16.0 → 14.0으로 감소
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.color_lens),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      '색상 선택',
-                                      style: getTextStyle(fontSize: 12),
+                                    Icon( 
+                                      Icons.color_lens,
+                                      color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                      size: 20, // ☑️ _HE_250620_크기 명시
                                     ),
-                                    const Spacer(),
-                                    Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: _getColorByColorId(
-                                          selectedColorId,
+                                    const SizedBox(width: 10), // ☑️ _HE_250619_const SizedBox 추가, Expanded 추가
+                                    Expanded(
+                                      child: Text(
+                                        '색상 선택',
+                                        style: getTextStyle(
+                                          fontSize: 12,
+                                          color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
                                         ),
+                                      ),
+                                    ),
+                                    // const Spacer(),
+                                    Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: _getColorByColorId(selectedColorId),
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: Colors.grey,
+                                          color: ThemeManager.getPopupBorderColor(),
                                           width: 1,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    const Icon(
+                                    const SizedBox(width: 6), // ☑️ _HE_250620_8에서 6으로 감소
+                                    Icon( // ☑️ 팝업창 테마 통일_250619_const 제거
                                       Icons.arrow_forward_ios,
-                                      size: 16,
+                                      size: 14, // ☑️ _HE_250620_16 → 14로 감소
+                                      color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20), // 종일 옵션 선택
+                          const SizedBox(height: 16), // ☑️ 간격 줄임 - 20 → 16
+                          // 종일 옵션 선택
                           Material(
-                            color: Colors.grey[100],
+                            // color: Colors.grey[100],
+                            color: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 다크모드 적용
                             borderRadius: BorderRadius.circular(12),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
@@ -928,17 +1088,23 @@ class PopupManager {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.event_available),
+                                    // const Icon(Icons.event_available),
+                                    Icon( // ☑️ 다크모드 적용 - const 제거하고 색상 추가
+                                      Icons.event_available,
+                                      color: ThemeManager.getPopupSecondaryTextColor(),
+                                    ),
                                     const SizedBox(width: 12),
                                     Text(
                                       '종일 선택',
-                                      style: getTextStyle(fontSize: 12),
+                                      // style: getTextStyle(fontSize: 12),
+                                      style: getTextStyle( // ☑️ 다크모드 적용 - 색상 추가
+                                        fontSize: 12,
+                                        color: ThemeManager.getTextColor(),
+                                      ),
                                     ),
                                     const Spacer(),
                                     Switch(
-                                      value:
-                                          selectedStartTime == null &&
-                                          selectedEndTime == null,
+                                      value: selectedStartTime == null && selectedEndTime == null,
                                       onChanged: (bool value) {
                                         setState(() {
                                           if (value) {
@@ -949,24 +1115,20 @@ class PopupManager {
                                             // 시간 기반 일정으로 설정 (기본값 설정)
                                             selectedStartTime = TimeOfDay.now();
                                             selectedEndTime = TimeOfDay(
-                                              hour:
-                                                  (TimeOfDay.now().hour + 1) %
-                                                  24,
+                                              hour: (TimeOfDay.now().hour + 1) % 24,
                                               minute: TimeOfDay.now().minute,
                                             );
                                           }
                                         });
                                       },
-                                      activeColor: _getColorByColorId(
-                                        selectedColorId,
-                                      ),
+                                      activeColor: _getColorByColorId(selectedColorId),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12), // ☑️ 간격 줄임 - 16 → 12
                           // 시간 선택 UI (종일이 아닌 경우에만 표시)
                           if (selectedStartTime != null ||
                               selectedEndTime != null) ...[
@@ -974,7 +1136,8 @@ class PopupManager {
                               children: [
                                 Expanded(
                                   child: Material(
-                                    color: Colors.grey[100],
+                                    // color: Colors.grey[100],
+                                    color: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                     borderRadius: BorderRadius.circular(12),
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(12),
@@ -982,27 +1145,29 @@ class PopupManager {
                                         final TimeOfDay?
                                         picked = await showTimePicker(
                                           context: context,
-                                          initialTime:
-                                              selectedStartTime ??
-                                              TimeOfDay.now(),
+                                          initialTime: selectedStartTime ?? TimeOfDay.now(),
                                           builder: (context, child) {
                                             return Theme(
                                               data: Theme.of(context).copyWith(
                                                 timePickerTheme: TimePickerThemeData(
-                                                  backgroundColor: Colors.white,
-                                                  hourMinuteTextColor:
-                                                      Colors.black,
-                                                  dayPeriodTextColor:
-                                                      Colors.black,
-                                                  dayPeriodColor:
-                                                      Colors.grey[200],
-                                                  dayPeriodShape:
-                                                      RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
-                                                      ),
+                                                  // backgroundColor: Colors.white,
+                                                  // hourMinuteTextColor:
+                                                  //     Colors.black,
+                                                  // dayPeriodTextColor:
+                                                  //     Colors.black,
+                                                  // dayPeriodColor:
+                                                  //     Colors.grey[200],
+                                                  // dayPeriodShape:
+                                                  //     RoundedRectangleBorder(
+                                                  //       borderRadius:
+                                                  //           BorderRadius.circular(
+                                                  //             8,
+                                                  //           ),
+                                                  //     ),
+                                                  backgroundColor: ThemeManager.getPopupBackgroundColor(),
+                                                  hourMinuteTextColor: ThemeManager.getTextColor(),
+                                                  dayPeriodTextColor: ThemeManager.getTextColor(),
+                                                  dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
                                                 ),
                                               ),
                                               child: child!,
@@ -1012,18 +1177,23 @@ class PopupManager {
                                         if (picked != null) {
                                           setState(() {
                                             selectedStartTime = picked;
-                                            // 시작 시간이 변경되면 종료 시간을 1시간 후로 자동 설정
+                                            // 시작 시간이 변경되면 종료 시간도 자동으로 1시간 후로 업데이트
                                             selectedEndTime = TimeOfDay(
-                                              hour: (picked.hour + 1) % 24,
+                                              // hour: _HE_250620_병합 전 코드
+                                              //     (selectedStartTime.hour + 1) %
+                                              //     24,
+                                              // minute: selectedStartTime.minute, // 
+                                              
+                                              hour: (picked.hour + 1) % 24, // 병합
                                               minute: picked.minute,
                                             );
                                           });
                                         }
                                       },
-                                      child: Padding(
+                                      child: Container( // ☑️ _HE_250620_Padding → Container로 변경
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 12.0,
-                                          horizontal: 16.0,
+                                          horizontal: 12.0, // ☑️ _HE_250620_16.0 → 12.0으로 감소
                                         ),
                                         child: Column(
                                           crossAxisAlignment:
@@ -1032,26 +1202,32 @@ class PopupManager {
                                             Text(
                                               '시작',
                                               style: getTextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 10,
+                                                // color: Colors.grey,
+                                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
+                                                fontSize: 12, // ☑️ _HE_250620_10 → 12로 통일일
                                               ),
                                             ),
                                             const SizedBox(height: 4),
                                             Row(
                                               children: [
-                                                const Icon(
+                                                Icon( // ☑️ 팝업창 테마 통일_250619_const 제거
                                                   Icons.access_time,
-                                                  size: 18,
+                                                  size: 16, // ☑️ _HE_250620_18 → 16으로 감소
+                                                  color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가  
                                                 ),
-                                                const SizedBox(width: 8),
+                                                const SizedBox(width: 6), // ☑️ _HE_250620_8에서 6으로 감소
                                                 Text(
+                                                  // '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
                                                   selectedStartTime != null
                                                       ? '${selectedStartTime!.hour.toString().padLeft(2, '0')}:${selectedStartTime!.minute.toString().padLeft(2, '0')}'
-                                                      : '종일',
+                                                      : '종일', // _HE_250620_병합 부분...!!
+
                                                   style: getTextStyle(
                                                     fontSize: 16,
-                                                    color: Colors.black87,
+                                                    // color: Colors.black87,
+                                                    color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                                   ),
+                                                  overflow: TextOverflow.ellipsis, // ☑️ 오버플로우 처리
                                                 ),
                                               ],
                                             ),
@@ -1061,10 +1237,11 @@ class PopupManager {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 12), // ☑️ _HE_250620_16에서 12로 감소
                                 Expanded(
                                   child: Material(
-                                    color: Colors.grey[100],
+                                    // color: Colors.grey[100],
+                                    color: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                     borderRadius: BorderRadius.circular(12),
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(12),
@@ -1072,27 +1249,30 @@ class PopupManager {
                                         final TimeOfDay?
                                         picked = await showTimePicker(
                                           context: context,
-                                          initialTime:
-                                              selectedEndTime ??
-                                              TimeOfDay.now(),
+                                          initialTime: selectedEndTime ?? TimeOfDay.now(),
                                           builder: (context, child) {
                                             return Theme(
                                               data: Theme.of(context).copyWith(
                                                 timePickerTheme: TimePickerThemeData(
-                                                  backgroundColor: Colors.white,
-                                                  hourMinuteTextColor:
-                                                      Colors.black,
-                                                  dayPeriodTextColor:
-                                                      Colors.black,
-                                                  dayPeriodColor:
-                                                      Colors.grey[200],
-                                                  dayPeriodShape:
-                                                      RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
-                                                      ),
+                                                  // backgroundColor: Colors.white,
+                                                  // hourMinuteTextColor:
+                                                  //     Colors.black,
+                                                  // dayPeriodTextColor:
+                                                  //     Colors.black,
+                                                  // dayPeriodColor:
+                                                  //     Colors.grey[200],
+                                                  // dayPeriodShape:
+                                                  //     RoundedRectangleBorder(
+                                                  //       borderRadius:
+                                                  //           BorderRadius.circular(
+                                                  //             8,
+                                                  //           ),
+                                                  //     ),
+                                                  // ☑️ 팝업창 테마 통일_250619_변경
+                                                  backgroundColor: ThemeManager.getPopupBackgroundColor(),
+                                                  hourMinuteTextColor: ThemeManager.getTextColor(),
+                                                  dayPeriodTextColor: ThemeManager.getTextColor(),
+                                                  dayPeriodColor: ThemeManager.getPopupSecondaryBackgroundColor(),
                                                 ),
                                               ),
                                               child: child!,
@@ -1102,59 +1282,66 @@ class PopupManager {
                                         if (picked != null) {
                                           setState(() {
                                             selectedEndTime = picked;
-                                          });
-                                        }
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12.0,
-                                          horizontal: 16.0,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '종료',
-                                              style: getTextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 12,
+                                        });
+                                      }
+                                    },
+                                    child: Container( // ☑️ _HE_250620_Padding → Container로 변경
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12.0,
+                                        horizontal: 12.0, // ☑️ _HE_250620_16.0 → 12.0으로 감소
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '종료',
+                                            style: getTextStyle(
+                                              // color: Colors.grey,
+                                              color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              Icon( // ☑️ 팝업창 테마 통일_250619_const 제거
+                                                Icons.access_time,
+                                                size: 16, // ☑️ _HE_250620_18 → 16으로 감소
+                                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
                                               ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.access_time,
-                                                  size: 18,
+                                              const SizedBox(width: 6), // ☑️ _HE_250620_8에서 6으로 감소
+                                              Text(
+                                                // '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
+                                                selectedEndTime != null
+                                                    ? '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}'
+                                                    : '종일', // _HE_250620_병합 부분...!!
+
+                                                style: getTextStyle(
+                                                  fontSize: 16,
+                                                  // color: Colors.black87,
+                                                  color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                                 ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  selectedEndTime != null
-                                                      ? '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}'
-                                                      : '종일',
-                                                  style: getTextStyle(
-                                                    fontSize: 16,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
+                                                overflow: TextOverflow.ellipsis, // ☑️ 오버플로우 처리
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
+                          
                           const SizedBox(height: 20),
                           // 반복 옵션 섹션: 일정 수정
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('반복 설정', style: getTextStyle(fontSize: 16)),
+                              // Text('반복 설정', style: getTextStyle(fontSize: 16)),
+                              Text('반복 설정', style: getTextStyle(fontSize: 16, color: ThemeManager.getTextColor())), // ☑️ 팝업창 테마 통일_250619_추가
                               const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8.0,
@@ -1168,7 +1355,10 @@ class PopupManager {
                                           recurrence.label,
                                           style: getTextStyle(
                                             fontSize: 12,
-                                            color: Colors.black87,
+                                            // color: Colors.black87,
+                                            color: isSelected 
+                                              ? Colors.white 
+                                              : ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                           ),
                                         ),
                                         selected: isSelected,
@@ -1189,7 +1379,9 @@ class PopupManager {
                                             }
                                           });
                                         },
-                                        backgroundColor: Colors.grey[100],
+                                        // backgroundColor: Colors.grey[100],
+                                        backgroundColor: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ 팝업창 테마 통일_250619_변경
+                                        
                                         selectedColor: _getColorByColorId(
                                           selectedColorId,
                                         ),
@@ -1208,7 +1400,8 @@ class PopupManager {
                                                     ? _getColorByColorId(
                                                       selectedColorId,
                                                     )
-                                                    : Colors.grey[300]!,
+                                                    // : Colors.grey[300]!,
+                                                    : ThemeManager.getPopupBorderColor(), // ☑️ 팝업창 테마 통일_250619_변경
                                             width: 1,
                                           ),
                                         ),
@@ -1219,84 +1412,100 @@ class PopupManager {
                               if (selectedRecurrence !=
                                   RecurrenceType.none) ...[
                                 const SizedBox(height: 12),
-                                Row(
+                                Row( 
                                   children: [
                                     Text(
-                                      '반복 횟수:',
-                                      style: getTextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(width: 8),
+                                        '반복 횟수',
+                                        style: getTextStyle(
+                                          fontSize: 14,
+                                          color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                        ),
+                                      ),
+                                    const Spacer(), // ☑️ _HE_250620_Spacer 추가
+                                      
                                     Container(
-                                      width: 120,
-                                      height: 40,
+                                      width: 90, // ☑️ 140에서 90으로 감소
+                                      height: 34, // ☑️ 40에서 34으로 감소
                                       decoration: BoxDecoration(
+                                        color: ThemeManager.getPopupSecondaryBackgroundColor(),
                                         border: Border.all(
-                                          color: Colors.grey[300]!,
+                                          color: ThemeManager.getPopupBorderColor(),
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
                                         children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.remove,
-                                              size: 14,
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                if (recurrenceCount > 1) {
-                                                  recurrenceCount--;
-                                                }
-                                              });
-                                            },
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(
-                                              minWidth: 20,
-                                              minHeight: 20,
-                                            ),
-                                          ),
                                           Expanded(
-                                            child: Text(
-                                              '$recurrenceCount',
-                                              textAlign: TextAlign.center,
-                                              style: getTextStyle(
-                                                fontSize: 14,
-                                                color: Colors.black87,
+                                            flex: 1,
+                                            child: InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  if (recurrenceCount > 1) {
+                                                    recurrenceCount--;
+                                                  }
+                                                });
+                                              },
+                                              child: Container(
+                                                height: double.infinity,
+                                                alignment: Alignment.center, // ☑️ _HE_250620_alignment 추가
+                                                child: Icon(
+                                                  Icons.remove,
+                                                  size: 14,
+                                                  color: ThemeManager.getPopupSecondaryTextColor(),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add,
-                                              size: 14,
+                                          Expanded(
+                                            flex: 2,
+                                            child: Container(
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                '$recurrenceCount',
+                                                style: getTextStyle(
+                                                  fontSize: 14,
+                                                  color: ThemeManager.getTextColor(),
+                                                ),
+                                              ),
                                             ),
-                                            onPressed: () {
-                                              setState(() {
-                                                if (recurrenceCount < 50) {
-                                                  recurrenceCount++;
-                                                }
-                                              });
-                                            },
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(
-                                              minWidth: 20,
-                                              minHeight: 20,
+                                          ),
+                                          Expanded(
+                                            flex: 1,
+                                            child: InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  if (recurrenceCount < 50) {
+                                                    recurrenceCount++;
+                                                  }
+                                                });
+                                              },
+                                              child: Container(
+                                                height: double.infinity,
+                                                alignment: Alignment.center, // ☑️ _HE_250620_alignment 추가
+                                                child: Icon(
+                                                  Icons.add,
+                                                  size: 14,
+                                                  color: ThemeManager.getPopupSecondaryTextColor(),
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: 8), // ☑️ _HE_250620_12에서 8로 감소  
+
+                                    // Flexible( // ☑️ 설명 텍스트를 Flexible로 감싸기
+                                      // child: Text(
+                                      // Text(
                                     Expanded(
                                       child: Text(
-                                        _getRecurrenceDescription(
-                                          selectedRecurrence,
-                                        ),
+                                        _getRecurrenceDescription(selectedRecurrence),
                                         style: getTextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey[600],
+                                          color: ThemeManager.getPopupSecondaryTextColor(),
                                         ),
-                                        overflow: TextOverflow.ellipsis,
+                                        overflow: TextOverflow.ellipsis, // ☑️ 오버플로우 처리
                                       ),
                                     ),
                                   ],
@@ -1318,10 +1527,18 @@ class PopupManager {
                                     horizontal: 16,
                                     vertical: 12,
                                   ),
+                                  foregroundColor: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                  side: BorderSide(  // ☑️ 팝업창 테마 통일_250619_추가
+                                    color: ThemeManager.getPopupBorderColor(),
+                                  ),
                                 ),
                                 child: Text(
                                   '취소',
-                                  style: getTextStyle(fontSize: 12),
+                                  // style: getTextStyle(fontSize: 12),
+                                  style: getTextStyle(
+                                    color: ThemeManager.getTextColor(), // ☑️ 팝업창 테마 통일_250619_추가
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -1401,6 +1618,10 @@ class PopupManager {
 
                                       updatedEvent = event.copyWith(
                                         title: titleController.text.trim(),
+                                    //     time: // _HE_250620_병합 전 코드
+                                    //     '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
+                                    // endTime:
+                                    //     '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
                                         time: startTimeStr,
                                         endTime: endTimeStr,
                                         isMultiDay: true,
@@ -1440,6 +1661,7 @@ class PopupManager {
                                     await _eventManager.updateEvent(
                                       event,
                                       updatedEvent,
+                                      syncWithGoogle: true,
                                     );
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1481,6 +1703,7 @@ class PopupManager {
                               ),
                             ],
                           ),
+                          ],
                         ],
                       ),
                     ),
@@ -1490,7 +1713,7 @@ class PopupManager {
     );
   }
 
-  /// 이벤트 삭제 확인 다이얼로그 표시
+  // 이벤트 삭제 확인 다이얼로그 표시_HE_250620_다크모드 적용용
   Future<bool?> showDeleteEventDialog(BuildContext context, Event event) async {
     return showDialog<bool>(
       context: context,
@@ -1503,8 +1726,13 @@ class PopupManager {
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                // color: Colors.white,
+                color: ThemeManager.getEventPopupBackgroundColor(), // ☑️ _HE_250620_변경
                 borderRadius: BorderRadius.circular(16.0),
+                border: Border.all( // ☑️ _HE_250620_테두리 추가
+                  color: ThemeManager.getEventPopupBorderColor(),
+                  width: 1,
+                ),
               ),
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.85,
@@ -1518,12 +1746,18 @@ class PopupManager {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          // color: Colors.red.withOpacity(0.1),
+                          color: ThemeManager.isDarkMode // ☑️ _HE_250620_변경
+                              ? Colors.red.withOpacity(0.2) // ☑️ 다크 모드용
+                              : Colors.red.withOpacity(0.1), // ☑️ 라이트 모드용
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
+                        child: Icon(  // ☑️ _HE_250620_const → 제거
                           Icons.delete_outline,
-                          color: Colors.red,
+                          // color: Colors.red,
+                          color: ThemeManager.isDarkMode 
+                              ? Colors.red[300] // ☑️ 다크 모드용
+                              : Colors.red, // ☑️ 라이트 모드용
                           size: 24,
                         ),
                       ),
@@ -1532,7 +1766,8 @@ class PopupManager {
                         '일정 삭제',
                         style: getTextStyle(
                           fontSize: 20,
-                          color: Colors.black87,
+                          // color: Colors.black87,
+                          color: ThemeManager.getTextColor(), // ☑️ _HE_250620_변경
                         ),
                       ),
                     ],
@@ -1541,9 +1776,14 @@ class PopupManager {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      // color: Colors.grey[50],
+                      color: ThemeManager.getPopupSecondaryBackgroundColor(), // ☑️ _HE_250620_변경
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[200]!, width: 1),
+                      border: Border.all(
+                        // color: Colors.grey[200]!, width: 1),
+                        color: ThemeManager.getPopupBorderColor(), // ☑️ _HE_250620_변경
+                        width: 1,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1566,7 +1806,8 @@ class PopupManager {
                                 event.title,
                                 style: getTextStyle(
                                   fontSize: 16,
-                                  color: Colors.black87,
+                                  // color: Colors.black87,
+                                  color: ThemeManager.getTextColor(), // ☑️ _HE_250620_변경
                                 ),
                               ),
                             ),
@@ -1575,10 +1816,11 @@ class PopupManager {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(
+                            Icon( // ☑️ _HE_250620_const → 제거
                               Icons.access_time,
                               size: 16,
-                              color: Colors.grey,
+                              // color: Colors.grey,
+                              color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250620_변경
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -1587,7 +1829,8 @@ class PopupManager {
                                   : '${event.time}${event.endTime != null ? ' - ${event.endTime}' : ''}',
                               style: getTextStyle(
                                 fontSize: 14,
-                                color: Colors.grey,
+                                // color: Colors.grey,
+                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250620_변경
                               ),
                             ),
                           ],
@@ -1595,17 +1838,19 @@ class PopupManager {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(
+                            Icon( // ☑️ _HE_250620_const → 제거
                               Icons.calendar_today,
                               size: 16,
-                              color: Colors.grey,
+                              // color: Colors.grey,
+                              color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250620_변경
                             ),
                             const SizedBox(width: 4),
                             Text(
                               '${event.date.year}년 ${event.date.month}월 ${event.date.day}일',
                               style: getTextStyle(
                                 fontSize: 14,
-                                color: Colors.grey,
+                                // color: Colors.grey,
+                                color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250620_변경
                               ),
                             ),
                           ],
@@ -1616,12 +1861,20 @@ class PopupManager {
                   const SizedBox(height: 20),
                   Text(
                     '이 일정을 삭제하시겠습니까?',
-                    style: getTextStyle(fontSize: 16, color: Colors.black87),
+                    style: getTextStyle(
+                      fontSize: 16, 
+                      // color: Colors.black87,
+                      color: ThemeManager.getTextColor(), // ☑️ _HE_250620_변경
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '삭제된 일정은 복구할 수 없습니다.',
-                    style: getTextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: getTextStyle(
+                      fontSize: 14, 
+                      // color: Colors.grey[600],
+                      color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250620_변경
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -1637,15 +1890,28 @@ class PopupManager {
                             horizontal: 20,
                             vertical: 12,
                           ),
+                          foregroundColor: ThemeManager.getTextColor(), // ☑️ _HE_250620_추가
+                          side: BorderSide(  // ☑️ _HE_250620_추가
+                            color: ThemeManager.getPopupBorderColor(),
+                          ),
                         ),
-                        child: Text('취소', style: getTextStyle(fontSize: 12)),
+                        child: Text(
+                          '취소', 
+                          style: getTextStyle(
+                            fontSize: 12,
+                            color: ThemeManager.getTextColor(), // ☑️ _HE_250620_추가
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
+                          // backgroundColor: Colors.red,
+                          backgroundColor: ThemeManager.isDarkMode // ☑️ _HE_250620_변경
+                              ? Colors.red[400] // ☑️ 다크 모드용
+                              : Colors.red, // ☑️ 라이트 모드용
+                          foregroundColor: Colors.white, 
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),

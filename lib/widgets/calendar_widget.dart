@@ -17,6 +17,7 @@ import '../services/weather_service.dart';
 import '../services/stt_command_service.dart';
 import '../screens/chat_screen.dart';
 import '../services/tts_service.dart'; // --- ★★★ 추가: TtsService 임포트 ★★★ ---
+import '../utils/theme_manager.dart'; //☑️ 테마 관련 추가
 
 class CalendarWidget extends StatefulWidget {
   final CalendarController controller;
@@ -49,6 +50,22 @@ class _CalendarWidgetState extends State<CalendarWidget> {
   @override
   void initState() {
     super.initState();
+    //☑️ 테마 변경 리스너 등록
+    ThemeManager.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    //☑️ 리스너 제거
+    ThemeManager.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  //☑️ 테마 변경 시 호출되는 콜백
+  void _onThemeChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -69,7 +86,10 @@ class _CalendarWidgetState extends State<CalendarWidget> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+      // backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+      //☑️테마에 따른 배경색 변경
+      backgroundColor: ThemeManager.getCalendarMainBackgroundColor(), // 검정에 가까운 회색
+
       drawer: CalendarSideMenu(
         onWeatherForecastTap: () async {
           await WeatherService.loadCalendarWeather(widget.controller);
@@ -122,7 +142,11 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(3.0, 0.0, 3.0, 0),
                   child: Container(
-                    color: Colors.white,
+                    // color: Colors.white,
+                    //☑️테마에 따른 배경색 변경
+                    // color: ThemeManager.getCalendarMainBackgroundColor(), // 검정에 가까운 어두운 회색
+                    color: ThemeManager.getCalendarHeaderBackgroundColor(), // 검정에 가까운 어두운 회색
+                    
                     child: TableCalendar(
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
@@ -172,7 +196,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       headerStyle: HeaderStyle(
                         titleTextStyle: getTextStyle(
                           fontSize: 12,
-                          color: Colors.black,
+                          // color: Colors.black,
+                          color: ThemeManager.getCalendarHeaderTextColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
                           text: '달력 제목',
                         ),
                         formatButtonVisible: false,
@@ -185,28 +210,37 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                       daysOfWeekStyle: DaysOfWeekStyle(
                         weekdayStyle: getTextStyle(
                           fontSize: 8,
-                          color: Colors.black,
+                          // color: Colors.black,
+                          color: ThemeManager.getTextColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
                           text: 'Mon',
                         ),
                         weekendStyle: getTextStyle(
                           fontSize: 8,
-                          color: const Color.fromARGB(255, 54, 184, 244),
+                          // color: const Color.fromARGB(255, 54, 184, 244),
+                          color: ThemeManager.getSaturdayColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
                           text: 'Sat',
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEEEEE),
-                          border: Border.all(color: Colors.black, width: 1),
+                          // color: const Color(0xFFEEEEEE),
+                          color: ThemeManager.getCalendarDayOfWeekBackgroundColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
+                          border: Border.all(
+                            // color: Colors.black, width: 1),
+                            color: ThemeManager.getEventPopupBorderColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
+                            width: 1,
+                          ),
                         ),
                       ),
                       calendarStyle: CalendarStyle(
                         defaultTextStyle: getTextStyle(
                           fontSize: 8,
-                          color: Colors.black,
+                          // color: Colors.black,
+                          color: ThemeManager.getTextColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
                           text: '1',
                         ),
                         weekendTextStyle: getTextStyle(
                           fontSize: 8,
-                          color: Colors.red,
+                          // color: Colors.red,
+                          color: ThemeManager.getSundayColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
                           text: '1',
                         ),
                         selectedTextStyle: getTextStyle(
@@ -216,29 +250,39 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         ),
                         todayTextStyle: getTextStyle(
                           fontSize: 8,
-                          color: Colors.black,
+                          // color: Colors.black,
+                          color: ThemeManager.getTextColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
                           text: '1',
                         ),
                         outsideTextStyle: getTextStyle(
                           fontSize: 8,
-                          color: const Color(0xFF888888),
+                          // color: const Color(0xFF888888),
+                          color: ThemeManager.getTextColor(
+                            lightColor: const Color(0xFF888888),
+                            darkColor: const Color(0xFF666666),
+                          ), //☑️ 테마 적용용
                           text: '1',
                         ),
                         selectedDecoration: BoxDecoration(
-                          color: Colors.blue[800],
+                          // color: Colors.blue[800],
+                          color: ThemeManager.getCalendarSelectedColor(), //☑️ 테마 적용용
                         ),
                         todayDecoration: BoxDecoration(
-                          color: Colors.amber[300],
+                          // color: Colors.amber[300],
+                          color: ThemeManager.getCalendarTodayColor(), //☑️ 테마 적용용
                         ),
                         defaultDecoration: const BoxDecoration(),
-                        weekendDecoration: const BoxDecoration(
-                          color: Color(0xFFEEEEEE),
+                        weekendDecoration: BoxDecoration( // const 제거
+                          // color: Color(0xFFEEEEEE),
+                          color: ThemeManager.getCalendarWeekendColor(), //☑️ 테마 적용용
                         ),
-                        outsideDecoration: const BoxDecoration(
-                          color: Color(0xFFDDDDDD),
+                        outsideDecoration:  BoxDecoration( // const 제거
+                          // color: Color(0xFFDDDDDD),
+                          color: ThemeManager.getCalendarOutsideColor(), //☑️ 테마 적용용
                         ),
                         tableBorder: TableBorder.all(
-                          color: const Color.fromARGB(24, 0, 0, 0),
+                          // color: const Color.fromARGB(24, 0, 0, 0),
+                          color: ThemeManager.getEventPopupBorderColor(), //☑️ 테마 적용용
                           width: 1,
                         ),
                         markersMaxCount: 6,
@@ -348,27 +392,32 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         },
                         // 요일 헤더 빌더
                         dowBuilder: (context, day) {
-                          final weekdayNames = [
-                            '월',
-                            '화',
-                            '수',
-                            '목',
-                            '금',
-                            '토',
-                            '일',
-                          ];
+                          final weekdayNames = ['월', '화', '수', '목', '금', '토', '일'];
                           final weekdayIndex = day.weekday - 1;
-                          Color textColor;
-                          if (day.weekday == DateTime.saturday) {
-                            textColor = const Color.fromARGB(255, 54, 184, 244);
-                          } else if (day.weekday == DateTime.sunday) {
-                            textColor = Colors.red;
-                          } else {
-                            textColor = Colors.black;
-                          }
+                          //☑️ 테마에 따른 요일 텍스트 색상 변경
+                          // Color textColor;
+                          // if (day.weekday == DateTime.saturday) {
+                          //   textColor = const Color.fromARGB(255, 54, 184, 244);
+                          // } else if (day.weekday == DateTime.sunday) {
+                          //   textColor = Colors.red;
+                          // } else {
+                          //   textColor = Colors.black;
+                          // }
+                          final isSaturday = day.weekday == DateTime.saturday;
+                          final isSunday = day.weekday == DateTime.sunday;
+                          final isWeekend = isSaturday || isSunday; // ☑️ 테마에 따른 요일 텍스트 색상 변경(여기까지)
+                          
                           return Container(
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEEEEEE),
+                            //☑️ 테마에 따른 요일 텍스트 색상 변경
+                            // decoration: const BoxDecoration(
+                            //   color: Color(0xFFEEEEEE),
+                            
+                            decoration: BoxDecoration(
+                              color: ThemeManager.getCalendarDayOfWeekBackgroundColor(), // 테마 적용
+                              border: Border.all(
+                                color: ThemeManager.getEventPopupBorderColor(), 
+                                width: 1
+                              ),
                             ),
                             alignment: Alignment.center,
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -376,7 +425,9 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                               weekdayNames[weekdayIndex],
                               style: getTextStyle(
                                 fontSize: 12,
-                                color: textColor,
+                                // color: textColor,
+                                color: ThemeManager.getCalendarDayOfWeekTextColor(isWeekend, isSaturday), //☑️ 테마에 따른 요일 텍스트 색상 변경
+                                
                                 text: weekdayNames[weekdayIndex],
                               ),
                             ),
@@ -397,36 +448,75 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             '11월',
                             '12월',
                           ];
+
+                          //☑️ 테마에 따른 달력 제목 색상 변경
+                          // return Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //   children: [
+                          //     IconButton(
+                          //       icon: const Icon(
+                          //         Icons.menu,
+                          //         color: Colors.black,
+                          //       ),
+                          //       onPressed:
+                          //           () => Scaffold.of(context).openDrawer(),
+                          //     ),
+                          //     Expanded(
+                          //       child: Center(
+                          //         child: Text(
+                          //           '${month.year} ${monthNames[month.month - 1]}',
+                          //           style: getTextStyle(
+                          //             fontSize: 18,
+                          //             color: Colors.black,
+                          //           ),
+                          //         ),
+                          //       ),
+                          //     ),
                           return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.menu,
-                                  color: Colors.black,
+                          // return Container(
+                          //   //  헤더 배경색 추가 (어두운 회색)
+                          //   decoration: BoxDecoration(
+                          //     color: ThemeManager.getCalendarHeaderBackgroundColor(),
+                          //     border: Border(
+                          //       bottom: BorderSide(
+                          //         color: ThemeManager.getEventPopupBorderColor(),
+                          //         width: 0.2,
+                          //       ),
+                          //     ),
+                          //   ),
+                        
+                            // child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                //  메뉴 아이콘 (테마 적용)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.menu,
+                                    color: ThemeManager.getCalendarHeaderIconColor(), // 🔧 테마 적용
+                                  ),
+                                  onPressed: () => Scaffold.of(context).openDrawer(),
                                 ),
-                                onPressed:
-                                    () => Scaffold.of(context).openDrawer(),
-                              ),
-                              Expanded(
-                                child: Center(
-                                  child: Text(
-                                    '${month.year} ${monthNames[month.month - 1]}',
-                                    style: getTextStyle(
-                                      fontSize: 18,
-                                      color: Colors.black,
+                                //  년도/월 텍스트 (테마 적용)
+                                Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      '${month.year} ${monthNames[month.month - 1]}',
+                                      style: getTextStyle(
+                                        fontSize: 18,
+                                        color: ThemeManager.getCalendarHeaderTextColor(), // 🔧 테마 적용
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const IconButton(
-                                icon: Icon(
-                                  Icons.calendar_today,
-                                  color: Colors.transparent,
+                                const IconButton(
+                                  icon: Icon(
+                                    Icons.calendar_today,
+                                    color: Colors.transparent,
+                                  ),
+                                  onPressed: null,
                                 ),
-                                onPressed: null,
-                              ),
-                            ],
+                              ],
+                            // ), // ☑️ 테마에 따른 달력 제목 색상 변경(여기까지)
                           );
                         },
                       ),

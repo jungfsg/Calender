@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/event.dart';
 import '../utils/font_utils.dart';
 import 'color_picker_dialog.dart';
+import '../utils/theme_manager.dart'; // ☑️ 다크모드 적용
 
 class MultiDayEventPopup extends StatefulWidget {
   final Event? editingEvent; // 수정 중인 이벤트 (null이면 새로 생성)
@@ -60,13 +61,33 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
     _descriptionController.dispose();
     super.dispose();
   }
-
+// ☑️ 날짜 선택 팝업_테마 적용_250619
   Future<void> _selectStartDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _startDate ?? DateTime.now(),
       firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      lastDate: DateTime(2030), 
+
+      // ☑️ 테마 적용 추가_250619
+      builder: (context, child) {
+        return Theme(
+          data: ThemeManager.isDarkMode 
+              ? ThemeData.dark().copyWith(
+                  colorScheme: const ColorScheme.dark(
+                    primary: Colors.blue,
+                    surface: Color(0xFF2D2D2D),
+                  ),
+                  dialogBackgroundColor: const Color(0xFF2D2D2D),
+                )
+              : ThemeData.light().copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Colors.blue,
+                  ),
+                ),
+          child: child!,
+        );
+      }, // ☑️ 테마 적용 추가(여기까지)
     );
     if (picked != null) {
       setState(() {
@@ -78,13 +99,34 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
       });
     }
   }
-
+  
+// ☑️ 종료 날짜 선택 팝업_테마 적용_250619
   Future<void> _selectEndDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _endDate ?? DateTime.now().add(const Duration(days: 1)),
       firstDate: _startDate ?? DateTime.now(),
       lastDate: DateTime(2030),
+
+      // ☑️ 테마 적용 추가_250619
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: ThemeManager.getDatePickerSelectedColor(),
+              onPrimary: Colors.white,
+              surface: ThemeManager.getDatePickerSurfaceColor(),
+              onSurface: ThemeManager.getDatePickerTextColor(),
+              background: ThemeManager.getDatePickerBackgroundColor(),
+              onBackground: ThemeManager.getDatePickerTextColor(),
+            ).copyWith(
+              brightness: ThemeManager.isDarkMode ? Brightness.dark : Brightness.light,
+            ),
+            dialogBackgroundColor: ThemeManager.getDatePickerBackgroundColor(),
+          ),
+          child: child!,
+        ); 
+      }, // ☑️ 테마 적용 추가(여기까지)
     );
     if (picked != null) {
       setState(() {
@@ -166,6 +208,7 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
 
   @override
   Widget build(BuildContext context) {
+    //☑️ 테마 적용_멀티데이 이벤트 팝업_250619
     return Container(
       color: Colors.black.withAlpha(127),
       child: Center(
@@ -173,17 +216,25 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
           width: MediaQuery.of(context).size.width * 0.85,
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
-            color: Colors.white,
+            // color: Colors.white,
+            color: ThemeManager.getEventPopupBackgroundColor(), // ☑️ 변경
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.black, width: 2),
+            // border: Border.all(color: Colors.black, width: 2),
+            border: Border.all( 
+              color: ThemeManager.getEventPopupBorderColor(), // ☑️ 변경
+              width: 2,
+            ),
           ),
           child: Column(
             children: [
               // 헤더
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.black,
+                // decoration: const BoxDecoration(
+                //   color: Colors.black,
+                decoration: BoxDecoration( // ☑️ const 제거
+                    color: ThemeManager.getEventPopupHeaderColor(), // ☑️ 변경
+                    
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(13),
                     topRight: Radius.circular(13),
@@ -230,23 +281,48 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                       // 제목 입력
                       Text(
                         '제목',
-                        style: getTextStyle(fontSize: 16, color: Colors.black),
+                        // style: getTextStyle(fontSize: 16, color: Colors.black),
+                        style: getTextStyle(
+                          fontSize: 16,
+                          color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _titleController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
+                        // decoration: const InputDecoration(
+                        //   border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: ThemeManager.getEventPopupBorderColor(), // ☑️ 변경
+                            ),
+                          ),
                           hintText: '일정 제목을 입력하세요',
+                        // ),
+                        // style: getTextStyle(fontSize: 14, color: Colors.black),
+                          hintStyle: TextStyle( // ☑️ 변경
+                            color: ThemeManager.getTextColor(
+                              lightColor: Colors.grey[600]!,
+                              darkColor: Colors.grey[400]!,
+                            ),
+                          ),
+                          fillColor: ThemeManager.getCardColor(),
+                          filled: true,
                         ),
-                        style: getTextStyle(fontSize: 14, color: Colors.black),
+                        style: getTextStyle(
+                          fontSize: 14,
+                          color: ThemeManager.getEventPopupTextColor(),
+                        ), // ☑️ 변경(여기까지)
                       ),
 
                       Spacer(),
 
                       // 색상 선택
                       Material(
-                        color: Colors.grey[100],
+                        // color: Colors.grey[100],
+                        color: ThemeManager.getCardColor(),  // ☑️ 변경
+                        
                         borderRadius: BorderRadius.circular(12),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
@@ -258,13 +334,17 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.color_lens),
+                                Icon(
+                                  Icons.color_lens,
+                                  color: ThemeManager.getEventPopupTextColor(), // ☑️ 추가
+                                ),
                                 const SizedBox(width: 12),
                                 Text(
                                   '색상 선택',
                                   style: getTextStyle(
                                     fontSize: 12,
-                                    color: Colors.black,
+                                    // color: Colors.black,
+                                    color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
                                   ),
                                 ),
                                 const Spacer(),
@@ -275,13 +355,19 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                     color: _selectedColor,
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Colors.grey,
+                                      // color: Colors.grey,
+                                      color: ThemeManager.getEventPopupBorderColor(), // ☑️ 변경
                                       width: 1,
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Icon(Icons.arrow_forward_ios, size: 16),
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  // color: Colors.black,
+                                  color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
+                                ),
                               ],
                             ),
                           ),
@@ -299,7 +385,8 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                   '시작 날짜',
                                   style: getTextStyle(
                                     fontSize: 16,
-                                    color: Colors.black,
+                                    // color: Colors.black,
+                                    color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -309,18 +396,22 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey),
+                                      // border: Border.all(color: Colors.grey),
+                                      border: Border.all(
+                                        color: ThemeManager.getEventPopupBorderColor(), // ☑️ 변경
+                                      ),
+                                      
                                       borderRadius: BorderRadius.circular(4),
+                                      color: ThemeManager.getCardColor(), // ☑️ 추가
                                     ),
                                     child: Text(
                                       _startDate != null
-                                          ? DateFormat(
-                                            'yyyy-MM-dd',
-                                          ).format(_startDate!)
+                                          ? DateFormat('yyyy-MM-dd').format(_startDate!)
                                           : '날짜 선택',
                                       style: getTextStyle(
                                         fontSize: 14,
-                                        color: Colors.black,
+                                        // color: Colors.black,
+                                        color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
                                       ),
                                     ),
                                   ),
@@ -339,7 +430,8 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                   '종료 날짜',
                                   style: getTextStyle(
                                     fontSize: 16,
-                                    color: Colors.black,
+                                    // color: Colors.black,
+                                    color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -349,18 +441,22 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey),
+                                      // border: Border.all(color: Colors.grey),
+                                      border: Border.all(
+                                        color: ThemeManager.getEventPopupBorderColor(), // ☑️ 변경
+                                      ),
+                                      
                                       borderRadius: BorderRadius.circular(4),
+                                      color: ThemeManager.getCardColor(), // ☑️ 추가
                                     ),
                                     child: Text(
                                       _endDate != null
-                                          ? DateFormat(
-                                            'yyyy-MM-dd',
-                                          ).format(_endDate!)
+                                          ? DateFormat('yyyy-MM-dd').format(_endDate!)
                                           : '날짜 선택',
                                       style: getTextStyle(
                                         fontSize: 14,
-                                        color: Colors.black,
+                                        // color: Colors.black,
+                                        color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
                                       ),
                                     ),
                                   ),
@@ -381,15 +477,19 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // ☑️ 취소 버튼_테마 적용_250619
                             ElevatedButton(
                               onPressed: widget.onClose,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromARGB(
-                                  255,
-                                  255,
-                                  255,
-                                  255,
-                                ),
+                                // backgroundColor: const Color.fromARGB(
+                                //   255,
+                                //   255,
+                                //   255,
+                                //   255,
+                                // ),
+                                backgroundColor: ThemeManager.getCardColor(), // ☑️ 변경
+                                foregroundColor: ThemeManager.getEventPopupTextColor(), // ☑️ 추가
+                                
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 8,
@@ -397,13 +497,17 @@ class _MultiDayEventPopupState extends State<MultiDayEventPopup> {
                                 minimumSize: const Size(0, 0),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide( // ☑️ 추가
+                                    color: ThemeManager.getEventPopupBorderColor(), // ☑️ 추가
+                                  ),
                                 ),
                               ),
                               child: Text(
                                 '취소',
                                 style: getTextStyle(
                                   fontSize: 12,
-                                  color: const Color.fromARGB(255, 0, 0, 0),
+                                  // color: const Color.fromARGB(255, 0, 0, 0), 
+                                  color: ThemeManager.getEventPopupTextColor(), // ☑️ 변경
                                 ),
                               ),
                             ),
