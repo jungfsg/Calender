@@ -112,7 +112,7 @@ Color _getDateColor() {
       '크리스마스',
       '대체공휴일',
       '임시공휴일',
-      '대통령선거일',
+      '대통령 선거',
     };
 
     return events.any(
