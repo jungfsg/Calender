@@ -48,7 +48,9 @@ class ThemeManager {
   }
   
   static Color getBackgroundColor({Color? lightColor, Color? darkColor}) {
-    return _isDarkMode ? (darkColor ?? const Color(0xFF121212)) : (lightColor ?? Colors.white);
+    // return _isDarkMode ? (darkColor ?? const Color(0xFF121212)) : (lightColor ?? Colors.white);
+    // ☑️ 캘린더와 채팅 화면의 메인 배경을 헤더와 동일한 초록색으로 변경
+    return getNavigationBarColor(); // 헤더와 동일한 초록색 배경 적용
   }
   
   static Color getCardColor({Color? lightColor, Color? darkColor}) {
@@ -77,7 +79,8 @@ class ThemeManager {
   }
   
   static Color getCalendarOutsideColor() {
-    return _isDarkMode ? const Color(0xFF1F1F1F) : const Color(0xFFDDDDDD);
+    // return _isDarkMode ? const Color(0xFF1F1F1F) : const Color(0xFFDDDDDD); //_HE_250623_1428_기존 색상 변경
+    return _isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFBBBBBB);
   }
   
   static Color getNavigationBarColor() {
@@ -95,15 +98,18 @@ class ThemeManager {
 
 // 캘린더 헤더 전용 색상들
 static Color getCalendarHeaderBackgroundColor() {
-  return _isDarkMode ? const Color.fromARGB(255, 63, 63, 63) : const Color.fromARGB(255, 204, 204, 204); // 어두운 회색
+  // return _isDarkMode ? const Color.fromARGB(255, 63, 63, 63) : const Color.fromARGB(255, 204, 204, 204); // 어두운 회색
+  return getNavigationBarColor(); // ☑️ 네비게이션바와 동일한 색상 적용
+  // return _isDarkMode ? const Color.fromARGB(255, 100, 150, 100) : const Color.fromARGB(255, 162, 222, 141); // ☑️ 네비게이션바와 동일한 색상 직접 적용
 }
 
 static Color getCalendarHeaderIconColor() {
-  return _isDarkMode ? Colors.white : Colors.black; // 아이콘은 화이트
+  return _isDarkMode ? Color(0xFF1F1F1F) : Colors.black; // 아이콘은 화이트
 }
 
 static Color getCalendarHeaderTextColor() {
-  return _isDarkMode ? const Color(0xFFB0B0B0) : Colors.black; // 밝은 회색
+  // return _isDarkMode ? const Color(0xFFB0B0B0) : Colors.black; // 밝은 회색
+  return _isDarkMode ? const Color(0xFF1F1F1F) : Colors.black; // 연두 배경에 어두운 글씨가 보기 좋겠지...?
 }
 
 static Color getCalendarDayOfWeekBackgroundColor() {
@@ -130,11 +136,26 @@ static Color getCalendarDayOfWeekTextColor(bool isWeekend, bool isSaturday) {
   }
 }
 
+// ☑️ 캘린더 테두리 전용 색상 (다음달 날짜 배경과 동일하게)
+  static Color getCalendarBorderColor() {
+    return getCalendarOutsideColor(); // 다음달 날짜 배경과 동일한 색상 사용
+  }
+
 // 캘린더 메인 배경색 (검정에 가까운 어두운 회색)
 static Color getCalendarMainBackgroundColor() {
-  return _isDarkMode ? const Color(0xFF1A1A1A) : Colors.white; // 검정에 가까운 어두운 회색
+  // return _isDarkMode ? const Color(0xFF1A1A1A) : Colors.white; // 검정에 가까운 어두운 회색
+  return getNavigationBarColor();
 }  
 
+// ☑️ 사이드바 전용 배경색 (라이트: 밝은색, 다크: 검정색)
+static Color getSidebarBackgroundColor() {
+  return _isDarkMode ? const Color(0xFF121212) : Colors.white;
+}
+
+// ☑️ 브리핑 설정 페이지 전용 배경색 (라이트: 흰색, 다크: 어두운 회색)
+static Color getBriefingSettingsBackgroundColor() {
+  return _isDarkMode ? const Color(0xFF121212) : Colors.white;
+}
 
 // _weather_calendar_cell_날짜 셀 전용 색상들
 static Color getCalendarCellBackgroundColor({bool isSelected = false, bool isToday = false, bool isHoliday = false, bool isWeekend = false}) {
@@ -188,7 +209,7 @@ static Color getPopupSecondaryBackgroundColor() {
 }
 
 static Color getPopupSecondaryTextColor() {
-  return _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+  return _isDarkMode ? const Color(0xFFBDBDBD)! : Colors.grey[600]!;
 }
 
 // === 기존 메서드들을 통합된 색상으로 리다이렉트 ===
@@ -308,6 +329,11 @@ static Color getAddMultiDayEventButtonColor() {
   static Color getInfoBoxTextColor() {
     return _isDarkMode ? Colors.blue[200]! : Colors.blue[700]!; // 다크모드: 밝은 청색, 라이트모드: 어두운 청색
   }
+
+// ☑️ 로그인 화면 전용 배경색 (라이트: 흰색, 다크: 블랙)
+static Color getLoginScreenBackgroundColor() {
+  return _isDarkMode ? Colors.black : Colors.white;
+}
 }
 
 

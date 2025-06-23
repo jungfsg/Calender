@@ -144,8 +144,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                   child: Container(
                     // color: Colors.white,
                     //☑️테마에 따른 배경색 변경
-                    // color: ThemeManager.getCalendarMainBackgroundColor(), // 검정에 가까운 어두운 회색
-                    color: ThemeManager.getCalendarHeaderBackgroundColor(), // 검정에 가까운 어두운 회색
+                    color: ThemeManager.getCalendarMainBackgroundColor(), // 검정에 가까운 어두운 회색
+                    // color: ThemeManager.getCalendarHeaderBackgroundColor(), // 네비게이션바와 동일한 색상 적용
                     
                     child: TableCalendar(
                       firstDay: DateTime.utc(2020, 1, 1),
@@ -225,7 +225,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                           color: ThemeManager.getCalendarDayOfWeekBackgroundColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
                           border: Border.all(
                             // color: Colors.black, width: 1),
-                            color: ThemeManager.getEventPopupBorderColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
+                            // color: ThemeManager.getEventPopupBorderColor(), //☑️ 테마에 따른 요일 텍스트 색상 변경
+                            color: ThemeManager.getCalendarBorderColor(), //☑️ 캘린더 전용 테두리 색상 적용
                             width: 1,
                           ),
                         ),
@@ -282,7 +283,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         ),
                         tableBorder: TableBorder.all(
                           // color: const Color.fromARGB(24, 0, 0, 0),
-                          color: ThemeManager.getEventPopupBorderColor(), //☑️ 테마 적용용
+                          // color: ThemeManager.getEventPopupBorderColor(), //☑️ 테마 적용용
+                          color: ThemeManager.getCalendarBorderColor(), // ☑️ 캘린더 전용 테두리 색상 적용
                           width: 1,
                         ),
                         markersMaxCount: 6,
@@ -415,7 +417,8 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             decoration: BoxDecoration(
                               color: ThemeManager.getCalendarDayOfWeekBackgroundColor(), // 테마 적용
                               border: Border.all(
-                                color: ThemeManager.getEventPopupBorderColor(), 
+                                // color: ThemeManager.getEventPopupBorderColor(), 
+                                color: ThemeManager.getCalendarBorderColor(), //_HE_250623_캘린더 전용 테두리 색상 적용
                                 width: 1
                               ),
                             ),
@@ -449,43 +452,20 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                             '12월',
                           ];
 
-                          //☑️ 테마에 따른 달력 제목 색상 변경
-                          // return Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          //   children: [
-                          //     IconButton(
-                          //       icon: const Icon(
-                          //         Icons.menu,
-                          //         color: Colors.black,
-                          //       ),
-                          //       onPressed:
-                          //           () => Scaffold.of(context).openDrawer(),
-                          //     ),
-                          //     Expanded(
-                          //       child: Center(
-                          //         child: Text(
-                          //           '${month.year} ${monthNames[month.month - 1]}',
-                          //           style: getTextStyle(
-                          //             fontSize: 18,
-                          //             color: Colors.black,
-                          //           ),
-                          //         ),
-                          //       ),
-                          //     ),
-                          return Row(
-                          // return Container(
-                          //   //  헤더 배경색 추가 (어두운 회색)
-                          //   decoration: BoxDecoration(
-                          //     color: ThemeManager.getCalendarHeaderBackgroundColor(),
-                          //     border: Border(
-                          //       bottom: BorderSide(
-                          //         color: ThemeManager.getEventPopupBorderColor(),
-                          //         width: 0.2,
-                          //       ),
-                          //     ),
-                          //   ),
-                        
-                            // child: Row(
+                          return Container(
+                            // ☑️ _HE_250623_헤더만 초록색 배경 적용
+                            decoration: BoxDecoration(
+                              color: ThemeManager.getCalendarHeaderBackgroundColor(),
+                              border: Border(
+                                bottom: BorderSide(
+                                  // color: ThemeManager.getEventPopupBorderColor(),
+                                  // ☑️ 헤더 아래 선을 헤더 배경색과 동일하게 변경
+                                  color: ThemeManager.getCalendarHeaderBackgroundColor(),
+                                  width: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 //  메뉴 아이콘 (테마 적용)
@@ -516,7 +496,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                   onPressed: null,
                                 ),
                               ],
-                            // ), // ☑️ 테마에 따른 달력 제목 색상 변경(여기까지)
+                            ), // ☑️ 테마에 따른 달력 제목 색상 변경(여기까지)
                           );
                         },
                       ),

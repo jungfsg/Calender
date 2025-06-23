@@ -69,7 +69,7 @@ class _CalendarSideMenuState extends State<CalendarSideMenu> {
         width: MediaQuery.of(context).size.width * 0.75,
         // backgroundColor: const Color.fromARGB(255, 255, 255, 255),
          //☑️테마에 따른 배경색 변경
-        backgroundColor: ThemeManager.getBackgroundColor(),
+        backgroundColor: ThemeManager.getSidebarBackgroundColor(), // ☑️ 사이드바 전용 배경색 사용
         child: Column(
           children: [
             Container(

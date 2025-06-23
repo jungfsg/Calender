@@ -589,8 +589,7 @@ class _ChatScreenState extends State<ChatScreen> {
             'AI 채팅',
             style: getTextStyle(
               fontSize: 16,
-              // color: const Color.fromARGB(255, 255, 255, 255),
-              color: ThemeManager.getTextColor(),
+              color: ThemeManager.getCalendarHeaderTextColor(),
               text: 'AI 채팅',
             ),
           ),

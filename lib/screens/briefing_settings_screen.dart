@@ -247,7 +247,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: ThemeManager.getBackgroundColor(), // ☑️ _HE_250621_추가
+        backgroundColor: ThemeManager.getBriefingSettingsBackgroundColor(), // ☑️ _HE_250623_브리핑 설정 전용 배경색 사용
         appBar: AppBar(
           title: Text(
             '브리핑 설정',
@@ -270,7 +270,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: ThemeManager.getBackgroundColor(), // ☑️ _HE_250621_추가
+      backgroundColor: ThemeManager.getBriefingSettingsBackgroundColor(), // ☑️ 브리핑 설정 전용 배경색 사용
       appBar: AppBar(
         title: Text(
           '브리핑 설정',
