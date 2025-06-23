@@ -17,15 +17,17 @@ class CommonNavigationBar extends StatelessWidget {
   Color _getBackgroundColor(int index) {
     // switch (index) {
     //   default:
-        // return const Color.fromARGB(255, 162, 222, 141);
-        return ThemeManager.getNavigationBarColor(); // ☑️ 모든 인덱스에서 동일한 테마 색상 사용
+    // return const Color.fromARGB(255, 162, 222, 141);
+    return ThemeManager.getNavigationBarColor(); // ☑️ 모든 인덱스에서 동일한 테마 색상 사용
     // }
   }
 
   // 물방울 색상 (배경색과 대비되는 색상)
   Color _getWaterDropColor(int index) {
     // return ThemeManager.isDarkMode ? const Color(0xFF333333) : Colors.white; // ☑️ _HE_250623_물방울 색상 변경
-    return ThemeManager.isDarkMode ? const Color.fromARGB(255, 29, 29, 29) : Colors.white; // ☑️ _HE_250623_물방울 색상 변경
+    return ThemeManager.isDarkMode
+        ? const Color.fromARGB(255, 29, 29, 29)
+        : Colors.white; // ☑️ _HE_250623_물방울 색상 변경
   }
 
   // 비활성 아이콘 색상
@@ -40,9 +42,9 @@ class CommonNavigationBar extends StatelessWidget {
     //   default:
     //     return Colors.white.withOpacity(0.6);
     // }
-    return ThemeManager.isDarkMode 
-      ? const Color(0xFF333333).withOpacity(0.6) 
-      : Colors.white.withOpacity(0.6); // ☑️ _HE_250623_비활성 아이콘 색상 변경
+    return ThemeManager.isDarkMode
+        ? const Color(0xFF333333).withOpacity(0.6)
+        : Colors.white.withOpacity(0.6); // ☑️ _HE_250623_비활성 아이콘 색상 변경
   }
 
   @override

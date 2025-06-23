@@ -11,7 +11,7 @@ import '../managers/event_manager.dart';
 class ChatService {
   // 서버 URL을 적절히 변경해야 합니다
 
-  final String baseUrl = 'https://10a1-220-90-168-2.ngrok-free.app';
+  final String baseUrl = 'https://5bf4-121-184-19-8.ngrok-free.app';
 
   final Uuid _uuid = const Uuid();
 

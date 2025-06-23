@@ -34,8 +34,7 @@ void main() async {
     print('⚠️ 브리핑 서비스 초기화 실패: $e');
   }
 
-  
-//☑️ 테마 초기화 추가
+  //☑️ 테마 초기화 추가
   await ThemeManager.init();
 
   runApp(MyApp());
@@ -52,10 +51,10 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-
   // ☑️ 테마 새로고침을 위한 키
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   @override
   void initState() {
     super.initState();
@@ -84,7 +83,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     } catch (e) {
       print('⚠️ 앱 재개 시 브리핑 업데이트 실패: $e');
     }
-  }  
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +92,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       title: 'Calender vs2500604',
       // ☑️ 간단한 테마 설정
       theme: ThemeData(
-        brightness: ThemeManager.isDarkMode ? Brightness.dark : Brightness.light,
+        brightness:
+            ThemeManager.isDarkMode ? Brightness.dark : Brightness.light,
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: ThemeManager.getBackgroundColor(),
         cardColor: ThemeManager.getCardColor(),
@@ -109,13 +109,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.0)),
           child: child!,
         );
       },
     );
   }
-  
+
   // ☑️ 앱 전체 새로고침 메서드
   static void refreshApp() {
     navigatorKey.currentState?.pushAndRemoveUntil(
@@ -123,9 +125,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       (route) => false,
     );
   }
-} 
-
-
+}
 
 // ☑️ 이전 코드(x)
 // class MyApp extends StatelessWidget {

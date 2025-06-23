@@ -92,15 +92,23 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
           data: Theme.of(context).copyWith(
             // TimePicker 전용 색상 테마 적용 (기존 색상 활용)
             timePickerTheme: TimePickerThemeData(
-              backgroundColor: ThemeManager.getDatePickerBackgroundColor(), // DatePicker 배경 활용
-              hourMinuteTextColor: ThemeManager.getDatePickerTextColor(), // DatePicker 텍스트 활용
-              hourMinuteColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(), // 기존 TimePicker 색상 활용
-              dayPeriodTextColor: ThemeManager.getDatePickerTextColor(), // AM/PM 텍스트
-              dayPeriodColor: ThemeManager.getEventPopupTimePickerDayPeriodColor(), // AM/PM 배경
-              dialHandColor: ThemeManager.getDatePickerSelectedColor(), // 시계 바늘 (선택 색상)
-              dialBackgroundColor: ThemeManager.getDatePickerSurfaceColor(), // 시계 다이얼 배경
+              backgroundColor:
+                  ThemeManager.getDatePickerBackgroundColor(), // DatePicker 배경 활용
+              hourMinuteTextColor:
+                  ThemeManager.getDatePickerTextColor(), // DatePicker 텍스트 활용
+              hourMinuteColor:
+                  ThemeManager.getEventPopupTimePickerDayPeriodColor(), // 기존 TimePicker 색상 활용
+              dayPeriodTextColor:
+                  ThemeManager.getDatePickerTextColor(), // AM/PM 텍스트
+              dayPeriodColor:
+                  ThemeManager.getEventPopupTimePickerDayPeriodColor(), // AM/PM 배경
+              dialHandColor:
+                  ThemeManager.getDatePickerSelectedColor(), // 시계 바늘 (선택 색상)
+              dialBackgroundColor:
+                  ThemeManager.getDatePickerSurfaceColor(), // 시계 다이얼 배경
               dialTextColor: ThemeManager.getDatePickerTextColor(), // 시계 숫자
-              entryModeIconColor: ThemeManager.getDatePickerTextColor(), // 입력 모드 아이콘
+              entryModeIconColor:
+                  ThemeManager.getDatePickerTextColor(), // 입력 모드 아이콘
               helpTextStyle: TextStyle(
                 color: ThemeManager.getDatePickerTextColor(),
                 fontSize: 16,
@@ -108,7 +116,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
             ),
             // 추가 색상 보정 (기존 색상 활용)
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              surface: ThemeManager.getDatePickerSurfaceColor(), // DatePicker 표면색 활용
+              surface:
+                  ThemeManager.getDatePickerSurfaceColor(), // DatePicker 표면색 활용
               onSurface: ThemeManager.getDatePickerTextColor(), // 표면 위 텍스트
               primary: ThemeManager.getDatePickerSelectedColor(), // 주요 색상
               onPrimary: Colors.white, // 주요 색상 위 텍스트
@@ -185,8 +194,9 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
       showDialog(
         context: context,
         builder:
-            (context) => AlertDialog( // ☑️ _HE_250621_다크 모드 적용
-              backgroundColor: ThemeManager.getPopupBackgroundColor(), 
+            (context) => AlertDialog(
+              // ☑️ _HE_250621_다크 모드 적용
+              backgroundColor: ThemeManager.getPopupBackgroundColor(),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
@@ -197,7 +207,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
               title: Text(
                 '브리핑 내용 미리보기',
                 style: getTextStyle(
-                  fontSize: 16, 
+                  fontSize: 16,
                   color: ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
                 ),
               ),
@@ -207,7 +217,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                   child: Text(
                     message,
                     style: getTextStyle(
-                      fontSize: 12, 
+                      fontSize: 12,
                       color: ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
                     ),
                   ),
@@ -219,10 +229,12 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                   child: Text(
                     '확인',
                     style: getTextStyle(
-                      fontSize: 12, 
-                      color: ThemeManager.isDarkMode // ☑️ _HE_250621_변경
-                          ? Colors.blue[300]!
-                          : Colors.blue,
+                      fontSize: 12,
+                      color:
+                          ThemeManager
+                                  .isDarkMode // ☑️ _HE_250621_변경
+                              ? Colors.blue[300]!
+                              : Colors.blue,
                     ),
                   ),
                 ),
@@ -251,19 +263,21 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
         appBar: AppBar(
           title: Text(
             '브리핑 설정',
-            style: getTextStyle(
-              fontSize: 16, 
-              color: Colors.white,
-            ),
+            style: getTextStyle(fontSize: 16, color: Colors.white),
           ),
-          backgroundColor: ThemeManager.getCalendarHeaderBackgroundColor(), // ☑️ _HE_250621_변경
+          backgroundColor:
+              ThemeManager.getCalendarHeaderBackgroundColor(), // ☑️ _HE_250621_변경
           iconTheme: IconThemeData(
-            color: ThemeManager.getCalendarHeaderIconColor(), // ☑️ _HE_250621_변경
+            color:
+                ThemeManager.getCalendarHeaderIconColor(), // ☑️ _HE_250621_변경
           ),
         ),
         body: Center(
           child: CircularProgressIndicator(
-            color: ThemeManager.isDarkMode ? Colors.white : Colors.black, // ☑️ _HE_250621_추가 
+            color:
+                ThemeManager.isDarkMode
+                    ? Colors.white
+                    : Colors.black, // ☑️ _HE_250621_추가
           ),
         ),
       );
@@ -274,12 +288,10 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
       appBar: AppBar(
         title: Text(
           '브리핑 설정',
-          style: getTextStyle(
-            fontSize: 16, 
-            color: Colors.white,
-          ),
+          style: getTextStyle(fontSize: 16, color: Colors.white),
         ),
-        backgroundColor: ThemeManager.getCalendarHeaderBackgroundColor(), // ☑️ _HE_250621_변경
+        backgroundColor:
+            ThemeManager.getCalendarHeaderBackgroundColor(), // ☑️ _HE_250621_변경
         iconTheme: IconThemeData(
           color: ThemeManager.getCalendarHeaderIconColor(), // ☑️ _HE_250621_변경
         ),
@@ -287,7 +299,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
           IconButton(
             icon: Icon(
               Icons.save,
-              color: ThemeManager.getCalendarHeaderIconColor(), // ☑️ _HE_250621_추가 
+              color:
+                  ThemeManager.getCalendarHeaderIconColor(), // ☑️ _HE_250621_추가
             ),
             onPressed: _saveSettings,
           ),
@@ -296,7 +309,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(  // ☑️ _HE_250621_카드 색상 변경
+          Card(
+            // ☑️ _HE_250621_카드 색상 변경
             color: ThemeManager.getCardColor(),
             elevation: 2,
             shape: RoundedRectangleBorder(
@@ -322,8 +336,9 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                   Text(
                     '매일 정해진 시간에 오늘의 일정을 요약해서 알림으로 보내드립니다.',
                     style: getTextStyle(
-                      fontSize: 12, 
-                      color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
+                      fontSize: 12,
+                      color:
+                          ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -331,7 +346,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                     title: Text(
                       '브리핑 알림 활성화',
                       style: getTextStyle(
-                        fontSize: 14, 
+                        fontSize: 14,
                         color: ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
                       ),
                     ),
@@ -340,8 +355,9 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                           ? '브리핑 알림이 활성화되어 있습니다'
                           : '브리핑 알림이 비활성화되어 있습니다',
                       style: getTextStyle(
-                        fontSize: 12, 
-                        color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
+                        fontSize: 12,
+                        color:
+                            ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
                       ),
                     ),
                     value: _briefingEnabled,
@@ -350,7 +366,10 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                         _briefingEnabled = value;
                       });
                     },
-                    activeColor: ThemeManager.isDarkMode ? Colors.blue[300] : Colors.blue, // ☑️ _HE_250621_추가  
+                    activeColor:
+                        ThemeManager.isDarkMode
+                            ? Colors.blue[300]
+                            : Colors.blue, // ☑️ _HE_250621_추가
                   ),
                 ],
               ),
@@ -358,7 +377,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
           ),
           const SizedBox(height: 16),
           if (_briefingEnabled) ...[
-            Card(  // ☑️ _HE_250621_카드 색상 변경
+            Card(
+              // ☑️ _HE_250621_카드 색상 변경
               color: ThemeManager.getCardColor(),
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -382,29 +402,35 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                     ),
                     const SizedBox(height: 16),
                     ListTile(
-                      leading: Icon( // ☑️ _HE_250621_const 제거
+                      leading: Icon(
+                        // ☑️ _HE_250621_const 제거
                         Icons.access_time,
-                        color: ThemeManager.isDarkMode // ☑️ _HE_250621_변경
-                            ? Colors.blue[300]
-                            : Colors.blue,
+                        color:
+                            ThemeManager
+                                    .isDarkMode // ☑️ _HE_250621_변경
+                                ? Colors.blue[300]
+                                : Colors.blue,
                       ),
                       title: Text(
                         '브리핑 시간',
                         style: getTextStyle(
-                          fontSize: 14, 
-                          color: ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
+                          fontSize: 14,
+                          color:
+                              ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
                         ),
                       ),
                       subtitle: Text(
                         '${_briefingTime.hour.toString().padLeft(2, '0')}:${_briefingTime.minute.toString().padLeft(2, '0')}',
                         style: getTextStyle(
-                          fontSize: 12, 
-                          color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
+                          fontSize: 12,
+                          color:
+                              ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
                         ),
                       ),
                       trailing: Icon(
                         Icons.edit,
-                        color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_추가 
+                        color:
+                            ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_추가
                       ),
                       onTap: _selectTime,
                     ),
@@ -413,7 +439,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Card(  // ☑️ _HE_250621_카드 색상 변경
+            Card(
+              // ☑️ _HE_250621_카드 색상 변경
               color: ThemeManager.getCardColor(),
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -442,7 +469,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                       '• 시간대별 일정 요약',
                       style: getTextStyle(
                         fontSize: 12,
-                        color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
+                        color:
+                            ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
                       ),
                     ),
                   ],
@@ -450,7 +478,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Card(  // ☑️ _HE_250621_카드 색상 변경
+            Card(
+              // ☑️ _HE_250621_카드 색상 변경
               color: ThemeManager.getCardColor(),
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -478,15 +507,17 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                       title: Text(
                         '예약된 브리핑 목록',
                         style: getTextStyle(
-                          fontSize: 14, 
-                          color: ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
+                          fontSize: 14,
+                          color:
+                              ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
                         ),
                       ),
                       subtitle: Text(
                         '오늘과 내일의 브리핑 내용을 미리 확인',
                         style: getTextStyle(
-                          fontSize: 12, 
-                          color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
+                          fontSize: 12,
+                          color:
+                              ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250621_변경
                         ),
                       ),
                       onTap: _checkScheduledNotifications,
@@ -501,9 +532,12 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: ThemeManager.getInfoBoxBackgroundColor(), // ☑️ _HE_250621_변경  
+                color:
+                    ThemeManager.getInfoBoxBackgroundColor(), // ☑️ _HE_250621_변경
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: ThemeManager.getInfoBoxBorderColor()), // ☑️ _HE_250621_변경  
+                border: Border.all(
+                  color: ThemeManager.getInfoBoxBorderColor(),
+                ), // ☑️ _HE_250621_변경
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,15 +545,17 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                   Row(
                     children: [
                       Icon(
-                        Icons.info, 
-                        color: ThemeManager.getInfoBoxIconColor(), // ☑️ _HE_250621_변경  
+                        Icons.info,
+                        color:
+                            ThemeManager.getInfoBoxIconColor(), // ☑️ _HE_250621_변경
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '브리핑 안내',
                         style: getTextStyle(
                           fontSize: 14,
-                          color: ThemeManager.getInfoBoxTextColor(), // ☑️ _HE_250621_변경  
+                          color:
+                              ThemeManager.getInfoBoxTextColor(), // ☑️ _HE_250621_변경
                         ).copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -530,8 +566,9 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                     '• 설정한 시간에 미리 준비된 브리핑을 알림으로 받습니다\n'
                     '• 일정이 변경되면 다음에 앱을 열 때 브리핑이 업데이트됩니다',
                     style: getTextStyle(
-                      fontSize: 12, 
-                      color: ThemeManager.getInfoBoxTextColor(), // ☑️ _HE_250621_변경  
+                      fontSize: 12,
+                      color:
+                          ThemeManager.getInfoBoxTextColor(), // ☑️ _HE_250621_변경
                     ),
                   ),
                 ],
