@@ -111,22 +111,24 @@ class ThemeManager {
   // 캘린더 헤더 전용 색상들
   static Color getCalendarHeaderBackgroundColor() {
     // return _isDarkMode ? const Color.fromARGB(255, 63, 63, 63) : const Color.fromARGB(255, 204, 204, 204); // 어두운 회색
-    // return getNavigationBarColor(); // ☑️ 네비게이션바와 동일한 색상 적용
-    return _isDarkMode
-        ? const Color(0xFF2C2C2C)
-        : Colors.white; // ☑️ 헤더 배경을 흰색으로 변경
+    return getNavigationBarColor(); // ☑️ 네비게이션바와 동일한 초록색 적용
+    // return _isDarkMode
+    //     ? const Color(0xFF2C2C2C)
+    //     : Colors.white; // ☑️ 헤더 배경을 흰색으로 변경
     // return _isDarkMode ? const Color.fromARGB(255, 100, 150, 100) : const Color.fromARGB(255, 162, 222, 141); // ☑️ 네비게이션바와 동일한 색상 직접 적용
   }
 
   static Color getCalendarHeaderIconColor() {
-    return _isDarkMode ? Color(0xFF1F1F1F) : Colors.black; // 아이콘은 화이트
+    return _isDarkMode
+        ? Colors.white
+        : Colors.black; // ☑️ 초록색 배경에 맞게 조정: 다크모드는 흰색, 라이트모드는 검은색
   }
 
   static Color getCalendarHeaderTextColor() {
     // return _isDarkMode ? const Color(0xFFB0B0B0) : Colors.black; // 밝은 회색
     return _isDarkMode
-        ? const Color(0xFF1F1F1F)
-        : Colors.black; // 연두 배경에 어두운 글씨가 보기 좋겠지...?
+        ? Colors.white
+        : Colors.black; // ☑️ 초록색 배경에 맞게 조정: 다크모드는 흰색, 라이트모드는 검은색
   }
 
   static Color getCalendarDayOfWeekBackgroundColor() {

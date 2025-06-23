@@ -415,6 +415,43 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                     .getAllEvents(), // 🆕 전체 이벤트 목록 전달
                           );
                         },
+                        // 이번달이 아닌 날짜 셀 빌더 (WeatherCalendarCell과 동일한 크기로)
+                        outsideBuilder: (context, day, focusedDay) {
+                          return WeatherCalendarCell(
+                            day: day,
+                            isSelected: false,
+                            isToday: false,
+                            onTap: () async {
+                              widget.controller.setSelectedDay(day);
+                              widget.controller.setFocusedDay(focusedDay);
+
+                              // 🔥 날짜 선택 시에도 중복 로드 방지
+                              if (widget.controller.shouldLoadEventsForDay(
+                                day,
+                              )) {
+                                try {
+                                  await widget.eventManager.loadEventsForDay(
+                                    day,
+                                  );
+                                } catch (e) {
+                                  print('❌ 이번달이 아닌 날짜 선택 시 이벤트 로드 실패: $e');
+                                }
+                              }
+                              widget.popupManager.showEventDialog();
+                              setState(() {});
+                            },
+                            events: widget.controller.getEventsForDay(day),
+                            eventColors: widget.controller.eventColors,
+                            eventIdColors: widget.controller.eventIdColors,
+                            colorIdColors: widget.controller.colorIdColors,
+                            weatherInfo: widget.controller.getWeatherForDay(
+                              day,
+                            ),
+                            allEvents:
+                                widget.controller
+                                    .getAllEvents(), // 🆕 전체 이벤트 목록 전달
+                          );
+                        },
                         // 요일 헤더 빌더
                         dowBuilder: (context, day) {
                           final weekdayNames = [
@@ -453,7 +490,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                                 // color: ThemeManager.getEventPopupBorderColor(),
                                 color:
                                     ThemeManager.getCalendarBorderColor(), //_HE_250623_캘린더 전용 테두리 색상 적용
-                                width: 1,
+                                width: 0,
                               ),
                             ),
                             alignment: Alignment.center,
