@@ -68,31 +68,32 @@ class WeatherCalendarCell extends StatelessWidget {
   // }
 
   // ☑️ 셀 배경 색상 결정 (테마 적용)
-Color _getBackgroundColor() {
-  final isHoliday = _isHoliday();
-  final isWeekend = day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
-  
-  return ThemeManager.getCalendarCellBackgroundColor(
-    isSelected: isSelected,
-    isToday: isToday,
-    isHoliday: isHoliday,
-    isWeekend: isWeekend,
-  );
-}
+  Color _getBackgroundColor() {
+    final isHoliday = _isHoliday();
+    final isWeekend =
+        day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+
+    return ThemeManager.getCalendarCellBackgroundColor(
+      isSelected: isSelected,
+      isToday: isToday,
+      isHoliday: isHoliday,
+      isWeekend: isWeekend,
+    );
+  }
 
   // ☑️ 날짜 색상 결정 (테마 적용)
-Color _getDateColor() {
-  final isHoliday = _isHoliday();
-  final isSaturday = day.weekday == DateTime.saturday;
-  final isSunday = day.weekday == DateTime.sunday;
-  
-  return ThemeManager.getCalendarCellDateColor(
-    isSelected: isSelected,
-    isHoliday: isHoliday,
-    isSaturday: isSaturday,
-    isSunday: isSunday,
-  );
-} //☑️ 날짜 색상 결정 (여기까지)
+  Color _getDateColor() {
+    final isHoliday = _isHoliday();
+    final isSaturday = day.weekday == DateTime.saturday;
+    final isSunday = day.weekday == DateTime.sunday;
+
+    return ThemeManager.getCalendarCellDateColor(
+      isSelected: isSelected,
+      isHoliday: isHoliday,
+      isSaturday: isSaturday,
+      isSunday: isSunday,
+    );
+  } //☑️ 날짜 색상 결정 (여기까지)
 
   // 공휴일 여부 확인 - 실제 휴무인 공휴일만
   bool _isHoliday() {
@@ -453,7 +454,7 @@ Color _getDateColor() {
                                   color: bgColor.withOpacity(0.9),
                                   border: Border.all(
                                     color: const Color.fromARGB(
-                                      255,
+                                      150,
                                       141,
                                       141,
                                       141,
@@ -486,7 +487,7 @@ Color _getDateColor() {
                                 color: const Color.fromARGB(255, 185, 185, 185),
                                 border: Border.all(
                                   color: const Color.fromARGB(
-                                    255,
+                                    150,
                                     168,
                                     168,
                                     168,
