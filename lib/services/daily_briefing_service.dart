@@ -16,22 +16,53 @@ class DailyBriefingService {
 
   // 브리핑 설정 저장/불러오기
   static Future<Map<String, dynamic>> getBriefingSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final settingsJson = prefs.getString(_settingsKey);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final settingsJson = prefs.getString(_settingsKey);
 
-    if (settingsJson != null) {
-      return jsonDecode(settingsJson);
+      print('🔍 [설정 로드] 키: $_settingsKey');
+      print('🔍 [설정 로드] 원본 JSON: $settingsJson');
+
+      if (settingsJson != null) {
+        final settings = jsonDecode(settingsJson);
+        print('🔍 [설정 로드] 파싱된 설정: $settings');
+        return settings;
+      }
+
+      // 기본 설정 (includeTomorrow 제거)
+      final defaultSettings = {'enabled': false, 'time': _defaultBriefingTime};
+      print('🔍 [설정 로드] 기본 설정 사용: $defaultSettings');
+      return defaultSettings;
+    } catch (e) {
+      print('❌ [설정 로드] 실패: $e');
+      return {'enabled': false, 'time': _defaultBriefingTime};
     }
-
-    // 기본 설정 (includeTomorrow 제거)
-    return {'enabled': false, 'time': _defaultBriefingTime};
   }
 
   static Future<void> saveBriefingSettings(
     Map<String, dynamic> settings,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_settingsKey, jsonEncode(settings));
+    try {
+      print('🔍 [설정 저장] 키: $_settingsKey');
+      print('🔍 [설정 저장] 저장할 설정: $settings');
+
+      final prefs = await SharedPreferences.getInstance();
+      final settingsJson = jsonEncode(settings);
+
+      print('🔍 [설정 저장] JSON 문자열: $settingsJson');
+
+      final success = await prefs.setString(_settingsKey, settingsJson);
+      print('🔍 [설정 저장] 저장 결과: $success');
+
+      // 저장 후 즉시 확인
+      final savedValue = prefs.getString(_settingsKey);
+      print('🔍 [설정 저장] 저장 후 즉시 확인: $savedValue');
+
+      print('✅ [설정 저장] 완료');
+    } catch (e) {
+      print('❌ [설정 저장] 실패: $e');
+      throw e;
+    }
   }
 
   // 날씨 정보 가져오기
@@ -350,6 +381,9 @@ class DailyBriefingService {
 
     print('🔄 브리핑 업데이트 시작');
 
+    // 오래된 브리핑 데이터 정리
+    await _cleanupOldBriefings();
+
     // 오늘 브리핑 처리
     await _updateBriefingForDate(today, settings['time']);
 
@@ -359,27 +393,94 @@ class DailyBriefingService {
     print('✅ 브리핑 업데이트 완료');
   }
 
+  // 오래된 브리핑 데이터 정리 (7일 이전 데이터 삭제)
+  static Future<void> _cleanupOldBriefings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+      // 설정 키는 제외하고 브리핑 데이터만 필터링
+      final briefingKeys =
+          keys
+              .where(
+                (key) => key.startsWith(_briefingPrefix) && key != _settingsKey,
+              )
+              .toList();
+
+      print('🔍 [정리] 전체 키 개수: ${keys.length}');
+      print('🔍 [정리] 브리핑 키 개수: ${briefingKeys.length}');
+      print('🔍 [정리] 설정 키 보호: $_settingsKey');
+
+      final now = DateTime.now();
+      final sevenDaysAgo = now.subtract(Duration(days: 7));
+
+      for (final key in briefingKeys) {
+        try {
+          final briefingJson = prefs.getString(key);
+          if (briefingJson != null) {
+            final briefingData = jsonDecode(briefingJson);
+            final briefingDate = DateTime.parse(briefingData['date']);
+
+            // 7일 이전 데이터 삭제
+            if (briefingDate.isBefore(sevenDaysAgo)) {
+              await prefs.remove(key);
+              print('🗑️ 오래된 브리핑 삭제: ${briefingDate.toString().split(' ')[0]}');
+            }
+          }
+        } catch (e) {
+          // 잘못된 형식의 데이터 삭제 (단, 설정 키는 제외)
+          if (key != _settingsKey) {
+            await prefs.remove(key);
+            print('🗑️ 잘못된 브리핑 데이터 삭제: $key');
+          } else {
+            print('⚠️ 설정 키 파싱 오류이지만 보호함: $key');
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ 브리핑 데이터 정리 실패: $e');
+    }
+  }
+
   // 특정 날짜의 브리핑 업데이트
   static Future<void> _updateBriefingForDate(DateTime date, String time) async {
     final existingBriefing = await getBriefing(date);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(Duration(days: 1));
+    final briefingDate = DateTime(date.year, date.month, date.day);
 
-    // 기존 브리핑이 유효하다면 스킵
-    if (existingBriefing != null &&
-        existingBriefing.isValid() &&
-        existingBriefing.isScheduled) {
-      print('📋 ${date.toString().split(' ')[0]} 브리핑은 이미 최신 상태');
-      return;
-    }
+    print('🔍 브리핑 업데이트 체크: ${briefingDate.toString().split(' ')[0]}');
+    print('🔍 현재 시간: ${now.toString()}');
 
-    // 기존 알림이 있다면 취소
-    if (existingBriefing?.notificationId != null) {
-      await NotificationService.cancelNotification(
-        existingBriefing!.notificationId!,
+    // 기존 브리핑이 있는 경우 유효성 검사
+    if (existingBriefing != null) {
+      print(
+        '🔍 기존 브리핑 발견: 생성시간=${existingBriefing.createdAt}, 스케줄됨=${existingBriefing.isScheduled}',
       );
+
+      // 브리핑이 유효하고 스케줄링되어 있다면 스킵
+      if (existingBriefing.isValid() && existingBriefing.isScheduled) {
+        print('📋 ${briefingDate.toString().split(' ')[0]} 브리핑은 이미 최신 상태');
+        return;
+      }
+
+      // 유효하지 않거나 스케줄링되지 않은 경우 기존 알림 취소
+      if (existingBriefing.notificationId != null) {
+        print('🗑️ 기존 알림 취소 중: ID ${existingBriefing.notificationId}');
+        await NotificationService.cancelNotification(
+          existingBriefing.notificationId!,
+        );
+      }
     }
 
+    print('📝 새 브리핑 생성 및 스케줄링 시작');
     // 새 브리핑 생성 및 스케줄링
-    await scheduleBriefingNotification(date, time);
+    final success = await scheduleBriefingNotification(date, time);
+    if (success) {
+      print('✅ 브리핑 업데이트 완료: ${briefingDate.toString().split(' ')[0]}');
+    } else {
+      print('❌ 브리핑 업데이트 실패: ${briefingDate.toString().split(' ')[0]}');
+    }
   }
 
   // 헬퍼 메서드들
@@ -500,8 +601,25 @@ class DailyBriefingService {
       scheduleInfo = '일정: ${scheduleParts.join(', ')}. ';
     }
 
-    // 간단하고 명확한 프롬프트
-    return '${weatherInfo}${scheduleInfo}이 정보를 바탕으로 친근하고 자연스러운 하루 브리핑을 120자 이내로 작성해주세요.';
+    // 개선된 구체적인 프롬프트
+    String prompt = '''
+당신은 친근한 개인 비서입니다. 아래 정보를 바탕으로 따뜻하고 격려하는 톤으로 하루 브리핑을 작성해주세요.
+
+${weatherInfo}${scheduleInfo.isEmpty ? '일정: 오늘은 특별한 일정이 없습니다. ' : scheduleInfo}
+
+요구사항:
+- 100자 이내로 간결하게 작성
+- 친근하고 격려하는 톤 사용
+- 날씨에 따른 조언 포함
+- 일정이 있으면 응원 메시지, 없으면 휴식을 권하는 메시지
+- 이모지 1-2개 사용하여 친근함 표현
+- "안녕하세요!", "좋은 하루 보내세요!" 같은 인사말 포함
+
+예시 스타일:
+일정이 있는 경우: "안녕하세요! 오늘은 비가 오고 18°C로 쌀쌀하니 우산 챙기세요. 오전 회의와 오후 약속이 있네요. 힘내세요! 😊"
+일정이 없는 경우: "안녕하세요! 오늘은 맑고 25°C로 완벽한 날씨네요. 특별한 일정이 없으니 여유롭게 쉬거나 산책 어떠세요? 😌"''';
+
+    return prompt.trim();
   }
 
   static String _generateBackupBriefing(

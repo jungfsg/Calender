@@ -65,10 +65,20 @@ class DailyBriefing {
         date.day == other.day;
   }
 
-  // 브리핑이 유효한지 확인 (같은 날짜이고 6시간 이내에 생성된 경우)
+  // 브리핑이 유효한지 확인 (브리핑 날짜와 현재 날짜 기준으로 판단)
   bool isValid() {
     final now = DateTime.now();
     final timeDifference = now.difference(createdAt).inHours;
-    return isSameDate(now) && timeDifference <= 6;
+
+    // 브리핑 날짜가 오늘이거나 내일이고, 24시간 이내에 생성된 경우 유효
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(Duration(days: 1));
+    final briefingDate = DateTime(date.year, date.month, date.day);
+
+    final isDateValid =
+        briefingDate.isAtSameMomentAs(today) ||
+        briefingDate.isAtSameMomentAs(tomorrow);
+
+    return isDateValid && timeDifference <= 24; // 24시간 이내로 확장
   }
 }
