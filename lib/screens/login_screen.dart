@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'calendar_screen.dart';
 import '../services/auth_service.dart';
 import '../services/tts_service.dart'; // TtsService 임포트
+import '../managers/theme_manager.dart'; // ThemeManager 임포트
 
 class LoginScreen extends StatefulWidget {
   // 상위 위젯(main.dart)으로부터 TtsService를 전달받기 위한 변수
@@ -64,12 +65,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ThemeManager.getLoginScreenBackgroundColor(), // ☑️ _HE_250623_로그인 화면 전용 배경색
       body: LayoutBuilder(
         builder: (context, constraints) {
           return Container(
             width: constraints.maxWidth,
             height: constraints.maxHeight,
-            color: Colors.white,
+            color: ThemeManager.getLoginScreenBackgroundColor(), // ☑️ _HE_250623_로그인 화면 전용 배경색
             child: Center(
               child: SingleChildScrollView(
                 child: Column(
@@ -83,21 +85,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          'assets/images/amatta_transparent.png',
-                          width: 240,
-                          height: 240,
-                          fit: BoxFit.cover,
+                        child: ColorFiltered( // ☑️ _HE_250623_로그인 화면 다크 모드 적용 관련련
+                          colorFilter: ThemeManager.isDarkMode
+                              ? const ColorFilter.mode(
+                                  Color(0xFFBBBBBB), // ☑️ 다크 모드에서 밝은 회색
+                                  BlendMode.srcIn,
+                                )
+                              : const ColorFilter.mode(
+                                  Colors.transparent,
+                                  BlendMode.multiply,
+                                ),
+                          child: Image.asset(
+                            'assets/images/amatta_transparent.png',
+                            width: 240,
+                            height: 240,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Your Memory Assistant',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        color: ThemeManager.getTextColor(),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -105,10 +119,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 280,
                       height: 50,
                       child: _isLoading
-                          ? const Center(child: CircularProgressIndicator())
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: ThemeManager.getTextColor(), // ☑️ _HE_250623_로그인 화면 다크 모드 적용 관련 추가 
+                              ),
+                            )
                           : OutlinedButton(
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Colors.grey),
+                                // side: const BorderSide(color: Colors.grey),
+                                side: BorderSide(color: ThemeManager.getPopupBorderColor()),
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.zero,
+                                ),
+                                backgroundColor: ThemeManager.getCardColor(), //_HE_250623_로그인 화면 다크 모드 적용 관련 추가 
                               ),
                               onPressed: _handleGoogleSignIn,
                               child: Row(
@@ -128,9 +151,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-                                  const Text(
+                                  Text(
                                     'Google로 로그인',
-                                    style: TextStyle(fontSize: 16),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: ThemeManager.getTextColor(), // ☑️ _HE_250623_로그인 화면 다크 모드 적용 관련 추가 
+                                    ),
                                   ),
                                 ],
                               ),

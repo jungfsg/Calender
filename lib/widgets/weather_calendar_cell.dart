@@ -4,6 +4,7 @@ import '../models/event.dart';
 import 'weather_icon.dart';
 import '../utils/font_utils.dart';
 import '../services/weather_service.dart';
+import '../managers/theme_manager.dart'; //☑️ 다크 테마 적용
 
 class WeatherCalendarCell extends StatelessWidget {
   final DateTime day;
@@ -30,40 +31,69 @@ class WeatherCalendarCell extends StatelessWidget {
     this.allEvents, // 🆕 전체 이벤트 목록
   });
 
-  // 셀 배경 색상 결정
+  // ☑️ 셀 배경 색상 결정 (테마 적용)
+  // // 셀 배경 색상 결정
+  // Color _getBackgroundColor() {
+  //   // 공휴일 체크
+  //   final isHoliday = _isHoliday();
+
+  //   if (isSelected) {
+  //     return const Color.fromARGB(200, 68, 138, 218);
+  //   } else if (isToday) {
+  //     return Colors.amber[300]!;
+  //   } else if (isHoliday) {
+  //     return const Color.fromARGB(255, 255, 240, 240); // 연한 빨간색 배경
+  //   } else if (day.weekday == DateTime.saturday ||
+  //       day.weekday == DateTime.sunday) {
+  //     return const Color.fromARGB(255, 255, 255, 255);
+  //   }
+  //   return Colors.white;
+  // }
+
+  // // 날짜 색상 결정
+  // Color _getDateColor() {
+  //   // 공휴일 체크
+  //   final isHoliday = _isHoliday();
+
+  //   if (isSelected) {
+  //     return Colors.white;
+  //   } else if (isHoliday) {
+  //     return Colors.red; // 공휴일은 빨간색
+  //   } else if (day.weekday == DateTime.saturday) {
+  //     return const Color.fromARGB(255, 54, 184, 244);
+  //   } else if (day.weekday == DateTime.sunday) {
+  //     return Colors.red;
+  //   }
+  //   return Colors.black;
+  // }
+
+  // ☑️ 셀 배경 색상 결정 (테마 적용)
   Color _getBackgroundColor() {
-    // 공휴일 체크
     final isHoliday = _isHoliday();
+    final isWeekend =
+        day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
 
-    if (isSelected) {
-      return const Color.fromARGB(200, 68, 138, 218);
-    } else if (isToday) {
-      return Colors.amber[300]!;
-    } else if (isHoliday) {
-      return const Color.fromARGB(255, 255, 240, 240); // 연한 빨간색 배경
-    } else if (day.weekday == DateTime.saturday ||
-        day.weekday == DateTime.sunday) {
-      return const Color.fromARGB(255, 255, 255, 255);
-    }
-    return Colors.white;
+    return ThemeManager.getCalendarCellBackgroundColor(
+      isSelected: isSelected,
+      isToday: isToday,
+      isHoliday: isHoliday,
+      isWeekend: isWeekend,
+    );
   }
 
-  // 날짜 색상 결정
+  // ☑️ 날짜 색상 결정 (테마 적용)
   Color _getDateColor() {
-    // 공휴일 체크
     final isHoliday = _isHoliday();
+    final isSaturday = day.weekday == DateTime.saturday;
+    final isSunday = day.weekday == DateTime.sunday;
 
-    if (isSelected) {
-      return Colors.white;
-    } else if (isHoliday) {
-      return Colors.red; // 공휴일은 빨간색
-    } else if (day.weekday == DateTime.saturday) {
-      return const Color.fromARGB(255, 54, 184, 244);
-    } else if (day.weekday == DateTime.sunday) {
-      return Colors.red;
-    }
-    return Colors.black;
-  }
+    return ThemeManager.getCalendarCellDateColor(
+      isSelected: isSelected,
+      isHoliday: isHoliday,
+      isSaturday: isSaturday,
+      isSunday: isSunday,
+    );
+  } //☑️ 날짜 색상 결정 (여기까지)
 
   // 공휴일 여부 확인 - 실제 휴무인 공휴일만
   bool _isHoliday() {
@@ -83,6 +113,7 @@ class WeatherCalendarCell extends StatelessWidget {
       '크리스마스',
       '대체공휴일',
       '임시공휴일',
+      '대통령 선거',
     };
 
     return events.any(
@@ -423,7 +454,7 @@ class WeatherCalendarCell extends StatelessWidget {
                                   color: bgColor.withOpacity(0.9),
                                   border: Border.all(
                                     color: const Color.fromARGB(
-                                      255,
+                                      150,
                                       141,
                                       141,
                                       141,
@@ -456,7 +487,7 @@ class WeatherCalendarCell extends StatelessWidget {
                                 color: const Color.fromARGB(255, 185, 185, 185),
                                 border: Border.all(
                                   color: const Color.fromARGB(
-                                    255,
+                                    150,
                                     168,
                                     168,
                                     168,

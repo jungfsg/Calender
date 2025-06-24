@@ -11,6 +11,8 @@ import 'package:flutter/foundation.dart';
 import '../widgets/common_navigation_bar.dart';
 import 'package:gal/gal.dart';
 import '../services/tts_service.dart';
+import '../managers/theme_manager.dart'; //☑️ 테마 관련 추가
+
 
 class ChatScreen extends StatefulWidget {
   final VoidCallback? onCalendarUpdate;
@@ -46,6 +48,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    
+    //☑️ 테마 변경 리스너 등록 (기존 코드 뒤에 추가)
+    ThemeManager.addListener(_onThemeChanged);
+    
     const initialMessage = '안녕하세요! 무엇을 도와드릴까요?';
     _addSystemMessage(initialMessage);
     // TTS 초기 메시지 재생 복원
@@ -361,12 +367,17 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildCustomInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: Colors.black12,
+      // color: Colors.black12,
+      color: ThemeManager.getChatInputBackgroundColor(), // ☑️ 테마에 따른 입력 배경색 변경
       child: SafeArea(
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.camera_alt),
+              // icon: const Icon(Icons.camera_alt), // 기존 코드
+              icon: Icon(
+              Icons.camera_alt,
+              color: ThemeManager.getTextColor(), // ☑️ 아이콘 색상도 테마 적용
+            ),
               onPressed: _showImageSourceDialog,
               tooltip: '이미지 선택',
             ),
@@ -375,11 +386,23 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: TextField(
                   controller: _chatInputController,
+                  //☑️ 테마에 따른 입력 텍스트 색상 변경(style 추가)
+                  style: getTextStyle(
+                    fontSize: 14,
+                    color: ThemeManager.getTextColor(),
+                  ),
+
                   decoration: InputDecoration(
                     hintText: '메시지를 입력하세요',
                     hintStyle: getTextStyle(
                       fontSize: 14,
-                      color: const Color.fromARGB(255, 0, 0, 0),
+                      // color: const Color.fromARGB(255, 0, 0, 0),
+                      //☑️ 테마에 따른 힌트 텍스트 색상 변경
+                      color: ThemeManager.getTextColor(
+                        lightColor: Colors.grey[600],
+                        darkColor: Colors.grey[400],
+                      ),
+
                       text: '메시지를 입력하세요',
                     ),
                     border: InputBorder.none,
@@ -390,11 +413,22 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
             ),
+            // IconButton(
+            //   icon: const Icon(Icons.send),
+            //   onPressed: _handleSubmitPressed,
+            //   tooltip: '메시지 전송',
+            // ),
+
+            //☑️ 테마에 따른 전송 버튼 색상 변경
             IconButton(
-              icon: const Icon(Icons.send),
+              icon: Icon(
+                Icons.send,
+                color: ThemeManager.getTextColor(),
+              ),
               onPressed: _handleSubmitPressed,
               tooltip: '메시지 전송',
             ),
+
           ],
         ),
       ),
@@ -444,37 +478,72 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _showImageSourceDialog() async {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      backgroundColor: ThemeManager.getEventPopupBackgroundColor(), // ☑️ _HE_250620_추가
+      shape: RoundedRectangleBorder( // ☑️ _HE_250620_const → 제거
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide( // ☑️ 테두리 추가
+          color: ThemeManager.getEventPopupBorderColor(),
+          width: 1,
+        ),
       ),
       builder: (BuildContext context) {
         return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('카메라로 촬영'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleCameraCapture();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo),
-                title: const Text('갤러리에서 선택'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleImageSelection();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.cancel),
-                title: const Text('취소'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-            ],
+          child: Container(
+            decoration: BoxDecoration( // ☑️ 컨테이너 장식 추가
+              color: ThemeManager.getEventPopupBackgroundColor(),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Wrap(
+              children: [
+                ListTile(
+                  leading: Icon( // ☑️ _HE_250620_const → 제거
+                    Icons.camera_alt,
+                    color: ThemeManager.getTextColor(), // ☑️ _HE_250620_추가
+                  ),
+                  title: Text(
+                    '카메라로 촬영',
+                    style: getTextStyle( // ☑️ _HE_250620_추가
+                      fontSize: 16,
+                      color: ThemeManager.getTextColor(), 
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleCameraCapture();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.photo), // ☑️ _HE_250620_const → 제거
+                  title: Text(
+                    '갤러리에서 선택',
+                    style: getTextStyle( // ☑️ _HE_250620_추가
+                      fontSize: 16,
+                      color: ThemeManager.getTextColor(), 
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _handleImageSelection();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.cancel,
+                    color: ThemeManager.getPopupSecondaryTextColor(), // ☑️ _HE_250620_추가
+                  ),
+                  title: Text(
+                    '취소',
+                    style: getTextStyle( // ☑️ _HE_250620_추가
+                      fontSize: 16,
+                      color: ThemeManager.getPopupSecondaryTextColor(),
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -511,18 +580,21 @@ class _ChatScreenState extends State<ChatScreen> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+        // backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+        //☑️테마에 따른 배경색 변경
+        backgroundColor: ThemeManager.getBackgroundColor(),
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: Text(
             'AI 채팅',
             style: getTextStyle(
               fontSize: 16,
-              color: const Color.fromARGB(255, 255, 255, 255),
+              color: ThemeManager.getCalendarHeaderTextColor(),
               text: 'AI 채팅',
             ),
           ),
-          backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+          // backgroundColor: const Color.fromARGB(255, 162, 222, 141),
+          backgroundColor: ThemeManager.getNavigationBarColor(),
         ),
         body: Column(
           children: [
@@ -538,43 +610,103 @@ class _ChatScreenState extends State<ChatScreen> {
                 user: _user,
                 showUserNames: true,
                 customBottomWidget: _buildCustomInput(),
+                // theme: DefaultChatTheme(
+                //   inputBackgroundColor: Colors.black12,
+                //   backgroundColor: Colors.white,
+                //   inputTextColor: Colors.black,
+
+                //☑️ 테마에 따른 채팅 테마 변경
                 theme: DefaultChatTheme(
-                  inputBackgroundColor: Colors.black12,
-                  backgroundColor: Colors.white,
-                  inputTextColor: Colors.black,
-                  sentMessageBodyTextStyle: getTextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    text: '보낸 메시지',
-                  ),
-                  receivedMessageBodyTextStyle: getTextStyle(
-                    fontSize: 16,
-                    color: Colors.black,
-                    text: '받은 메시지',
-                  ),
-                  inputTextStyle: getTextStyle(
-                    fontSize: 14,
-                    color: Colors.black,
-                    text: '메시지 입력',
-                  ),
-                  emptyChatPlaceholderTextStyle: getTextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    text: '메시지가 없습니다',
-                  ),
-                  userNameTextStyle: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
-                    text: '사용자 이름',
-                  ),
-                  dateDividerTextStyle: getTextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    text: '날짜 구분선',
-                  ),
-                ),
-                l10n: const ChatL10nKo(),
-              ),
+                  // inputBackgroundColor: ThemeManager.getCardColor(
+                  //   lightColor: Colors.black12,
+                  //   darkColor: const Color(0xFF2C2C2C),
+                  // ),
+                  //☑️ 테마에 따른 입력 배경색 변경(2차 시도 커버)
+                  inputBackgroundColor: ThemeManager.getChatInputBackgroundColor(),
+                  backgroundColor: ThemeManager.getChatMainBackgroundColor(),
+                  inputTextColor: ThemeManager.getTextColor(), // ☑️ 입력 텍스트 색상(여기까지)
+
+                  // sentMessageBodyTextStyle: getTextStyle(
+                  //   fontSize: 16,
+                  //   color: Colors.white,
+                  //   text: '보낸 메시지',
+                  // ),
+                  // receivedMessageBodyTextStyle: getTextStyle(
+                  //   fontSize: 16,
+                  //   color: Colors.black,
+                  //   text: '받은 메시지',
+                  // ),
+                  // inputTextStyle: getTextStyle(
+                  //   fontSize: 14,
+                  //   color: Colors.black,
+                  //   text: '메시지 입력',
+                  // ),
+                  // emptyChatPlaceholderTextStyle: getTextStyle(
+                  //   fontSize: 14,
+                  //   color: Colors.grey,
+                  //   text: '메시지가 없습니다',
+                  // ),
+                  // userNameTextStyle: getTextStyle(
+                  //   fontSize: 12,
+                  //   color: Colors.grey[700],
+                  //   text: '사용자 이름',
+                  // ),
+                  // dateDividerTextStyle: getTextStyle(
+                  //   fontSize: 12,
+                  //   color: Colors.grey[600],
+                  //   text: '날짜 구분선',
+                  // ),
+              //   ),
+              //   l10n: const ChatL10nKo(),
+              // ),
+
+               //☑️ 테마에 따른 메시지 말풍선 배경색 변경
+               primaryColor: ThemeManager.getChatSentMessageBackgroundColor(), // 보낸 메시지 배경색
+               secondaryColor: ThemeManager.getChatReceivedMessageBackgroundColor(), // 받은 메시지 배경색
+      
+               //☑️ 테마에 따른 채팅 테마 변경
+               sentMessageBodyTextStyle: getTextStyle(
+                 fontSize: 16,
+                 color: Colors.white,
+                 text: '보낸 메시지',
+               ),
+               receivedMessageBodyTextStyle: getTextStyle(
+                 fontSize: 16,
+                 color: ThemeManager.getTextColor(),
+                 text: '받은 메시지',
+               ),
+               inputTextStyle: getTextStyle(
+                 fontSize: 14,
+                 color: ThemeManager.getTextColor(),
+                 text: '메시지 입력',
+               ),
+               emptyChatPlaceholderTextStyle: getTextStyle(
+                 fontSize: 14,
+                 color: ThemeManager.getTextColor(
+                   lightColor: Colors.grey,
+                   darkColor: Colors.grey[400],
+                 ),
+                 text: '메시지가 없습니다',
+               ),
+               userNameTextStyle: getTextStyle(
+                 fontSize: 12,
+                 color: ThemeManager.getTextColor(
+                   lightColor: Colors.grey[700],
+                   darkColor: Colors.grey[300],
+                 ),
+                 text: '사용자 이름',
+               ),
+               dateDividerTextStyle: getTextStyle(
+                 fontSize: 12,
+                 color: ThemeManager.getTextColor(
+                   lightColor: Colors.grey[600],
+                   darkColor: Colors.grey[400],
+                 ),
+                 text: '날짜 구분선',
+               ),
+             ),
+             l10n: const ChatL10nKo(),
+           ), // ☑️ 여기까지
             ),
           ],
         ),
@@ -588,6 +720,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    //☑️ 리스너 제거 (기존 dispose 메서드에 추가)
+    ThemeManager.removeListener(_onThemeChanged);
+    
     _chatInputController.dispose();
     if (!kIsWeb) {
       _textRecognizer.close();
@@ -595,6 +730,13 @@ class _ChatScreenState extends State<ChatScreen> {
     // 화면 종료 시 TTS 중지 복원
     TtsService.instance.stop();
     super.dispose();
+  }
+
+  //☑️ 테마 변경 시 호출되는 콜백
+  void _onThemeChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 }
 

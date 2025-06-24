@@ -3,8 +3,9 @@ import 'package:intl/intl.dart';
 import '../models/event.dart';
 import '../utils/font_utils.dart';
 import '../managers/popup_manager.dart';
+import '../managers/theme_manager.dart'; // ☑️ 테마 관련 추가
 
-class EventPopup extends StatelessWidget {
+class EventPopup extends StatefulWidget { // ☑️ 테마 관련 수정(위젯 클래스 수정)
   final DateTime selectedDay;
   final List<Event> events;
   final Map<String, Color> eventColors;
@@ -34,19 +35,59 @@ class EventPopup extends StatelessWidget {
     this.onAddMultiDayEvent, // 🆕 멀티데이 이벤트 추가 콜백
   });
 
+  //☑️ 테마 관련 추가
+  @override
+  State<EventPopup> createState() => _EventPopupState();
+}
+
+class _EventPopupState extends State<EventPopup> {
+  @override
+  void initState() {
+    super.initState();
+    // 테마 변경 리스너 등록
+    ThemeManager.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    // 리스너 제거
+    ThemeManager.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  // 테마 변경 시 호출되는 콜백
+  void _onThemeChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  } // ☑️ 테마 관련 추가(여기까지)
+
   // 이벤트 색상 가져오기 - 색상 출력의 우선순위가 설정됨
+  //☑️ 기존 메서드들은 그대로 유지 (widget.변수명으로 접근)
+  // Color _getEventColor(Event event) {
+  //   // 1. Google colorId 기반 매핑 (최우선)
+  //   if (event.colorId != null &&
+  //       colorIdColors != null &&
+  //       colorIdColors!.containsKey(event.colorId)) {
+  //     return colorIdColors![event.colorId]!;
+  //   }
+
+  //   // 2. 콜백 함수 사용 (CalendarController의 getEventDisplayColor)
+  //   if (getEventDisplayColor != null) {
+  //     return getEventDisplayColor!(event);
+  //   }
+
   Color _getEventColor(Event event) {
-    // 1. Google colorId 기반 매핑 (최우선)
     if (event.colorId != null &&
-        colorIdColors != null &&
-        colorIdColors!.containsKey(event.colorId)) {
-      return colorIdColors![event.colorId]!;
+        widget.colorIdColors != null &&
+        widget.colorIdColors!.containsKey(event.colorId)) {
+      return widget.colorIdColors![event.colorId]!;
     }
 
-    // 2. 콜백 함수 사용 (CalendarController의 getEventDisplayColor)
-    if (getEventDisplayColor != null) {
-      return getEventDisplayColor!(event);
+    if (widget.getEventDisplayColor != null) {
+      return widget.getEventDisplayColor!(event);
     }
+
 
     // 3. Event 객체의 color 속성
     if (event.color != null) {
@@ -108,7 +149,7 @@ class EventPopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 시간순으로 정렬된 이벤트 목록
-    final sortedEvents = List<Event>.from(events)
+    final sortedEvents = List<Event>.from(widget.events) // ☑️ 이벤트 목록 정렬 - widget.변수명으로 접근
       ..sort((a, b) => a.compareTo(b));
 
     return Container(
@@ -118,18 +159,29 @@ class EventPopup extends StatelessWidget {
           width: MediaQuery.of(context).size.width * 0.8,
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
-            color: const Color.fromARGB(255, 255, 255, 255),
+            // color: const Color.fromARGB(255, 255, 255, 255),
+            //☑️ 팝업 배경색도 ThemeManager로 교체
+            color: ThemeManager.getEventPopupBackgroundColor(),
+
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.black, width: 2),
+            border: Border.all(
+              // color: Colors.black, width: 2
+              //☑️ 팝업 테두리 색상도 ThemeManager로 교체
+              color: ThemeManager.getEventPopupBorderColor(),
+              width: 2,
+              ),
           ),
           child: Column(
             children: [
               // 헤더
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Color.fromARGB(255, 0, 0, 0),
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration( // ☑️ const 제거 - 컴파일 타임에 값과 아래 컬러 부분의 런타임에 값이 충돌됨.
+                  // color: Color.fromARGB(255, 0, 0, 0),
+                  //☑️ 헤더 배경색도 ThemeManager로 교체
+                  color: ThemeManager.getEventPopupHeaderColor(),
+
+                  borderRadius: const BorderRadius.only( //☑️ 이 부분은 const 유지 가능
                     topLeft: Radius.circular(8),
                     topRight: Radius.circular(8),
                   ),
@@ -138,19 +190,23 @@ class EventPopup extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      DateFormat('MM dd EEE').format(selectedDay),
+                      DateFormat('MM dd EEE').format(widget.selectedDay), // ☑️ 날짜 포맷팅 - widget.변수명으로 접근
                       style: getTextStyle(
                         fontSize: 16,
-                        color: const Color.fromARGB(255, 255, 255, 255),
+                        // color: const Color.fromARGB(255, 255, 255, 255),
+                        color: Colors.white, // ☑️ 헤더 텍스트는 항상 흰색으로 고정 (헤더 배경이 어두우므로)
                       ),
                     ),
                     GestureDetector(
-                      onTap: onClose,
+                      onTap: widget.onClose, // ☑️ 닫기 버튼 클릭 시 호출 - widget.변수명으로 접근
                       child: Container(
                         width: 20,
                         height: 20,
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          // color: Colors.red,
+                          //☑️ 닫기 버튼 색상도 ThemeManager로 교체
+                          color: ThemeManager.getEventPopupCloseButtonColor(),
+
                           border: Border.all(color: Colors.white, width: 1),
                         ),
                         alignment: Alignment.center,
@@ -230,9 +286,9 @@ class EventPopup extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             // 수정 버튼 (멀티데이 이벤트가 아닌 경우만 표시)
-                            if (onEditEvent != null && !event.isMultiDay)
+                            if (widget.onEditEvent != null && !event.isMultiDay)
                               GestureDetector(
-                                onTap: () => onEditEvent!(event),
+                                onTap: () => widget.onEditEvent!(event),
                                 child: Container(
                                   width: 24,
                                   height: 24,
@@ -249,8 +305,8 @@ class EventPopup extends StatelessWidget {
                               onTap: () async {
                                 // 새로운 세련된 삭제 확인 다이얼로그
                                 bool? shouldDelete;
-                                if (popupManager != null) {
-                                  shouldDelete = await popupManager!
+                                if (widget.popupManager != null) { // ☑️ PopupManager 확인 - widget.변수명으로 접근
+                                  shouldDelete = await widget.popupManager!
                                       .showDeleteEventDialog(context, event);
                                 } else {
                                   // PopupManager가 없으면 기본 다이얼로그 사용
@@ -303,7 +359,7 @@ class EventPopup extends StatelessWidget {
                                 }
 
                                 if (shouldDelete == true) {
-                                  onDeleteEvent(event);
+                                  widget.onDeleteEvent(event); // ☑️ 이벤트 삭제 콜백 호출 - widget.변수명으로 접근
                                 }
                               },
 
@@ -327,9 +383,14 @@ class EventPopup extends StatelessWidget {
               // 하단 버튼들
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: Colors.black, width: 1),
+                    top: BorderSide(
+                      // color: Colors.black, width: 1),
+                      //☑️ 구분선 색상도 테마 적용
+                      color: ThemeManager.getEventPopupBorderColor(),
+                      width: 1,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -349,9 +410,12 @@ class EventPopup extends StatelessWidget {
                         ],
                       ),
                       child: Material(
-                        color: const Color.fromARGB(255, 162, 222, 141),
+                        // color: const Color.fromARGB(255, 162, 222, 141),
+                        //☑️ 버튼 색상도 ThemeManager로 교체
+                        color: ThemeManager.getAddEventButtonColor(),
+
                         child: InkWell(
-                          onTap: onAddEvent,
+                          onTap: widget.onAddEvent, // ☑️ 일정 추가 콜백 호출 - widget.변수명으로 접근
                           child: Container(
                             alignment: Alignment.center,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -376,9 +440,9 @@ class EventPopup extends StatelessWidget {
                         ),
                       ),
                     ),
-
+                    
                     // 🆕 멀티데이 일정 추가 버튼
-                    if (onAddMultiDayEvent != null)
+                    if (widget.onAddMultiDayEvent != null) // ☑️ 멀티데이 일정 추가 콜백 확인 - widget.변수명으로 접근
                       Container(
                         height: 50,
                         decoration: BoxDecoration(
@@ -392,9 +456,12 @@ class EventPopup extends StatelessWidget {
                           ],
                         ),
                         child: Material(
-                          color: const Color.fromARGB(255, 101, 157, 189),
+                          // color: const Color.fromARGB(255, 101, 157, 189),
+                          //☑️ 버튼 색상도 ThemeManager로 교체
+                          color: ThemeManager.getAddMultiDayEventButtonColor(),
+
                           child: InkWell(
-                            onTap: onAddMultiDayEvent,
+                            onTap: widget.onAddMultiDayEvent, // ☑️ 멀티데이 일정 추가 콜백 호출 - widget.변수명으로 접근
                             child: Container(
                               alignment: Alignment.center,
                               padding: const EdgeInsets.symmetric(vertical: 12),
