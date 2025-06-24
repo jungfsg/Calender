@@ -3,6 +3,7 @@ import '../services/daily_briefing_service.dart';
 import '../utils/font_utils.dart';
 import '../services/notification_service.dart';
 import '../managers/theme_manager.dart'; // ☑️ _HE_250621_테마 관리자 추가
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class BriefingSettingsScreen extends StatefulWidget {
   const BriefingSettingsScreen({super.key});
@@ -24,39 +25,59 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
 
   Future<void> _loadSettings() async {
     try {
+      print('🔍 [화면] 설정 로드 시작');
       final settings = await DailyBriefingService.getBriefingSettings();
+      print('🔍 [화면] 로드된 설정: $settings');
+
       setState(() {
         _briefingEnabled = settings['enabled'] ?? false;
+        print('🔍 [화면] 설정된 _briefingEnabled: $_briefingEnabled');
 
         final timeString = settings['time'] ?? '08:00';
+        print('🔍 [화면] 설정된 timeString: $timeString');
+
         final timeParts = timeString.split(':');
         _briefingTime = TimeOfDay(
           hour: int.parse(timeParts[0]),
           minute: int.parse(timeParts[1]),
         );
+        print(
+          '🔍 [화면] 설정된 _briefingTime: ${_briefingTime.hour}:${_briefingTime.minute}',
+        );
 
         _isLoading = false;
       });
+      print('✅ [화면] 설정 로드 완료');
     } catch (e) {
-      print('설정 로드 실패: $e');
+      print('❌ [화면] 설정 로드 실패: $e');
       setState(() => _isLoading = false);
     }
   }
 
   Future<void> _saveSettings() async {
     try {
+      print('🔍 [화면] 설정 저장 시작');
+      print('🔍 [화면] 현재 _briefingEnabled: $_briefingEnabled');
+      print(
+        '🔍 [화면] 현재 _briefingTime: ${_briefingTime.hour}:${_briefingTime.minute}',
+      );
+
       final settings = {
         'enabled': _briefingEnabled,
         'time':
             '${_briefingTime.hour.toString().padLeft(2, '0')}:'
             '${_briefingTime.minute.toString().padLeft(2, '0')}',
       };
+      print('🔍 [화면] 저장할 설정: $settings');
 
       await DailyBriefingService.saveBriefingSettings(settings);
+      print('✅ [화면] DailyBriefingService.saveBriefingSettings 완료');
 
       // 설정이 활성화되었다면 브리핑 업데이트
       if (_briefingEnabled) {
+        print('🔄 [화면] 브리핑 설정 활성화 - 브리핑 강제 업데이트 시작');
         await DailyBriefingService.updateBriefings();
+        print('✅ [화면] 브리핑 설정 활성화 - 브리핑 강제 업데이트 완료');
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,8 +89,9 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
           backgroundColor: Colors.green,
         ),
       );
+      print('✅ [화면] 설정 저장 완료');
     } catch (e) {
-      print('설정 저장 실패: $e');
+      print('❌ [화면] 설정 저장 실패: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -136,6 +158,75 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
     }
   }
 
+  // 테스트 브리핑 알림 보내기
+  Future<void> _sendTestBriefingNotification() async {
+    try {
+      setState(() => _isLoading = true);
+
+      // 오늘 브리핑 가져오기 또는 생성
+      final today = DateTime.now();
+      String briefingMessage;
+
+      final savedBriefing = await DailyBriefingService.getBriefing(today);
+      if (savedBriefing != null && savedBriefing.summary.isNotEmpty) {
+        briefingMessage = savedBriefing.summary;
+      } else {
+        // 저장된 브리핑이 없으면 새로 생성
+        briefingMessage =
+            await DailyBriefingService.generateBriefingSummary(today) ??
+            '오늘 일정을 확인해보세요! 좋은 하루 보내세요! 😊';
+      }
+
+      setState(() => _isLoading = false);
+
+      // 즉시 알림 보내기
+      await NotificationService.initialize();
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+      await flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecond, // 고유 ID
+        '📅 브리핑 테스트 알림',
+        briefingMessage,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'test_briefing',
+            '브리핑 테스트',
+            channelDescription: '브리핑 알림 테스트',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '테스트 알림을 보냈습니다! 상단 알림을 확인해보세요.',
+            style: getTextStyle(fontSize: 12, color: Colors.white),
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '테스트 알림 실패: $e',
+            style: getTextStyle(fontSize: 12, color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   // 오늘과 내일의 브리핑 내용 확인
   Future<void> _checkScheduledNotifications() async {
     try {
@@ -144,51 +235,39 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
       final today = DateTime.now();
       final tomorrow = today.add(const Duration(days: 1));
 
-      // 먼저 저장된 브리핑 확인, 없으면 새로 생성
-      String? todayBriefing;
-      String? tomorrowBriefing;
-
-      // 오늘 브리핑 - 저장된 것 우선 확인
+      // 저장된 브리핑만 확인 (없으면 생성하지 않음)
       final savedTodayBriefing = await DailyBriefingService.getBriefing(today);
-      if (savedTodayBriefing != null && savedTodayBriefing.summary.isNotEmpty) {
-        todayBriefing = savedTodayBriefing.summary;
-      } else {
-        todayBriefing = await DailyBriefingService.generateBriefingSummary(
-          today,
-        );
-      }
-
-      // 내일 브리핑 - 저장된 것 우선 확인
       final savedTomorrowBriefing = await DailyBriefingService.getBriefing(
         tomorrow,
       );
-      if (savedTomorrowBriefing != null &&
-          savedTomorrowBriefing.summary.isNotEmpty) {
-        tomorrowBriefing = savedTomorrowBriefing.summary;
-      } else {
-        tomorrowBriefing = await DailyBriefingService.generateBriefingSummary(
-          tomorrow,
-        );
-      }
 
       setState(() => _isLoading = false);
 
       String message = '';
+      bool hasBriefings = false;
 
-      // 오늘 브리핑
+      // 오늘 브리핑 확인
       message += '📅 오늘 (${today.month}/${today.day})\n';
-      if (todayBriefing != null && todayBriefing.isNotEmpty) {
-        message += '$todayBriefing\n\n';
+      if (savedTodayBriefing != null && savedTodayBriefing.summary.isNotEmpty) {
+        message += '${savedTodayBriefing.summary}\n\n';
+        hasBriefings = true;
       } else {
-        message += '오늘 일정이 없습니다.\n\n';
+        message += '생성된 브리핑이 없습니다.\n\n';
       }
 
-      // 내일 브리핑
+      // 내일 브리핑 확인
       message += '📅 내일 (${tomorrow.month}/${tomorrow.day})\n';
-      if (tomorrowBriefing != null && tomorrowBriefing.isNotEmpty) {
-        message += tomorrowBriefing;
+      if (savedTomorrowBriefing != null &&
+          savedTomorrowBriefing.summary.isNotEmpty) {
+        message += savedTomorrowBriefing.summary;
+        hasBriefings = true;
       } else {
-        message += '내일 일정이 없습니다.';
+        message += '생성된 브리핑이 없습니다.';
+      }
+
+      // 브리핑이 없는 경우 안내 메시지 추가
+      if (!hasBriefings) {
+        message += '\n\n💡 브리핑을 생성하려면:\n1. 브리핑 알림을 활성화하고\n2. 저장 버튼을 눌러주세요!';
       }
 
       showDialog(
@@ -205,7 +284,7 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                 ),
               ),
               title: Text(
-                '브리핑 내용 미리보기',
+                hasBriefings ? '브리핑 내용 미리보기' : '브리핑 생성 안내',
                 style: getTextStyle(
                   fontSize: 16,
                   color: ThemeManager.getTextColor(), // ☑️ _HE_250621_변경
@@ -259,7 +338,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: ThemeManager.getBriefingSettingsBackgroundColor(), // ☑️ _HE_250623_브리핑 설정 전용 배경색 사용
+        backgroundColor:
+            ThemeManager.getBriefingSettingsBackgroundColor(), // ☑️ _HE_250623_브리핑 설정 전용 배경색 사용
         appBar: AppBar(
           title: Text(
             '브리핑 설정',
@@ -284,7 +364,8 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: ThemeManager.getBriefingSettingsBackgroundColor(), // ☑️ 브리핑 설정 전용 배경색 사용
+      backgroundColor:
+          ThemeManager.getBriefingSettingsBackgroundColor(), // ☑️ 브리핑 설정 전용 배경색 사용
       appBar: AppBar(
         title: Text(
           '브리핑 설정',
@@ -521,6 +602,23 @@ class _BriefingSettingsScreenState extends State<BriefingSettingsScreen> {
                         ),
                       ),
                       onTap: _checkScheduledNotifications,
+                    ),
+                    ListTile(
+                      title: Text(
+                        '테스트 알림 보내기',
+                        style: getTextStyle(
+                          fontSize: 14,
+                          color: ThemeManager.getTextColor(),
+                        ),
+                      ),
+                      subtitle: Text(
+                        '즉시 브리핑 알림을 테스트해보세요',
+                        style: getTextStyle(
+                          fontSize: 12,
+                          color: ThemeManager.getPopupSecondaryTextColor(),
+                        ),
+                      ),
+                      onTap: _sendTestBriefingNotification,
                     ),
                   ],
                 ),
