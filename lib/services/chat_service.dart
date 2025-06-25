@@ -139,6 +139,7 @@ class ChatService {
     if (text.contains('수업') ||
         text.contains('강의') ||
         text.contains('시험') ||
+        text.contains('졸업') ||
         text.contains('학교')) {
       print('✅ 폴백: 학교 카테고리(4) 매칭');
       return 4;
@@ -160,6 +161,8 @@ class ChatService {
     if (text.contains('여행') ||
         text.contains('휴가') ||
         text.contains('관광') ||
+        text.contains('festival') ||
+        text.contains('2025') ||
         text.contains('호텔')) {
       print('✅ 폴백: 여행 카테고리(7) 매칭');
       return 7;
